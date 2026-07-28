@@ -2,11 +2,11 @@ import { sessionService } from './session.js';
 import { firestoreService } from './firestoreService.js';
 import { functionsService } from './functionsService.js';
 import { isFuture, isPastGracePeriod, isWithinPeriod } from '../utils/dateUtils.js';
-const KEYS = {
+export const KEYS = {
   EXERCISES: 'fitcoach_exercises',
   CATEGORIES: 'fitcoach_categories', // Legacy - se migra a fitcoach_exercise_categories
   SUBCATEGORIES: 'fitcoach_subcategories', // Legacy - se migra a fitcoach_exercise_subcategories
-  
+
   // Catálogos Normalizados V4
   EX_CATEGORIES: 'fitcoach_ex_categories',
   EX_SUBCATEGORIES: 'fitcoach_ex_subcategories',
@@ -91,13 +91,13 @@ export const storage = {
   getEntities: async (key) => {
     return db.get(key);
   },
-  
+
   saveEntity: async (key, entity) => {
     const orgId = sessionService.getOrgId();
     const collectionName = Object.keys(KEYS).find(k => KEYS[k] === key).toLowerCase();
-    
+
     let saved = { ...entity, orgId };
-    
+
     if (saved.name) saved.name = saved.name.trim();
 
     if (!saved.id) {
@@ -175,7 +175,7 @@ export const storage = {
     if (!orgId) throw new Error('No active organization');
 
     let savedClient = { ...client, orgId };
-    
+
     if (client.id) {
       // Update
       savedClient.updatedAt = new Date().toISOString();
@@ -187,7 +187,7 @@ export const storage = {
       savedClient.updatedAt = new Date().toISOString();
       await firestoreService.setDocument('clients', savedClient.id, savedClient);
     }
-    
+
     return savedClient;
   },
   deleteClient: async (id) => {
@@ -234,8 +234,8 @@ export const storage = {
   },
   getTestResultsByDefinition: async (clientId, testDefinitionId) => {
     const list = await getCollection('test_results');
-    return list.filter(r => 
-      r.clientId === Number(clientId) && 
+    return list.filter(r =>
+      r.clientId === Number(clientId) &&
       r.testDefinitionId === Number(testDefinitionId)
     );
   },
@@ -281,7 +281,7 @@ export const storage = {
       saved.updatedAt = new Date().toISOString();
       await firestoreService.setDocument('workouts', saved.id, saved);
     }
-    
+
     return saved;
   },
   deleteWorkout: async (id) => {
@@ -304,10 +304,10 @@ export const storage = {
     if (groupId) {
       filters.push({ field: 'groupId', op: '==', value: String(groupId) });
     }
-    
+
     return firestoreService.getDocumentsByQuery('workout_assignments', filters);
   },
-  
+
   saveWorkoutAssignment: async (assign) => {
     const orgId = sessionService.getOrgId();
     if (!orgId) throw new Error('No active organization');
@@ -369,14 +369,14 @@ export const storage = {
 
     return saved;
   },
-  
+
   rescheduleAssignment: async (assignmentId, newDate, version) => {
     const orgId = sessionService.getOrgId();
-    await functionsService.call('rescheduleAssignmentFn', { 
-      assignmentId: String(assignmentId), 
-      newDate, 
-      orgId, 
-      version 
+    await functionsService.call('rescheduleAssignmentFn', {
+      assignmentId: String(assignmentId),
+      newDate,
+      orgId,
+      version
     });
     return true;
   },
@@ -420,12 +420,12 @@ export const storage = {
     let saved = { ...program, orgId };
     if (!saved.id) { saved.id = generateUUID(); saved.createdAt = new Date().toISOString(); }
     saved.updatedAt = new Date().toISOString();
-    
+
     // We will save weeks and days nested to avoid managing collections
     await firestoreService.setDocument('programs', String(saved.id), saved);
     return saved;
   },
-  
+
   deleteProgram: async (id) => {
     const assigns = await getCollection('program_assignments');
     if (assigns.some(a => String(a.programId) === String(id))) {
@@ -434,7 +434,7 @@ export const storage = {
     await firestoreService.deleteDocument('programs', String(id));
     return true;
   },
-  
+
   duplicateProgram: async (id) => {
     const fullProg = await storage.getProgramById(id);
     if (!fullProg) throw new Error("Programa no encontrado.");
@@ -486,18 +486,18 @@ export const storage = {
     await firestoreService.setDocument('program_assignments', String(saved.id), saved);
     return saved;
   },
-  
+
   deleteProgramAssignment: async (id) => {
     await firestoreService.deleteDocument('program_assignments', String(id));
     return true;
   },
-  
+
   updateAssignmentProgress: async (assignmentId) => {
     const assign = await firestoreService.getDocument('program_assignments', String(assignmentId));
     if (!assign) return;
     const waList = await getCollection('workout_assignments');
     const linked = waList.filter(wa => String(wa.programAssignmentId) === String(assignmentId));
-    
+
     if (linked.length === 0) {
       assign.progressPercentage = 0;
     } else {
@@ -509,7 +509,7 @@ export const storage = {
     assign.updatedAt = new Date().toISOString();
     await firestoreService.setDocument('program_assignments', String(assignmentId), assign);
   },
-  
+
   getPrivateNotes: async (clientId = null) => {
     const list = await getCollection('private_notes');
     if (clientId) {
@@ -561,11 +561,11 @@ export const storage = {
       if (wa.programAssignmentId) await storage.updateAssignmentProgress(wa.programAssignmentId);
     }
   },
-  
+
   getComplianceMetrics: async (periodDays = 30) => {
     const assignments = await getCollection('workout_assignments');
     const results = await getCollection('workout_results');
-    
+
     // Filtrar asignaciones dentro del periodo y pasadas
     const eligibleAssignments = assignments.filter(a => {
       // Excluir canceladas
@@ -629,7 +629,7 @@ export const storage = {
 
   // ── FEEDBACK Y EVOLUCIÓN (FASE 9) ──
 
-  
+
   // RESULTADOS Y SEGUIMIENTO
   getWorkoutResults: async (clientId = null) => {
     const orgId = sessionService.getOrgId();
@@ -663,7 +663,7 @@ export const storage = {
 
     let saved = { ...result, orgId };
     if (!saved.id) saved.id = generateUUID();
-    
+
     if (saved.workoutAssignmentId) {
       saved.assignmentId = String(saved.workoutAssignmentId);
     }
@@ -679,7 +679,7 @@ export const storage = {
     await firestoreService.deleteDocument('workout_results', String(id));
     return true;
   },
-  
+
   reopenWorkoutResult: async (assignmentId) => {
     const res = await storage.getWorkoutResultByAssignmentId(assignmentId);
     if (res) {
@@ -701,17 +701,17 @@ export const storage = {
     await firestoreService.setDocument('workout_results', String(resultId), res);
     return res;
   },
-  
+
   getTestEvolution: async (clientId, testDefinitionId) => {
     const allResults = await getCollection('test_results');
     const defs = await getCollection('test_definitions');
-    
+
     const testDef = defs.find(d => d.id === Number(testDefinitionId));
     if (!testDef) throw new Error("Definición de test no encontrada.");
 
     // Filtrar cliente y test
-    let clientResults = allResults.filter(r => 
-      Number(r.clientId) === Number(clientId) && 
+    let clientResults = allResults.filter(r =>
+      Number(r.clientId) === Number(clientId) &&
       Number(r.testDefinitionId) === Number(testDefinitionId)
     );
 
@@ -720,11 +720,11 @@ export const storage = {
       const dateA = new Date(a.performedAt || a.createdAt).getTime();
       const dateB = new Date(b.performedAt || b.createdAt).getTime();
       if (dateA !== dateB) return dateA - dateB;
-      
+
       const createdA = new Date(a.createdAt).getTime();
       const createdB = new Date(b.createdAt).getTime();
       if (createdA !== createdB) return createdA - createdB;
-      
+
       return a.id - b.id;
     });
 
@@ -744,7 +744,7 @@ export const storage = {
       if (index > 0 && typeof value === 'number') {
         const prev = clientResults[index - 1];
         const prevValue = testDef.valueType === 'number' || testDef.valueType === 'time' ? prev.numericValue : null;
-        
+
         // Si las unidades guardadas en los resultados son incompatibles, no calculamos variación.
         // Asumimos que son compatibles si la unidad string coincide (o ambas son omitidas).
         if (typeof prevValue === 'number' && (r.unit || '') === (prev.unit || '')) {
@@ -802,7 +802,7 @@ export const storage = {
     const results = await getCollection('workout_results').filter(r => r.clientId === Number(clientId) && r.status === 'completed' || r.status === 'submitted');
     const exercises = await getCollection('exercises');
     let exerciseDef = exercises.find(e => e.id === Number(exerciseId));
-    
+
     // Si no está en catálogo, buscar en snapshots
     if (!exerciseDef) {
       for (const res of results) {
@@ -819,18 +819,18 @@ export const storage = {
     if (!exerciseDef) throw new Error("Ejercicio no encontrado en catálogo ni en histórico.");
 
     const analyticalType = storage.getAnalyticalType(exerciseDef.type);
-    
+
     // Agrupar bloques por WorkoutResult
     const sessions = [];
-    
+
     for (const res of results) {
       if (!res.loggedBlocks) continue;
-      
+
       const blocksForExercise = res.loggedBlocks.filter(b => b.exerciseId === Number(exerciseId));
       if (blocksForExercise.length === 0) continue;
 
       let sessionDate = res.performedAt || res.createdAt;
-      
+
       // Filtrar por periodo si existe
       if (periodDays !== null && !isWithinPeriod(sessionDate, periodDays)) {
         continue;
@@ -848,12 +848,12 @@ export const storage = {
         block.sets.forEach(set => {
           // Ignorar series incompletas, vacías, o con repeticiones 0
           if (set.completed === false) return;
-          
+
           if (analyticalType === 'strength') {
             const w = Number(set.weight);
             const r = Number(set.reps);
             if (isNaN(w) || isNaN(r) || r <= 0 || w < 0) return;
-            
+
             const norm = storage.normalizeUnit(w, set.unit || 'kg', 'strength');
             if (norm.value === null) return; // Incompatible
 
@@ -1050,13 +1050,13 @@ export const storage = {
         programAssignments = programAssignments.filter(pa => pa.clientId === Number(clientId));
       }
 
-      programAssignments.forEach(pa => {
+      programAssignments.forEach(async (pa) => {
         const startDate = pa.scheduledAt.split('T')[0];
-        
+
         // Inferir End Date
         let endDateStr = startDate;
         let durationWeeks = 1;
-        
+
         if (pa.plannedSnapshot && pa.plannedSnapshot.durationWeeks) {
           durationWeeks = pa.plannedSnapshot.durationWeeks;
         } else if (pa.programId) {
@@ -1117,7 +1117,7 @@ export const storage = {
     await firestoreService.setDocument('workout_assignments', String(assignmentId), wa);
     return true;
   }
-  };
+};
 
 // ── CAPABILITIES WRAPPING DE SEGURIDAD PARA EL ROL CLIENTE ──
 const coachOnlyMethods = [
@@ -1150,12 +1150,12 @@ coachOnlyMethods.forEach(method => {
 storage.saveChangeLog = async (log) => {
   const orgId = sessionService.getOrgId();
   const userId = sessionService.getUserId() || 'system';
-  let saved = { 
-    ...log, 
-    orgId, 
+  let saved = {
+    ...log,
+    orgId,
     userId,
-    id: generateUUID(), 
-    createdAt: new Date().toISOString() 
+    id: generateUUID(),
+    createdAt: new Date().toISOString()
   };
   await firestoreService.setDocument('audit_logs', String(saved.id), saved);
   return saved;
