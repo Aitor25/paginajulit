@@ -21,8 +21,8 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const functions = getFunctions(app);
 
-// Conectar a emuladores locales si no estamos en producción
-if (import.meta.env.MODE !== 'production') {
+// Conectar a emuladores locales si está configurado
+if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
   connectFunctionsEmulator(functions, "127.0.0.1", 5001);

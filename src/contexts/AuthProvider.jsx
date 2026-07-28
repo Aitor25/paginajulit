@@ -15,6 +15,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const login = authService.login;
+  const loginWithGoogle = authService.loginWithGoogle;
   const register = authService.register;
   const logout = authService.logout;
   const resetPassword = authService.resetPassword;
@@ -28,19 +29,12 @@ export function AuthProvider({ children }) {
           const profile = await firestoreService.getDocument('users', user.uid);
           setUserProfile(profile || null);
 
-          // 2. Recuperar membresías para determinar orgId y rol (simplificado a 1 org activa por ahora)
-          const members = await firestoreService.getDocumentsByQuery('organization_members', [
-            { field: 'userId', op: '==', value: user.uid },
-            { field: 'status', op: '==', value: 'active' }
-          ]);
-
-          if (members.length > 0) {
-            const org = members[0];
-            sessionService.setSession(user, org.orgId, org.role);
+          // 2. Usar el rol y orgId del perfil de Firestore (owner, coach, client)
+          if (profile) {
+            sessionService.setSession(user, profile.organizationId, profile.role);
           } else {
             sessionService.setSession(user, null, null);
           }
-
         } catch (error) {
           console.error("Error al obtener el perfil del usuario:", error);
           setUserProfile(null);
@@ -60,6 +54,7 @@ export function AuthProvider({ children }) {
     currentUser,
     userProfile,
     login,
+    loginWithGoogle,
     register,
     logout,
     resetPassword
@@ -71,4 +66,3 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
-

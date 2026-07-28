@@ -1,6 +1,10 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthProvider';
+import { Mail } from 'lucide-react';
+import { AuthLayout } from '../components/layout/AuthLayout';
+import { Input } from '../components/ui/Input';
+import { Button } from '../components/ui/Button';
 import './Auth.css';
 
 export default function ForgotPassword() {
@@ -8,42 +12,60 @@ export default function ForgotPassword() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
   const { resetPassword } = useAuth();
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!email) {
+      return setError('Por favor, ingresa tu email.');
+    }
+    
     try {
       setMessage('');
       setError('');
       setLoading(true);
       await resetPassword(email);
-      setMessage('Revisa tu bandeja de entrada para restablecer la contraseña');
+      setMessage('Se ha enviado un enlace a tu correo para restablecer la contraseña.');
     } catch (err) {
-      setError('Error al restablecer contraseña: ' + err.message);
+      console.error(err);
+      setError('Error al restablecer la contraseña. Verifica el email.');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h2>Recuperar Contraseña</h2>
-        {error && <div className="alert error">{error}</div>}
-        {message && <div className="alert success">{message}</div>}
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-          </div>
-          <button disabled={loading} className="btn primary block" type="submit">
-            Restablecer Contraseña
-          </button>
-        </form>
-        <div className="auth-links">
-          <Link to="/login">Volver a Iniciar sesión</Link>
-        </div>
+    <AuthLayout
+      title="Recuperar Contraseña"
+      subtitle="Te enviaremos un enlace para restablecerla"
+      error={error}
+      message={message}
+    >
+      <form className="auth-form" onSubmit={handleSubmit}>
+        <Input
+          label="Email"
+          type="email"
+          icon={Mail}
+          placeholder="tu@email.com"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+        />
+
+        <Button 
+          type="submit" 
+          loading={loading}
+        >
+          Enviar enlace de recuperación
+        </Button>
+      </form>
+
+      <div className="auth-links" style={{ marginTop: '1.5rem' }}>
+        <Link to="/login" className="auth-link">
+          Volver a iniciar sesión
+        </Link>
       </div>
-    </div>
+    </AuthLayout>
   );
 }

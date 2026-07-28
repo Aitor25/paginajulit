@@ -5,18 +5,11 @@
 let currentState = {
   user: null,
   orgId: null,
-  role: null, // role real de organization_members
-  
-  // Mantenemos el estado del "cliente simulado" de la UI temporalmente para no romper App.jsx 
-  // (hasta que App.jsx deje de permitir cambiar de rol en caliente)
-  simulatedRole: sessionStorage.getItem('fitcoach_session_role') || 'coach',
-  activeClientId: sessionStorage.getItem('fitcoach_session_active_client_id')
-    ? Number(sessionStorage.getItem('fitcoach_session_active_client_id'))
-    : null
+  role: null,
+  activeClientId: null
 };
 
 export const sessionService = {
-  // === Estado Real (Firebase) ===
   setSession: (user, orgId, role) => {
     currentState.user = user;
     currentState.orgId = orgId;
@@ -24,32 +17,16 @@ export const sessionService = {
   },
 
   getCurrentUser: () => currentState.user,
+  getUserId: () => currentState.user?.uid,
   getOrgId: () => currentState.orgId,
-  getRealRole: () => currentState.role,
-
-  // === Estado Simulado UI (Heredado V8) ===
-  getRole: () => {
-    return currentState.simulatedRole;
-  },
-
-  setRole: (role) => {
-    currentState.simulatedRole = role;
-    sessionStorage.setItem('fitcoach_session_role', role);
-    window.dispatchEvent(new Event('fitcoach_session_changed'));
-  },
+  getRole: () => currentState.role,
 
   getActiveClientId: () => {
     return currentState.activeClientId;
   },
 
   setActiveClientId: (clientId) => {
-    if (clientId) {
-      currentState.activeClientId = clientId;
-      sessionStorage.setItem('fitcoach_session_active_client_id', clientId);
-    } else {
-      currentState.activeClientId = null;
-      sessionStorage.removeItem('fitcoach_session_active_client_id');
-    }
+    currentState.activeClientId = clientId;
     window.dispatchEvent(new Event('fitcoach_session_changed'));
   }
 };

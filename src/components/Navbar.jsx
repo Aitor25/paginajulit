@@ -8,7 +8,7 @@ const NAV_TABS = [
   { id: 'schedule', label: 'Agenda',                  icon: '📅' },
 ];
 
-export default function Navbar({ activeTab, onTabChange, role, onRoleChange }) {
+export default function Navbar({ activeTab, onTabChange }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -48,30 +48,6 @@ export default function Navbar({ activeTab, onTabChange, role, onRoleChange }) {
           </li>
         ))}
       </ul>
-
-      {/* ── Role switcher ── */}
-      <div className="navbar__actions">
-        <div className="role-switcher">
-          <button
-            id="role-coach"
-            className={`role-btn ${role === 'coach' ? 'role-btn--active' : ''}`}
-            onClick={() => onRoleChange('coach')}
-            aria-pressed={role === 'coach'}
-            title="Vista Entrenador"
-          >
-            🏆 Coach
-          </button>
-          <button
-            id="role-client"
-            className={`role-btn ${role === 'client' ? 'role-btn--active' : ''}`}
-            onClick={() => onRoleChange('client')}
-            aria-pressed={role === 'client'}
-            title="Vista Cliente"
-          >
-            🙋 Cliente
-          </button>
-        </div>
-      </div>
     </nav>
   );
 }
