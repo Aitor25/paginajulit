@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función auxiliar para leer rol del usuario logueado en una organización específica
+    function getUserRole(orgId) {
+      let memberDoc = get(/databases/$(database)/documents/organization_members/$(orgId + '_' + request.auth.uid));
+      return memberDoc != null ? memberDoc.data.role : null;
+    }
+    
+    // Función auxiliar para saber si un cliente está vinculado al usuario logueado
+    function isClientLinked(orgId, clientId) {
+      let clientProfileDoc = get(/databases/$(database)/documents/client_profiles/$(orgId + '_' + request.auth.uid + '_' + clientId));
+      return clientProfileDoc != null;
+    }
+
+    match /organizations/{orgId} {
+      allow read: if request.auth != null && getUserRole(orgId) != null;
+      allow update: if request.auth != null && getUserRole(orgId) == 'owner';
+      allow create: if request.auth != null; // En la realidad esto se hará con Cloud Functions o requiere lógica especial.
+    }
+
+    match /organization_members/{memberId} {
+      // memberId = orgId_userId
+      // Validar lectura cruzada: solo miembros de la organización pueden leer.
+      allow read: if request.auth != null && getUserRole(resource.data.orgId) != null;
+      // Solo owner puede crear/actualizar/borrar
+      allow create, update, delete: if request.auth != null && getUserRole(resource.data.orgId) == 'owner';
+    }
+
+    match /client_profiles/{profileId} {
+      allow read: if request.auth != null && getUserRole(resource.data.orgId) in ['owner', 'coach'];
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Solo owner/coach (o Cloud Function) puede crear/modificar
+      allow write: if false; // Por ahora bloqueado hasta tener Functions, o owner si es necesario.
+    }
+
+    match /clients/{clientId} {
+      allow read: if request.auth != null && getUserRole(resource.data.orgId) in ['owner', 'coach'];
+      allow read: if request.auth != null && isClientLinked(resource.data.orgId, clientId);
+      allow create, update: if request.auth != null && getUserRole(resource.data.orgId) in ['owner', 'coach'];
+      allow delete: if false;
+    }
+
+    match /workouts/{workoutId} {
+      allow read, write: if request.auth != null && getUserRole(resource.data.orgId) in ['owner', 'coach'];
+      // Cliente denegado explícitamente
+      allow read, write: if false;
+    }
+
+    match /workout_assignments/{assignmentId} {
+      allow read: if request.auth != null && getUserRole(resource.data.orgId) in ['owner', 'coach'];
+      allow read: if request.auth != null && isClientLinked(resource.data.orgId, resource.data.clientId);
+      allow write: if false; // Escritura denegada (se habilitará vía Cloud Functions en 12B/12C)
+    }
+
+    match /workout_results/{resultId} {
+      allow read: if request.auth != null && getUserRole(resource.data.orgId) in ['owner', 'coach'];
+      allow read: if request.auth != null && isClientLinked(resource.data.orgId, resource.data.clientId);
+      allow write: if false; // Escritura denegada
+    }
+
+    match /client_invitations/{inviteId} {
+      allow read: if request.auth != null && getUserRole(resource.data.orgId) in ['owner', 'coach'];
+      allow write: if false; // Sólo Cloud Functions
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if request.auth != null && getUserRole(resource.data.orgId) in ['owner', 'coach'];
+      allow write: if false; // Sólo Cloud Functions
+    }
+  }
+}

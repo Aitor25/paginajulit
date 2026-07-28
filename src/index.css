@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ─── Reset & Tokens ─────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --white:       #FFFFFF;
+  --off-white:   #F8F9FA;
+  --gray-50:     #F4F5F7;
+  --gray-100:    #E9ECEF;
+  --gray-200:    #DEE2E6;
+  --gray-400:    #ADB5BD;
+  --gray-600:    #6C757D;
+  --gray-800:    #343A40;
+  --gray-900:    #212529;
+
+  --accent:      #1A73E8;
+  --accent-soft: #E8F0FD;
+  --accent-dark: #1557B0;
+
+  --green:       #0D9488;
+  --green-soft:  #E6F7F5;
+
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   20px;
+
+  --shadow-xs:   0 1px 3px rgba(0,0,0,.06);
+  --shadow-sm:   0 2px 8px rgba(0,0,0,.08);
+  --shadow-md:   0 4px 20px rgba(0,0,0,.10);
+
+  --nav-h:       68px;
+  --transition:  0.22s ease;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--white);
+  color: var(--gray-900);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

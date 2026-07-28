@@ -1,0 +1,189 @@
+/* ─── Navbar ─────────────────────────────────────────────── */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: var(--nav-h);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-bottom: 1px solid var(--gray-100);
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  align-items: center;
+  padding: 0 32px;
+  gap: 24px;
+}
+
+/* ─── Brand ─────────────────────────────────────────────────*/
+.navbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  flex-shrink: 0;
+  cursor: default;
+  user-select: none;
+}
+
+.navbar__logo-mark {
+  width: 38px;
+  height: 38px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.navbar__brand:hover .navbar__logo-mark {
+  transform: rotate(-6deg) scale(1.06);
+  box-shadow: 0 4px 14px rgba(26, 115, 232, 0.25);
+}
+
+.navbar__brand-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  letter-spacing: -0.02em;
+}
+
+.navbar__brand-accent {
+  color: var(--accent);
+}
+
+/* ─── Tabs ──────────────────────────────────────────────────*/
+.navbar__tabs {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  justify-content: center;
+}
+
+.navbar__tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+  white-space: nowrap;
+}
+
+.navbar__tab:hover {
+  color: var(--gray-900);
+  background: var(--gray-50);
+}
+
+.navbar__tab--active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.navbar__tab--active:hover {
+  background: var(--accent-soft);
+}
+
+.navbar__tab-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.navbar__tab-indicator {
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 2.5px;
+  background: var(--accent);
+  border-radius: 99px;
+  animation: indicator-in 0.2s ease;
+}
+
+@keyframes indicator-in {
+  from { width: 0; opacity: 0; }
+  to   { width: 24px; opacity: 1; }
+}
+
+/* ─── Actions / Role Switcher ───────────────────────────────*/
+.navbar__actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.role-switcher {
+  display: flex;
+  align-items: center;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  gap: 2px;
+}
+
+.role-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--gray-600);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.role-btn:hover {
+  color: var(--gray-900);
+}
+
+.role-btn--active {
+  background: var(--white);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: var(--shadow-xs);
+}
+
+/* ─── Responsive ────────────────────────────────────────────*/
+@media (max-width: 860px) {
+  .navbar {
+    padding: 0 20px;
+    gap: 12px;
+  }
+  .navbar__tab-label {
+    display: none;
+  }
+  .navbar__tab {
+    padding: 8px 12px;
+  }
+  .navbar__tab-icon {
+    font-size: 1.2rem;
+  }
+  .role-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .navbar__brand-name {
+    display: none;
+  }
+}
