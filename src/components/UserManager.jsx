@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { storage } from '../services/storage';
+import { firestoreService } from '../services/firestoreService';
 import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthProvider';
 
@@ -17,9 +18,7 @@ export default function UserManager() {
   async function loadUsers() {
     try {
       setLoading(true);
-      // In a real app this might require a specific storage method
-      // We assume storage has a way to get all users if allowed by rules
-      const dbUsers = await storage.getEntities('users');
+      const dbUsers = await firestoreService.getDocumentsByQuery('users', []);
       setUsers(dbUsers);
     } catch (err) {
       console.error("Error loading users:", err);
@@ -42,7 +41,7 @@ export default function UserManager() {
         updates.status = 'active';
       }
       
-      await storage.updateEntity('users', userId, updates);
+      await firestoreService.updateDocument('users', userId, updates);
       loadUsers();
     } catch (err) {
       console.error(err);
@@ -53,7 +52,7 @@ export default function UserManager() {
   const handleUpdateStatus = async (userId, newStatus) => {
     if (!window.confirm(`¿Seguro que quieres cambiar el estado a ${newStatus}?`)) return;
     try {
-      await storage.updateEntity('users', userId, {
+      await firestoreService.updateDocument('users', userId, {
         status: newStatus,
         updatedAt: new Date().toISOString()
       });
@@ -69,7 +68,7 @@ export default function UserManager() {
     if (!clientId) return;
     
     try {
-      await storage.updateEntity('users', userId, {
+      await firestoreService.updateDocument('users', userId, {
         clientId: clientId,
         status: 'active',
         organizationId: 'julit',
