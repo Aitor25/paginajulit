@@ -35,20 +35,29 @@ export default function WorkoutManager() {
   const [showCatalogModal, setShowCatalogModal] = useState(false);
 
   // Cargar datos
-  async function loadData() {
-    setLoading(true);
-    const dbWorkouts = await storage.getWorkouts();
-    const dbAssigns = await storage.getWorkoutAssignments();
-    const dbWTags = await storage.getEntities(KEYS.WORKOUT_TAGS);
-    const dbClients = await storage.getClients();
-    const dbGroups = await storage.getEntities(KEYS.GROUPS);
+  const [errorMsg, setErrorMsg] = useState(null);
 
-    setWorkouts(dbWorkouts);
-    setAssignments(dbAssigns);
-    setWorkoutTags(dbWTags);
-    setClients(dbClients);
-    setGroups(dbGroups);
-    setLoading(false);
+  async function loadData() {
+    try {
+      setLoading(true);
+      setErrorMsg(null);
+      const dbWorkouts = await storage.getWorkouts();
+      const dbAssigns = await storage.getWorkoutAssignments();
+      const dbWTags = await storage.getEntities(KEYS.WORKOUT_TAGS);
+      const dbClients = await storage.getClients();
+      const dbGroups = await storage.getEntities(KEYS.GROUPS);
+
+      setWorkouts(dbWorkouts);
+      setAssignments(dbAssigns);
+      setWorkoutTags(dbWTags);
+      setClients(dbClients);
+      setGroups(dbGroups);
+    } catch (error) {
+      console.error("Error loading workout data:", error);
+      setErrorMsg(error.message || String(error));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -116,7 +125,10 @@ export default function WorkoutManager() {
   }, [workouts, selectedStatusFilter, selectedTagFilter, search]);
 
   if (loading) {
-    return <div className="el__placeholder"><p>Cargando módulo de entrenamientos...</p></div>;
+    return <div className="wm-container"><p>Cargando módulo de entrenamientos...</p></div>;
+  }
+  if (errorMsg) {
+    return <div className="wm-container" style={{color: 'red'}}><p>Error: {errorMsg}</p></div>;
   }
 
   if (showBuilder) {

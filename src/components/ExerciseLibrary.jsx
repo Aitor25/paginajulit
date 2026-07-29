@@ -124,23 +124,33 @@ export default function ExerciseLibrary() {
   const [showCatalogModal, setShowCatalogModal] = useState(false);
 
   // Cargar datos
-  async function loadLibraryData() {
-    setLoading(true);
-    const dbExs = await storage.getExercises();
-    const dbCats = await storage.getEntities(KEYS.EX_CATEGORIES);
-    const dbSubs = await storage.getEntities(KEYS.EX_SUBCATEGORIES);
-    const dbMats = await storage.getEntities(KEYS.MATERIALS);
-    const dbTags = await storage.getEntities(KEYS.EX_TAGS);
-    const dbTypes = await storage.getEntities(KEYS.EX_TYPES);
+  const [errorMsg, setErrorMsg] = useState(null);
 
-    // Filtrar solo activos para la biblioteca principal
-    setExercises(dbExs.filter(e => e.status !== 'archived'));
-    setCategories(dbCats);
-    setSubcategories(dbSubs);
-    setMaterials(dbMats);
-    setTags(dbTags);
-    setTypes(dbTypes);
-    setLoading(false);
+  async function loadLibraryData() {
+    try {
+      setLoading(true);
+      setErrorMsg(null);
+      
+      const dbExs = await storage.getExercises();
+      const dbCats = await storage.getEntities(KEYS.EX_CATEGORIES);
+      const dbSubs = await storage.getEntities(KEYS.EX_SUBCATEGORIES);
+      const dbMats = await storage.getEntities(KEYS.MATERIALS);
+      const dbTags = await storage.getEntities(KEYS.EX_TAGS);
+      const dbTypes = await storage.getEntities(KEYS.EX_TYPES);
+
+      // Filtrar solo activos para la biblioteca principal
+      setExercises(dbExs.filter(e => e.status !== 'archived'));
+      setCategories(dbCats);
+      setSubcategories(dbSubs);
+      setMaterials(dbMats);
+      setTags(dbTags);
+      setTypes(dbTypes);
+    } catch (error) {
+      console.error("Error loading library data:", error);
+      setErrorMsg(error.message || String(error));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -288,6 +298,9 @@ export default function ExerciseLibrary() {
 
   if (loading) {
     return <div className="el__placeholder"><p>Cargando biblioteca de ejercicios...</p></div>;
+  }
+  if (errorMsg) {
+    return <div className="el__placeholder" style={{color: 'red'}}><p>Error: {errorMsg}</p></div>;
   }
 
   return (
