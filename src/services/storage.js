@@ -87,9 +87,11 @@ export const initializeStorage = () => {
 };
 
 export const storage = {
-  // CONFIGURADOR GENÉRICO DE ENTIDADES (Para los 13 Catálogos)
   getEntities: async (key) => {
-    return db.get(key);
+    const keyName = Object.keys(KEYS).find(k => KEYS[k] === key);
+    if (!keyName) return [];
+    const collectionName = keyName.toLowerCase();
+    return getCollection(collectionName);
   },
 
   saveEntity: async (key, entity) => {
