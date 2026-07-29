@@ -2,102 +2,185 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Función auxiliar para verificar si el usuario está autenticado
+
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Función auxiliar para obtener los datos del usuario autenticado desde Firestore
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function userPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
     }
 
-    // Funciones auxiliares para verificar roles
+    function userExists() {
+      return isAuthenticated() && exists(userPath());
+    }
+
+    function getUserData() {
+      return get(userPath()).data;
+    }
+
     function isOwner() {
-      return isAuthenticated() && getUserData().role == 'owner';
+      return userExists() && getUserData().role == 'owner';
     }
 
     function isCoach() {
-      return isAuthenticated() && (getUserData().role == 'coach' || getUserData().role == 'owner');
+      return userExists()
+        && (
+          getUserData().role == 'coach'
+          || getUserData().role == 'owner'
+        );
     }
 
     function isClient() {
-      return isAuthenticated() && getUserData().role == 'client';
+      return userExists() && getUserData().role == 'client';
     }
 
-    // Colección: users
+    function belongsToOrganization(orgId) {
+      return userExists()
+        && getUserData().organizationId == orgId;
+    }
+
+    function isInitialClientRegistration(userId) {
+      return isAuthenticated()
+        && request.auth.uid == userId
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'client'
+        && request.resource.data.clientId == null
+        && request.resource.data.organizationId == null
+        && request.resource.data.status == 'pending_assignment';
+    }
+
     match /users/{userId} {
-      // Un usuario puede leer su propio perfil.
-      // Un coach puede leer el perfil de cualquier usuario en la app (necesario para ver clientes).
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isCoach());
-      // Solo el propio usuario puede actualizar su perfil (o el coach si es necesario)
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+
+      // El usuario puede leer su propio documento aunque todavía
+      // no tenga perfil previo. Owner y coach pueden leer usuarios.
+      allow get: if isAuthenticated()
+        && (
+          request.auth.uid == userId
+          || isCoach()
+        );
+
+      // No permitir que un cliente liste toda la colección users.
+      allow list: if isCoach();
+
+      // Creación inicial estricta solo para clientes sin asignar
+      allow create: if isInitialClientRegistration(userId);
+
+      // El usuario puede modificar ciertos datos de su perfil (ej. fullName, avatar),
+      // pero no puede alterar los campos críticos de autorización.
+      allow update: if isAuthenticated()
+        && request.auth.uid == userId
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.organizationId == resource.data.organizationId
+        && request.resource.data.clientId == resource.data.clientId
+        && request.resource.data.status == resource.data.status;
+
+      // Owner y Coach pueden gestionar perfiles de su organización
+      allow update: if isOwner() || isCoach();
+
+      allow delete: if isOwner();
     }
 
-    // Colección: organizations
     match /organizations/{orgId} {
-      // Todos pueden leer organizaciones a las que pertenecen
-      allow read: if isAuthenticated();
-      allow write: if isOwner();
+      allow get: if isAuthenticated()
+        && (
+          belongsToOrganization(orgId)
+          || isOwner()
+        );
+
+      allow list: if isOwner();
+
+      // En producción, frontend no crea organizaciones. Solo Firebase Admin / consola.
+      allow create: if false;
+
+      allow update, delete: if isOwner()
+        && belongsToOrganization(orgId);
     }
 
-    // Colección: clients
     match /clients/{clientId} {
-      // client user profile may not have clientId injected directly yet if they just registered.
-      // So let's allow read if the client document linkedUserId matches uid
-      allow read: if isCoach() || (isClient() && resource.data.linkedUserId == request.auth.uid);
-      allow write: if isCoach();
+      allow read: if isCoach()
+        || (
+          isClient()
+          && resource.data.linkedUserId == request.auth.uid
+        );
+
+      allow create, update, delete: if isCoach();
     }
 
-    // Colección: programs
     match /programs/{programId} {
       allow read: if isAuthenticated();
-      allow write: if isCoach();
+      allow create, update, delete: if isCoach();
     }
 
-    // Colección: program_assignments
     match /program_assignments/{assignmentId} {
-      // Si clientId está en los datos del usuario
-      allow read: if isCoach() || (isClient() && resource.data.clientId == getUserData().clientId);
-      allow write: if isCoach();
+      allow read: if isCoach()
+        || (
+          isClient()
+          && resource.data.clientId == getUserData().clientId
+        );
+
+      allow create, update, delete: if isCoach();
     }
 
-    // Colección: workouts
     match /workouts/{workoutId} {
       allow read: if isAuthenticated();
-      allow write: if isCoach();
+      allow create, update, delete: if isCoach();
     }
 
-    // Colección: workout_assignments
     match /workout_assignments/{assignmentId} {
-      allow read: if isCoach() || (isClient() && resource.data.clientId == getUserData().clientId);
-      allow write: if isCoach();
+      allow read: if isCoach()
+        || (
+          isClient()
+          && resource.data.clientId == getUserData().clientId
+        );
+
+      allow create, update, delete: if isCoach();
     }
 
-    // Colección: workout_results
     match /workout_results/{resultId} {
-      allow read: if isCoach() || (isClient() && resource.data.clientId == getUserData().clientId);
-      // El cliente sí puede escribir sus resultados
-      allow write: if isCoach() || (isClient() && request.resource.data.clientId == getUserData().clientId);
+      allow read: if isCoach()
+        || (
+          isClient()
+          && resource.data.clientId == getUserData().clientId
+        );
+
+      allow create: if isCoach()
+        || (
+          isClient()
+          && request.resource.data.clientId == getUserData().clientId
+        );
+
+      allow update: if isCoach()
+        || (
+          isClient()
+          && resource.data.clientId == getUserData().clientId
+          && request.resource.data.clientId == resource.data.clientId
+        );
+
+      allow delete: if isCoach();
     }
 
-    // Colección: assessments
     match /assessments/{assessmentId} {
-      allow read: if isCoach() || (isClient() && resource.data.clientId == getUserData().clientId);
-      allow write: if isCoach();
+      allow read: if isCoach()
+        || (
+          isClient()
+          && resource.data.clientId == getUserData().clientId
+        );
+
+      allow create, update, delete: if isCoach();
     }
 
-    // Colección: settings
     match /settings/{settingId} {
       allow read: if isAuthenticated();
-      allow write: if isCoach();
+      allow create, update, delete: if isCoach();
     }
 
-    // Para cualquier otra colección de catálogo (ej. exercises, categories, materials)
+    // Denegación por defecto.
     match /{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if isCoach();
+      allow read, write: if false;
     }
   }
 }

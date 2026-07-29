@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { authService } from '../services/authService';
-import { firestoreService } from '../services/firestoreService';
 import { sessionService } from '../services/session';
+import { db } from '../config/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { Spinner } from '../components/ui/Spinner';
 
 const AuthContext = createContext();
 
@@ -12,7 +14,7 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [authState, setAuthState] = useState('loading'); // 'loading', 'pending-profile', 'ready', 'error'
 
   const login = authService.login;
   const loginWithGoogle = authService.loginWithGoogle;
@@ -21,33 +23,50 @@ export function AuthProvider({ children }) {
   const resetPassword = authService.resetPassword;
 
   useEffect(() => {
-    const unsubscribe = authService.onAuthStateChanged(async (user) => {
-      setCurrentUser(user);
-      if (user) {
-        try {
-          // 1. Recuperar perfil de Firestore
-          const profile = await firestoreService.getDocument('users', user.uid);
-          setUserProfile(profile || null);
+    let unsubscribeProfile = null;
 
-          // 2. Usar el rol y orgId del perfil de Firestore (owner, coach, client)
-          if (profile) {
-            sessionService.setSession(user, profile.organizationId, profile.role);
-          } else {
-            sessionService.setSession(user, null, null);
+    const unsubscribeAuth = authService.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+      
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
+      if (user) {
+        setAuthState('pending-profile');
+        
+        unsubscribeProfile = onSnapshot(
+          doc(db, 'users', user.uid),
+          (docSnap) => {
+            if (docSnap.exists()) {
+              const profile = docSnap.data();
+              setUserProfile(profile);
+              sessionService.setSession(user, profile.organizationId, profile.role);
+              setAuthState('ready');
+            } else {
+              // Wait for authService.register to create it
+              setUserProfile(null);
+              sessionService.setSession(user, null, null);
+              setAuthState('pending-profile');
+            }
+          },
+          (error) => {
+            console.error("Error subscribing to user profile:", error);
+            setAuthState('error');
           }
-        } catch (error) {
-          console.error("Error al obtener el perfil del usuario:", error);
-          setUserProfile(null);
-          sessionService.setSession(user, null, null);
-        }
+        );
       } else {
         setUserProfile(null);
         sessionService.setSession(null, null, null);
+        setAuthState('ready');
       }
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
 
   const value = {
@@ -60,9 +79,27 @@ export function AuthProvider({ children }) {
     resetPassword
   };
 
+  if (authState === 'loading' || authState === 'pending-profile') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#09090b', color: '#fff' }}>
+        <Spinner size={32} />
+        <span style={{ marginLeft: '12px' }}>Cargando sesión...</span>
+      </div>
+    );
+  }
+
+  if (authState === 'error') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#09090b', color: '#fca5a5' }}>
+        <p>Error al cargar el perfil del usuario. Por favor, recarga la página o cierra sesión.</p>
+        <button onClick={logout} style={{ marginLeft: '12px', padding: '8px', cursor: 'pointer' }}>Cerrar Sesión</button>
+      </div>
+    );
+  }
+
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }

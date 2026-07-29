@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS } from '../services/storage';
-import { sessionService } from '../services/session';
 import { formatDate } from '../utils/dateUtils';
-import { ClientCalendarTab } from './ClientCalendarTab';
+import { useAuth } from '../contexts/AuthProvider';
 
 // Rest Timer Component
 function RestTimer() {
@@ -105,7 +104,9 @@ function WorkoutLoggerModal({
         setLoggedBlocks(initialBlocks);
       }
     }
-    loadOrCreateResult();
+    if (assignment) {
+      loadOrCreateResult();
+    }
   }, [assignment]);
 
   const handleUpdateSet = (blockId, exerciseId, setId, field, value) => {
@@ -113,13 +114,10 @@ function WorkoutLoggerModal({
       if (b.blockId === blockId) {
         const updatedExs = b.exercises.map(e => {
           if (e.exerciseId === exerciseId) {
-            const updatedSets = e.sets.map(s => {
-              if (s.setId === setId) {
-                return { ...s, [field]: value };
-              }
-              return s;
-            });
-            return { ...e, sets: updatedSets };
+            return {
+              ...e,
+              sets: e.sets.map(s => (s.setId === setId ? { ...s, [field]: value } : s))
+            };
           }
           return e;
         });
@@ -523,6 +521,7 @@ function FreeSessionModal({ clientId, onClose, onSave }) {
 
 // Client Portal Main View Component
 export default function ClientPortal() {
+  const { userProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('agenda');
   const [agendaViewMode, setAgendaViewMode] = useState('list'); // 'list' or 'calendar'
   const [client, setClient] = useState(null);
@@ -557,7 +556,7 @@ export default function ClientPortal() {
   const [showFreeSessionModal, setShowFreeSessionModal] = useState(false);
 
   async function loadClientData() {
-    const cId = sessionService.getActiveClientId();
+    const cId = userProfile?.clientId;
     if (!cId) {
       setClient(null);
       return;
@@ -610,17 +609,33 @@ export default function ClientPortal() {
       // Filtrar sólo los tests que permiten entrada de cliente
       const allowed = dbTestDefs.filter(d => d.allowClientEntry);
       if (allowed.length > 0) {
-        setSelectedTestDefId(String(allowed[0].id));
+      setSelectedTestDefId(String(allowed[0].id));
       }
     }
   }
 
-  // Escuchar conmutador global de deportista simulado
   useEffect(() => {
-    loadClientData();
-    window.addEventListener('fitcoach_session_changed', loadClientData);
-    return () => window.removeEventListener('fitcoach_session_changed', loadClientData);
-  }, []);
+    if (userProfile?.clientId) {
+      loadClientData();
+    }
+  }, [userProfile?.clientId]);
+
+  // Pantalla de Espera para Clientes sin asignar
+  if (userProfile?.status === 'pending_assignment' || !userProfile?.clientId) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '60vh', color: '#fff', textAlign: 'center', padding: '2rem' }}>
+        <div style={{ fontSize: '4rem', marginBottom: '1.5rem', animation: 'spin 2s linear infinite' }}>⏳</div>
+        <h2 style={{ fontSize: '1.8rem', fontWeight: '600', marginBottom: '1rem', color: '#f4f4f5' }}>Esperando asignación</h2>
+        <p style={{ color: '#a1a1aa', maxWidth: '400px', lineHeight: '1.6' }}>
+          Tu entrenador todavía no te ha vinculado a una ficha deportiva. Cuando lo haga, esta pantalla se actualizará automáticamente y podrás acceder a tus entrenamientos.
+        </p>
+      </div>
+    );
+  }
+
+  const handleLogout = () => {
+    sessionService.clearSession();
+  };
 
   const handleRegisterTest = async (e) => {
     e.preventDefault();
