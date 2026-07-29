@@ -14,6 +14,9 @@ export default function CoachDashboard() {
   const loadDashboard = async () => {
     setLoading(true);
     try {
+      // Migrar datos antiguos a la organización del usuario
+      await storage.migrateLegacyData();
+
       // Execute sync of missed assignments automatically upon entering dashboard
       await storage.syncMissedAssignments();
 

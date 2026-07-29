@@ -196,6 +196,43 @@ export const storage = {
     await firestoreService.deleteDocument('clients', String(id));
     return true;
   },
+  deleteAssessment: async (id) => {
+    return firestoreService.deleteDocument('assessments', String(id));
+  },
+
+  migrateLegacyData: async () => {
+    const orgId = sessionService.getOrgId();
+    if (!orgId) return;
+    const isMigrated = localStorage.getItem(`migrated_legacy_${orgId}`);
+    if (isMigrated) return;
+
+    const collections = [
+      'exercises', 'workouts', 'programs', 'workout_assignments', 'workout_results', 'assessments',
+      'categories', 'subcategories', 'ex_categories', 'ex_subcategories', 'materials', 'ex_tags', 'ex_types', 'positions', 'competitive_levels', 'test_categories', 'workout_tags', 'groups'
+    ];
+
+    try {
+      console.log('Iniciando migración de datos legacy...');
+      for (const coll of collections) {
+        // Obtenemos todos los documentos usando [] para no filtrar
+        const allDocs = await firestoreService.getDocumentsByQuery(coll, []);
+        let updatedCount = 0;
+        for (const doc of allDocs) {
+          if (!doc.orgId) {
+            await firestoreService.updateDocument(coll, String(doc.id), { orgId });
+            updatedCount++;
+          }
+        }
+        if (updatedCount > 0) {
+          console.log(`Migrados ${updatedCount} documentos en ${coll}`);
+        }
+      }
+      localStorage.setItem(`migrated_legacy_${orgId}`, 'true');
+      console.log('Migración completada exitosamente.');
+    } catch (err) {
+      console.error('Error migrando legacy data:', err);
+    }
+  },
 
   // ANAMNESIS
   getAnamnesisByClientId: async (clientId) => {
