@@ -56,7 +56,7 @@ function ClientPortalLayout() {
 
 /* ─── CoachAppLayout ───────────────────────────────────────────────────*/
 function CoachAppLayout() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, userProfile, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   
   const currentTab = TABS[activeTab];

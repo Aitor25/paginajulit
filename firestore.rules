@@ -21,8 +21,7 @@ service cloud.firestore {
 
     function isBootstrapOwner() {
       return request.auth != null
-        && request.auth.token.email != null
-        && request.auth.token.email.lower() == 'agarciah10@gmail.com';
+        && request.auth.token.email == 'agarciah10@gmail.com';
     }
 
     function isOwner() {
@@ -76,21 +75,19 @@ service cloud.firestore {
       allow create: if isInitialClientRegistration(userId) 
         || (isBootstrapOwner() && request.auth.uid == userId);
 
-      // El usuario puede modificar ciertos datos de su perfil (ej. fullName, avatar),
-      // pero no puede alterar los campos críticos de autorización, a menos que sea el bootstrap owner.
+      // 1. El Bootstrap Owner tiene control total sobre su propio perfil
+      allow update: if isBootstrapOwner() && request.auth.uid == userId;
+
+      // 2. Un usuario normal puede modificar datos banales (como fullName)
+      // pero NUNCA puede modificar campos críticos de autorización (role, org, status)
       allow update: if isAuthenticated()
         && request.auth.uid == userId
-        && (
-          isBootstrapOwner()
-          || (
-            request.resource.data.uid == resource.data.uid
-            && request.resource.data.email == resource.data.email
-            && request.resource.data.role == resource.data.role
-            && request.resource.data.organizationId == resource.data.organizationId
-            && request.resource.data.clientId == resource.data.clientId
-            && request.resource.data.status == resource.data.status
-          )
-        );
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.organizationId == resource.data.organizationId
+        && request.resource.data.clientId == resource.data.clientId
+        && request.resource.data.status == resource.data.status;
 
       // Owner puede gestionar perfiles de su organización libremente. Coach no puede cambiar roles.
       allow update: if isOwner();
