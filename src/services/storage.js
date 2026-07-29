@@ -203,36 +203,53 @@ export const storage = {
   migrateLegacyData: async () => {
     const orgId = sessionService.getOrgId();
     if (!orgId) return;
-    const isMigrated = localStorage.getItem(`migrated_legacy_v2_${orgId}`);
+    const isMigrated = localStorage.getItem(`migrated_from_localstorage_${orgId}`);
     if (isMigrated) return;
 
-    const collections = [
-      'clients', 'exercises', 'workouts', 'programs', 'workout_assignments', 'workout_results', 'assessments',
-      'categories', 'subcategories', 'ex_categories', 'ex_subcategories', 'materials', 'ex_tags', 'ex_types', 
-      'positions', 'competitive_levels', 'test_categories', 'workout_tags', 'groups', 'program_weeks', 
-      'program_days', 'program_assignments', 'anamnesis'
-    ];
-
     try {
-      console.log('Iniciando migración de datos legacy...');
-      for (const coll of collections) {
-        // Obtenemos todos los documentos usando [] para no filtrar
-        const allDocs = await firestoreService.getDocumentsByQuery(coll, []);
-        let updatedCount = 0;
-        for (const doc of allDocs) {
-          if (!doc.orgId) {
-            await firestoreService.updateDocument(coll, String(doc.id), { orgId });
-            updatedCount++;
+      console.log('Iniciando migración de datos legacy desde localStorage...');
+      let totalMigrated = 0;
+
+      // Iterar por todas las llaves posibles
+      for (const [keyName, localKey] of Object.entries(KEYS)) {
+        const collectionName = keyName.toLowerCase();
+        
+        const localData = localStorage.getItem(localKey);
+        if (localData) {
+          try {
+            const items = JSON.parse(localData);
+            if (Array.isArray(items) && items.length > 0) {
+              console.log(`Migrando ${items.length} items de ${localKey} a la colección ${collectionName}...`);
+              let count = 0;
+              for (const item of items) {
+                // Forzar orgId si no lo tiene
+                const docData = { ...item, orgId: item.orgId || orgId };
+                
+                // Usar el ID original si existe, sino generar uno
+                const docId = String(docData.id || generateUUID());
+                if (!docData.id) docData.id = docId;
+
+                await firestoreService.setDocument(collectionName, docId, docData);
+                count++;
+                totalMigrated++;
+              }
+              console.log(`Migrados ${count} documentos a ${collectionName}`);
+            }
+          } catch (err) {
+            console.error(`Error parseando ${localKey} de localStorage:`, err);
           }
         }
-        if (updatedCount > 0) {
-          console.log(`Migrados ${updatedCount} documentos en ${coll}`);
-        }
       }
-      localStorage.setItem(`migrated_legacy_v2_${orgId}`, 'true');
-      console.log('Migración completada exitosamente.');
+
+      localStorage.setItem(`migrated_from_localstorage_${orgId}`, 'true');
+      console.log(`Migración completada exitosamente. Total documentos: ${totalMigrated}`);
+      
+      if (totalMigrated > 0) {
+        // Forzar recarga si se migraron cosas
+        window.location.reload();
+      }
     } catch (err) {
-      console.error('Error migrando legacy data:', err);
+      console.error('Error migrando data de localStorage:', err);
     }
   },
 
