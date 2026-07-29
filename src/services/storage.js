@@ -456,7 +456,7 @@ export const storage = {
     const p = programs.find(item => item.id === Number(id));
     if (!p) return null;
 
-    const weeks = await getCollection('program_weeks').filter(w => w.programId === p.id);
+    const weeks = (await getCollection('program_weeks')).filter(w => w.programId === p.id);
     weeks.sort((a, b) => a.weekNumber - b.weekNumber);
 
     const allDays = await getCollection('program_days');
@@ -857,7 +857,7 @@ export const storage = {
   },
 
   getExerciseAnalytics: async (clientId, exerciseId, periodDays = null) => {
-    const results = await getCollection('workout_results').filter(r => r.clientId === Number(clientId) && r.status === 'completed' || r.status === 'submitted');
+    const results = (await getCollection('workout_results')).filter(r => r.clientId === Number(clientId) && (r.status === 'completed' || r.status === 'submitted'));
     const exercises = await getCollection('exercises');
     let exerciseDef = exercises.find(e => e.id === Number(exerciseId));
 
@@ -1009,7 +1009,7 @@ export const storage = {
 
   getClientPersonalRecords: async (clientId) => {
     // Get all completed workouts
-    const results = await getCollection('workout_results').filter(r => r.clientId === Number(clientId) && r.status === 'completed' || r.status === 'submitted');
+    const results = (await getCollection('workout_results')).filter(r => r.clientId === Number(clientId) && (r.status === 'completed' || r.status === 'submitted'));
     const exercises = await getCollection('exercises');
 
     const executedExerciseIds = new Set();
@@ -1108,7 +1108,7 @@ export const storage = {
         programAssignments = programAssignments.filter(pa => pa.clientId === Number(clientId));
       }
 
-      programAssignments.forEach(async (pa) => {
+      for (const pa of programAssignments) {
         const startDate = pa.scheduledAt.split('T')[0];
 
         // Inferir End Date
@@ -1154,7 +1154,7 @@ export const storage = {
             programAssignmentId: pa.id
           });
         }
-      });
+      }
     }
 
     // Ordenar de forma determinista (fecha asc, tipo, id)
