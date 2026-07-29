@@ -2,6 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS } from '../services/storage';
 import GlobalCatalogModal from './GlobalCatalogModal';
 
+function stripAccents(str) {
+  if (!str) return '';
+  return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 const DAY_NAMES = [
   'Día 1 (Lunes)',
   'Día 2 (Martes)',

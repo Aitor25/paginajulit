@@ -3,6 +3,11 @@ import { storage, KEYS, generateUUID } from '../services/storage';
 import ExerciseFormModal from './ExerciseFormModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
 
+function stripAccents(str) {
+  if (!str) return '';
+  return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 export default function WorkoutBuilderView({
   editingWorkout = null,
   onClose,
