@@ -203,12 +203,14 @@ export const storage = {
   migrateLegacyData: async () => {
     const orgId = sessionService.getOrgId();
     if (!orgId) return;
-    const isMigrated = localStorage.getItem(`migrated_legacy_${orgId}`);
+    const isMigrated = localStorage.getItem(`migrated_legacy_v2_${orgId}`);
     if (isMigrated) return;
 
     const collections = [
-      'exercises', 'workouts', 'programs', 'workout_assignments', 'workout_results', 'assessments',
-      'categories', 'subcategories', 'ex_categories', 'ex_subcategories', 'materials', 'ex_tags', 'ex_types', 'positions', 'competitive_levels', 'test_categories', 'workout_tags', 'groups'
+      'clients', 'exercises', 'workouts', 'programs', 'workout_assignments', 'workout_results', 'assessments',
+      'categories', 'subcategories', 'ex_categories', 'ex_subcategories', 'materials', 'ex_tags', 'ex_types', 
+      'positions', 'competitive_levels', 'test_categories', 'workout_tags', 'groups', 'program_weeks', 
+      'program_days', 'program_assignments', 'anamnesis'
     ];
 
     try {
@@ -227,7 +229,7 @@ export const storage = {
           console.log(`Migrados ${updatedCount} documentos en ${coll}`);
         }
       }
-      localStorage.setItem(`migrated_legacy_${orgId}`, 'true');
+      localStorage.setItem(`migrated_legacy_v2_${orgId}`, 'true');
       console.log('Migración completada exitosamente.');
     } catch (err) {
       console.error('Error migrando legacy data:', err);
