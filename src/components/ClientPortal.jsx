@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS } from '../services/storage';
+import { sessionService } from '../services/session';
 import { formatDate } from '../utils/dateUtils';
-import { useAuth, sessionService } from '../contexts/AuthProvider';
-import ClientCalendarTab from './ClientCalendarTab';
+import { useAuth } from '../contexts/AuthProvider';
+import { ClientCalendarTab } from './ClientCalendarTab';
 
 // Rest Timer Component
 function RestTimer() {
