@@ -382,7 +382,8 @@ export default function ProgramBuilderView({
             });
           });
 
-          db.set(KEYS.WORKOUT_ASSIGNMENTS, updatedAssigns);
+          // TODO: Implementar guardado en lote de asignaciones modificadas en Firebase
+          console.log("Se han recalculado", updatedAssigns.length, "asignaciones, pero la actualización masiva está pendiente de implementar en Firebase.");
           await storage.updateAssignmentProgress(assign.id);
         }
       }

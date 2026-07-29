@@ -47,6 +47,17 @@ export default function WorkoutBuilderView({
   const [activeBlockId, setActiveBlockId] = useState(''); // Bloque destino al hacer clic en "+" en biblioteca
   const [formError, setFormError] = useState('');
 
+  const handleOpenCreate = () => {
+    setEditingEx(null);
+    setShowFormModal(true);
+  };
+
+  const handleOpenEdit = (e, ex) => {
+    e.stopPropagation();
+    setEditingEx(ex);
+    setShowFormModal(true);
+  };
+
   // Carga inicial de datos
   async function loadLibraryData() {
     const dbExs = await storage.getExercises();
