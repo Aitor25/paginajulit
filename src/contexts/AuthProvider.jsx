@@ -2,8 +2,9 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { authService } from '../services/authService';
 import { sessionService } from '../services/session';
 import { db } from '../config/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
 import { Spinner } from '../components/ui/Spinner';
+import { isOwnerEmail } from '../config/roles';
 
 const AuthContext = createContext();
 
@@ -25,7 +26,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let unsubscribeProfile = null;
 
-    const unsubscribeAuth = authService.onAuthStateChanged((user) => {
+    const unsubscribeAuth = authService.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
       
       if (unsubscribeProfile) {
@@ -36,6 +37,55 @@ export function AuthProvider({ children }) {
       if (user) {
         setAuthState('pending-profile');
         
+        // 1. BOOTSTRAP AUTOMÁTICO DE OWNER
+        if (isOwnerEmail(user.email)) {
+          try {
+            const profileRef = doc(db, 'users', user.uid);
+            const snap = await getDoc(profileRef);
+            let needsUpdate = false;
+            let dataToSet = {
+              uid: user.uid,
+              email: user.email,
+              role: 'owner',
+              status: 'active',
+              organizationId: 'julit',
+              updatedAt: new Date().toISOString()
+            };
+
+            if (!snap.exists()) {
+              dataToSet.fullName = user.displayName || 'Owner';
+              dataToSet.clientId = null;
+              dataToSet.createdAt = new Date().toISOString();
+              needsUpdate = true;
+            } else {
+              const data = snap.data();
+              if (data.role !== 'owner' || data.status !== 'active' || data.organizationId !== 'julit') {
+                needsUpdate = true;
+              }
+            }
+
+            if (needsUpdate) {
+              await setDoc(profileRef, dataToSet, { merge: true });
+            }
+
+            const orgRef = doc(db, 'organizations', 'julit');
+            const orgSnap = await getDoc(orgRef);
+            if (!orgSnap.exists()) {
+              await setDoc(orgRef, {
+                id: 'julit',
+                name: 'Julit',
+                ownerId: user.uid,
+                status: 'active',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+            }
+          } catch (err) {
+            console.error("Error en bootstrap de owner:", err);
+          }
+        }
+
+        // 2. SUSCRIPCIÓN NORMAL A PERFIL
         unsubscribeProfile = onSnapshot(
           doc(db, 'users', user.uid),
           (docSnap) => {

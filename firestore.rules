@@ -19,6 +19,12 @@ service cloud.firestore {
       return get(userPath()).data;
     }
 
+    function isBootstrapOwner() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == 'agarciah10@gmail.com';
+    }
+
     function isOwner() {
       return userExists() && getUserData().role == 'owner';
     }
@@ -59,27 +65,35 @@ service cloud.firestore {
         && (
           request.auth.uid == userId
           || isCoach()
+          || isBootstrapOwner()
         );
 
-      // No permitir que un cliente liste toda la colección users.
-      allow list: if isCoach();
+      // Solo los Owners pueden listar la colección completa.
+      // (Coaches leerán perfiles específicos pero no listarán libremente).
+      allow list: if isOwner();
 
-      // Creación inicial estricta solo para clientes sin asignar
-      allow create: if isInitialClientRegistration(userId);
+      // Creación: o es el owner inicial configurándose a sí mismo, o es un cliente normal
+      allow create: if isInitialClientRegistration(userId) 
+        || (isBootstrapOwner() && request.auth.uid == userId);
 
       // El usuario puede modificar ciertos datos de su perfil (ej. fullName, avatar),
-      // pero no puede alterar los campos críticos de autorización.
+      // pero no puede alterar los campos críticos de autorización, a menos que sea el bootstrap owner.
       allow update: if isAuthenticated()
         && request.auth.uid == userId
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.organizationId == resource.data.organizationId
-        && request.resource.data.clientId == resource.data.clientId
-        && request.resource.data.status == resource.data.status;
+        && (
+          isBootstrapOwner()
+          || (
+            request.resource.data.uid == resource.data.uid
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.organizationId == resource.data.organizationId
+            && request.resource.data.clientId == resource.data.clientId
+            && request.resource.data.status == resource.data.status
+          )
+        );
 
-      // Owner y Coach pueden gestionar perfiles de su organización
-      allow update: if isOwner() || isCoach();
+      // Owner puede gestionar perfiles de su organización libremente. Coach no puede cambiar roles.
+      allow update: if isOwner();
 
       allow delete: if isOwner();
     }
@@ -89,12 +103,13 @@ service cloud.firestore {
         && (
           belongsToOrganization(orgId)
           || isOwner()
+          || isBootstrapOwner()
         );
 
       allow list: if isOwner();
 
-      // En producción, frontend no crea organizaciones. Solo Firebase Admin / consola.
-      allow create: if false;
+      // Solo el bootstrap owner o un owner pueden crear la organización
+      allow create: if (isBootstrapOwner() && orgId == 'julit') || isOwner();
 
       allow update, delete: if isOwner()
         && belongsToOrganization(orgId);

@@ -7,6 +7,7 @@ import WorkoutManager from './components/WorkoutManager';
 import ClientPortal from './components/ClientPortal';
 import CoachDashboard from './components/CoachDashboard';
 import GlobalCalendar from './components/GlobalCalendar';
+import UserManager from './components/UserManager';
 import { sessionService } from './services/session';
 import { storage } from './services/storage';
 import './App.css';
@@ -18,6 +19,7 @@ const TABS = {
   library: { id: 'library', icon: '📚', label: 'Librería de Ejercicios' },
   workouts: { id: 'workouts', icon: '🏋️', label: 'Entrenamientos' },
   schedule: { id: 'schedule', icon: '📅', label: 'Agenda' },
+  users: { id: 'users', icon: '⚙️', label: 'Usuarios' },
 };
 
 import { Routes, Route, Navigate } from 'react-router-dom';
@@ -64,14 +66,14 @@ function CoachAppLayout() {
       <Navbar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        role="coach"
+        role={userProfile?.role || 'coach'}
         onRoleChange={() => {}}
       />
 
-      <div className="role-banner" style={{ '--role-color': 'var(--accent)' }}>
+      <div className="role-banner" style={{ '--role-color': userProfile?.role === 'owner' ? 'var(--gold)' : 'var(--accent)' }}>
         <div className="role-banner__left">
           <span className="role-banner__dot" />
-          Vista activa: <strong>Entrenador</strong>
+          Vista activa: <strong>{userProfile?.role === 'owner' ? 'Owner' : 'Entrenador'}</strong>
           <span style={{marginLeft: '20px', fontSize: '0.8rem', opacity: 0.8}}>
             Usuario: {currentUser?.email}
           </span>
@@ -87,6 +89,7 @@ function CoachAppLayout() {
          activeTab === 'clients' ? <ClientManager key="clients" /> :
          activeTab === 'workouts' ? <WorkoutManager key="workouts" /> :
          activeTab === 'schedule' ? <GlobalCalendar key="schedule" /> :
+         activeTab === 'users' ? <UserManager key="users" /> :
          <TabPlaceholder id={currentTab.id} icon={currentTab.icon} label={currentTab.label} />
         }
       </main>

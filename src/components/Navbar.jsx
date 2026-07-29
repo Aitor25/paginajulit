@@ -8,8 +8,13 @@ const NAV_TABS = [
   { id: 'schedule', label: 'Agenda',                  icon: '📅' },
 ];
 
-export default function Navbar({ activeTab, onTabChange }) {
+export default function Navbar({ activeTab, onTabChange, role }) {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const visibleTabs = [...NAV_TABS];
+  if (role === 'owner') {
+    visibleTabs.push({ id: 'users', label: 'Usuarios', icon: '⚙️' });
+  }
 
   return (
     <nav className="navbar" role="navigation" aria-label="Main navigation">
@@ -32,7 +37,7 @@ export default function Navbar({ activeTab, onTabChange }) {
 
       {/* ── Tabs ── */}
       <ul className="navbar__tabs" role="tablist">
-        {NAV_TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <li key={tab.id} role="presentation">
             <button
               id={`tab-${tab.id}`}
