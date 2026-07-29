@@ -142,6 +142,11 @@ service cloud.firestore {
       allow create, update, delete: if isCoach();
     }
 
+    match /exercises/{exerciseId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isCoach();
+    }
+
     match /workout_assignments/{assignmentId} {
       allow read: if isCoach()
         || (
