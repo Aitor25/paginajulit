@@ -400,6 +400,37 @@
   }
 }
 
+/* ─── Aviso de "sin ficha asignada" ──────────────────────── */
+.cp__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--yellow-soft);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+}
+
+.cp__notice-icon {
+  font-size: 1.25rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.cp__notice-title {
+  display: block;
+  font-size: 0.9rem;
+  color: #92400E;
+  margin-bottom: 2px;
+}
+
+.cp__notice-body {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--gray-700);
+}
+
 /* ─── Piezas que se usaban sin definir ───────────────────── */
 .cp__card {
   background: var(--white);

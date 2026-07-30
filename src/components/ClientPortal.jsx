@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS } from '../services/storage';
-import { sessionService } from '../services/session';
 import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthProvider';
 import { ClientCalendarTab } from './ClientCalendarTab';
+import './ClientPortal.css';
 
 // Rest Timer Component
 function RestTimer() {
@@ -586,9 +586,6 @@ export default function ClientPortal() {
     const dbTestDefs = await storage.getEntities(KEYS.TEST_DEFINITIONS);
     setTestDefs(dbTestDefs);
 
-    const dbTestCats = await storage.getEntities(KEYS.TEST_CATEGORIES);
-    setTestCategories(dbTestCats);
-
     const dbTestResults = await storage.getTestResults(cId);
     dbTestResults.sort((a, b) => new Date(b.performedAt) - new Date(a.performedAt));
     setTestResults(dbTestResults);
@@ -647,23 +644,19 @@ export default function ClientPortal() {
     return items;
   }, [assignments, workoutResults, activeFilter]);
 
-  // Pantalla de Espera para Clientes sin asignar
-  if (userProfile?.status === 'pending_assignment' || !userProfile?.clientId) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '60vh', color: '#fff', textAlign: 'center', padding: '2rem' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1.5rem', animation: 'spin 2s linear infinite' }}>⏳</div>
-        <h2 style={{ fontSize: '1.8rem', fontWeight: '600', marginBottom: '1rem', color: '#f4f4f5' }}>Esperando asignación</h2>
-        <p style={{ color: '#a1a1aa', maxWidth: '400px', lineHeight: '1.6' }}>
-          Tu entrenador todavía no te ha vinculado a una ficha deportiva. Cuando lo haga, esta pantalla se actualizará automáticamente y podrás acceder a tus entrenamientos.
-        </p>
-      </div>
-    );
-  }
+  // Sin ficha deportiva vinculada el portal sigue siendo navegable: se muestra
+  // un aviso y la agenda/calendario aparecen vacíos, en vez de una pantalla
+  // sin salida.
+  const sinFicha = userProfile?.status === 'pending_assignment' || !userProfile?.clientId;
 
   const handleRegisterTest = async (e) => {
     e.preventDefault();
     setTestError('');
 
+    if (!client) {
+      setTestError('Necesitas que tu entrenador te vincule una ficha deportiva antes de registrar tests.');
+      return;
+    }
     if (!selectedTestDefId) {
       setTestError('Debes seleccionar un test.');
       return;
@@ -709,23 +702,28 @@ export default function ClientPortal() {
     }
   };
 
-  if (!client) {
-    return (
-      <div className="el__placeholder">
-        <p>⚠️ No hay ningún deportista simulado activo en este momento.</p>
-        <span style={{ fontSize: '0.8125rem' }}>
-          Selecciona un atleta en el panel superior de simulación de cabecera.
-        </span>
-      </div>
-    );
-  }
-
   return (
     <div className="cp__container">
-      
+
+      {sinFicha && (
+        <div className="cp__notice">
+          <span className="cp__notice-icon" aria-hidden="true">⏳</span>
+          <div>
+            <strong className="cp__notice-title">Esperando asignación</strong>
+            <p className="cp__notice-body">
+              Tu entrenador todavía no te ha vinculado a una ficha deportiva. Puedes
+              moverte por el portal, pero tu agenda y tu calendario estarán vacíos
+              hasta que lo haga.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Cabecera del Portal del Cliente */}
       <div className="cp__header-card">
-        <h2 className="cp__header-title">¡Hola, {client.firstName}!</h2>
+        <h2 className="cp__header-title">
+          {client ? `¡Hola, ${client.firstName}!` : '¡Hola!'}
+        </h2>
         <p className="cp__header-subtitle">
           Aquí tienes tu espacio personal para revisar tus entrenamientos programados y tu ficha de salud.
         </p>
@@ -834,10 +832,12 @@ export default function ClientPortal() {
               )}
             </div>
             
-            <button 
-              className="el__btn el__btn--secondary" 
+            <button
+              className="el__btn el__btn--secondary"
               style={{ fontSize: '0.75rem', padding: '6px 12px' }}
               onClick={() => setShowFreeSessionModal(true)}
+              disabled={sinFicha}
+              title={sinFicha ? 'Necesitas que tu entrenador te vincule una ficha deportiva' : undefined}
             >
               + Registrar Sesión Libre
             </button>
@@ -846,13 +846,13 @@ export default function ClientPortal() {
           <div className="cp__agenda-list">
             {agendaViewMode === 'calendar' ? (
               <div className="cp__card">
-                <ClientCalendarTab 
-                  clientId={sessionService.getActiveClientId()} 
-                  readOnly={true} 
+                <ClientCalendarTab
+                  clientId={userProfile?.clientId || null}
+                  readOnly={true}
                   onReadOnlyEventClick={async (ev) => {
-                    if (ev.type === 'workout') {
-                      const allWa = await storage.getWorkoutAssignments(sessionService.getActiveClientId());
-                      const assignment = allWa.find(a => a.id === ev.assignmentId);
+                    if (ev.type === 'workout' && userProfile?.clientId) {
+                      const allWa = await storage.getWorkoutAssignments(userProfile.clientId);
+                      const assignment = allWa.find(a => String(a.id) === String(ev.assignmentId));
                       if (assignment) setActiveAssignment(assignment);
                     }
                   }}
@@ -1369,8 +1369,8 @@ export default function ClientPortal() {
       )}
 
       {/* MODAL SESIÓN LIBRE */}
-      {showFreeSessionModal && (
-        <FreeSessionModal 
+      {showFreeSessionModal && client && (
+        <FreeSessionModal
           clientId={client.id}
           onClose={() => setShowFreeSessionModal(false)}
           onSave={handleSaveFreeSession}

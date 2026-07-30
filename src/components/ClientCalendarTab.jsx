@@ -16,6 +16,14 @@ export const ClientCalendarTab = ({ clientId, readOnly = false, onReadOnlyEventC
   const [quickAssignDate, setQuickAssignDate] = useState(null);
 
   const loadData = async () => {
+    // Sin cliente no se consulta nada: getCalendarEvents con clientId nulo
+    // devuelve los eventos de TODOS los clientes de la organización.
+    if (!clientId) {
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const year = currentDate.getFullYear();
