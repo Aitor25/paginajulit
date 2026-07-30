@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { SIN_ENTRENADOR_COLOR } from './CalendarGrid';
 import './CalendarGrid.css'; // Reutilizamos estilos base donde aplique
 
 const DAYS_OF_WEEK = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -36,8 +37,16 @@ export const CalendarWeek = ({
   events = [],
   onDateClick,
   onEventClick,
-  readOnly = false
+  readOnly = false,
+  colorBy = 'status',
+  coachColors = {},
+  showCoachName = false
 }) => {
+  const getEventColor = (ev) =>
+    colorBy === 'coach'
+      ? (ev.coachId ? (coachColors[String(ev.coachId)] || SIN_ENTRENADOR_COLOR) : SIN_ENTRENADOR_COLOR)
+      : getStatusColor(ev.status, ev.type);
+
   const weekDays = useMemo(() => {
     const target = new Date(currentDateStr);
     if (isNaN(target.getTime())) return [];
@@ -140,18 +149,21 @@ export const CalendarWeek = ({
                   <button 
                     key={ev.id} 
                     className={`cal__event cal__event--week cal__event--${ev.type}`}
-                    style={{ backgroundColor: getStatusColor(ev.status, ev.type) }}
+                    style={{ backgroundColor: getEventColor(ev) }}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (onEventClick) onEventClick(ev);
                     }}
-                    aria-label={`${ev.title} - ${ev.clientName || 'Sin cliente'}`}
-                    title={`${ev.title} - ${ev.clientName || 'Sin cliente'}`}
+                    aria-label={`${ev.title} - ${ev.clientName || 'Sin cliente'}${showCoachName && ev.coachName ? ` - ${ev.coachName}` : ''}`}
+                    title={`${ev.title} - ${ev.clientName || 'Sin cliente'}${showCoachName && ev.coachName ? ` · ${ev.coachName}` : ''}`}
                   >
                     <span className="cal__event-icon">{getStatusIcon(ev.status, ev.type)}</span>
                     <div className="cal__event-content-week">
                       <span className="cal__event-title">{ev.title}</span>
                       {ev.clientName && <span className="cal__event-client">{ev.clientName}</span>}
+                      {showCoachName && ev.coachName && (
+                        <span className="cal__event-coach">{ev.coachName}</span>
+                      )}
                     </div>
                   </button>
                 ))}

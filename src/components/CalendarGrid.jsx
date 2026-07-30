@@ -32,13 +32,48 @@ const getStatusIcon = (status, type) => {
   }
 };
 
-export const CalendarGrid = ({ 
-  currentDate, 
-  events = [], 
-  onDateClick, 
+// Paleta para distinguir entrenadores en la vista del owner. Tonos con
+// contraste suficiente para texto blanco encima.
+export const COACH_COLORS = [
+  '#4F46E5', // indigo
+  '#0891B2', // cyan
+  '#059669', // emerald
+  '#D97706', // amber
+  '#DB2777', // pink
+  '#7C3AED', // violet
+  '#DC2626', // red
+  '#0284C7', // sky
+  '#65A30D', // lime
+  '#C2410C'  // orange
+];
+
+export const SIN_ENTRENADOR_COLOR = '#6B7280'; // gris
+
+// Asigna un color estable a cada entrenador según el orden recibido.
+export function buildCoachColorMap(coachIds = []) {
+  const map = {};
+  [...new Set(coachIds.filter(Boolean).map(String))]
+    .sort()
+    .forEach((id, i) => { map[id] = COACH_COLORS[i % COACH_COLORS.length]; });
+  return map;
+}
+
+export const CalendarGrid = ({
+  currentDate,
+  events = [],
+  onDateClick,
   onEventClick,
-  readOnly = false
+  readOnly = false,
+  // 'status' (por defecto) o 'coach' para colorear por entrenador
+  colorBy = 'status',
+  coachColors = {},
+  showCoachName = false
 }) => {
+  const getEventColor = (ev) =>
+    colorBy === 'coach'
+      ? (ev.coachId ? (coachColors[String(ev.coachId)] || SIN_ENTRENADOR_COLOR) : SIN_ENTRENADOR_COLOR)
+      : getStatusColor(ev.status, ev.type);
+
   const [expandedDate, setExpandedDate] = useState(null);
   const { daysInMonth, blankDaysBefore, blankDaysAfter } = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -114,16 +149,23 @@ export const CalendarGrid = ({
               <button 
                 key={ev.id} 
                 className={`cal__event cal__event--${ev.type}`}
-                style={{ backgroundColor: getStatusColor(ev.status, ev.type) }}
+                style={{ backgroundColor: getEventColor(ev) }}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (onEventClick) onEventClick(ev);
                 }}
-                aria-label={`Ver detalle del evento: ${ev.title}`}
+                aria-label={
+                  `Ver detalle del evento: ${ev.title}` +
+                  (ev.clientName ? ` de ${ev.clientName}` : '') +
+                  (showCoachName && ev.coachName ? `, entrenador ${ev.coachName}` : '')
+                }
               >
                 <span className="cal__event-icon">{getStatusIcon(ev.status, ev.type)}</span>
                 <span className="cal__event-title">{ev.title}</span>
                 {ev.clientName && <span className="cal__event-client">({ev.clientName})</span>}
+                {showCoachName && ev.coachName && (
+                  <span className="cal__event-coach">· {ev.coachName}</span>
+                )}
               </button>
             ))}
             {overflowCount > 0 && (
@@ -150,7 +192,7 @@ export const CalendarGrid = ({
                     <button 
                       key={ev.id} 
                       className={`cal__event cal__event--${ev.type}`}
-                      style={{ backgroundColor: getStatusColor(ev.status, ev.type) }}
+                      style={{ backgroundColor: getEventColor(ev) }}
                       onClick={(e) => {
                         e.stopPropagation();
                         setExpandedDate(null);
@@ -161,6 +203,9 @@ export const CalendarGrid = ({
                       <span className="cal__event-icon">{getStatusIcon(ev.status, ev.type)}</span>
                       <span className="cal__event-title">{ev.title}</span>
                       {ev.clientName && <span className="cal__event-client">({ev.clientName})</span>}
+                      {showCoachName && ev.coachName && (
+                        <span className="cal__event-coach">· {ev.coachName}</span>
+                      )}
                     </button>
                   ))}
                 </div>

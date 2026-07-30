@@ -161,14 +161,61 @@ export const storage = {
     return true;
   },
 
+  // ── ENTRENADORES Y ASIGNACIÓN DE CLIENTES ──
+
+  // Entrenadores (y owners) de la organización, para asignarles clientes.
+  // Solo el owner puede listar /users (ver firestore.rules).
+  getCoaches: async () => {
+    const orgId = sessionService.getOrgId();
+    if (!orgId) return [];
+    if (sessionService.getRole() !== 'owner') return [];
+    const users = await firestoreService.getDocumentsByQuery('users', [
+      { field: 'organizationId', op: '==', value: orgId }
+    ]);
+    return users
+      .filter(u => u.role === 'coach' || u.role === 'owner')
+      .sort((a, b) => (a.fullName || a.email || '').localeCompare(b.fullName || b.email || ''));
+  },
+
+  // Vincula (o desvincula, pasando null) un cliente a un entrenador.
+  assignClientToCoach: async (clientId, coachId) => {
+    if (sessionService.getRole() !== 'owner') {
+      throw new Error('Solo el owner puede asignar entrenadores.');
+    }
+    await firestoreService.updateDocument('clients', String(clientId), {
+      coachId: coachId ? String(coachId) : null,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  },
+
   // CLIENTES
+  // Alcance según rol: el owner ve todos los de la organización; un coach
+  // solo los que tenga asignados; un cliente solo su propia ficha.
   getClients: async () => {
+    const orgId = sessionService.getOrgId();
+    if (!orgId) return [];
+
+    // El coach consulta filtrando por coachId en la propia query, no en
+    // memoria: las reglas de Firestore rechazan una query que no puedan
+    // demostrar que cumple la restricción.
+    const filters = [{ field: 'orgId', op: '==', value: orgId }];
+    if (sessionService.getRole() === 'coach') {
+      filters.push({ field: 'coachId', op: '==', value: sessionService.getUserId() || '__none__' });
+    }
+    return firestoreService.getDocumentsByQuery('clients', filters);
+  },
+
+  // Todos los clientes de la organización, sin filtrar por rol. Solo para
+  // usos internos donde hace falta resolver nombres (p. ej. el calendario).
+  getAllClientsInOrg: async () => {
     const orgId = sessionService.getOrgId();
     if (!orgId) return [];
     return firestoreService.getDocumentsByQuery('clients', [
       { field: 'orgId', op: '==', value: orgId }
     ]);
   },
+
   getClientById: async (id) => {
     return firestoreService.getDocument('clients', String(id));
   },
@@ -177,6 +224,15 @@ export const storage = {
     if (!orgId) throw new Error('No active organization');
 
     let savedClient = { ...client, orgId };
+
+    // Si crea la ficha un coach, se le asigna automáticamente: de lo contrario
+    // quedaría sin coachId y las reglas de Firestore le negarían el acceso a
+    // la ficha que acaba de crear.
+    if (!client.id && savedClient.coachId === undefined) {
+      savedClient.coachId = sessionService.getRole() === 'coach'
+        ? (sessionService.getUserId() || null)
+        : null;
+    }
 
     if (client.id) {
       // Update
@@ -1050,7 +1106,9 @@ export const storage = {
     };
 
     let events = [];
-    const clients = await getCollection('clients');
+    // getClients ya aplica el alcance por rol (owner ve todos, coach solo los
+    // suyos) y consulta filtrando en Firestore, no en memoria.
+    const clients = await storage.getClients();
     // Los clientes se guardan con firstName/lastName; no existe campo "name",
     // así que esto devolvía siempre "Cliente Desconocido".
     const getClientName = (cId) => {
@@ -1060,11 +1118,49 @@ export const storage = {
       return full || 'Cliente Desconocido';
     };
 
+    // ── Alcance por rol ──
+    // owner  -> todos los clientes de la organización
+    // coach  -> solo los clientes que tenga asignados
+    // client -> solo su propia ficha
+    // Se calcula SIEMPRE, también cuando llega un clientId explícito: así un
+    // coach no puede ver la agenda de un cliente que no es suyo pasando su id.
+    const role = sessionService.getRole();
+
+    // "clients" ya viene acotado por rol desde getClients(); aquí solo se
+    // estrecha más si se pide un cliente concreto.
+    let visibles = clients;
+    if (clientId) {
+      visibles = visibles.filter(c => String(c.id) === String(clientId));
+    }
+    const allowedIds = new Set(visibles.map(c => String(c.id)));
+    const isAllowed = (cId) => allowedIds.has(String(cId));
+
+    // Datos del entrenador de cada cliente, para pintar y agrupar en la vista
+    // del owner. Solo el owner puede listar /users (ver firestore.rules), así
+    // que para el resto de roles nos limitamos al id, sin resolver el nombre.
+    let coaches = [];
+    if (role === 'owner') {
+      try {
+        coaches = await firestoreService.getDocumentsByQuery('users', [
+          { field: 'organizationId', op: '==', value: sessionService.getOrgId() }
+        ]);
+      } catch (err) {
+        console.error('No se pudo cargar el listado de entrenadores:', err);
+      }
+    }
+    const getCoachInfo = (cId) => {
+      const c = clients.find(cl => String(cl.id) === String(cId));
+      if (!c || !c.coachId) return { coachId: null, coachName: 'Sin entrenador' };
+      const u = coaches.find(x => String(x.uid || x.id) === String(c.coachId));
+      return {
+        coachId: String(c.coachId),
+        coachName: u ? (u.fullName || u.email || 'Entrenador') : 'Entrenador'
+      };
+    };
+
     // 1. Extraer Workout Assignments
     let workoutAssignments = await getCollection('workout_assignments');
-    if (clientId) {
-      workoutAssignments = workoutAssignments.filter(wa => String(wa.clientId) === String(clientId));
-    }
+    workoutAssignments = workoutAssignments.filter(wa => isAllowed(wa.clientId));
     if (statuses && statuses.length > 0) {
       workoutAssignments = workoutAssignments.filter(wa => statuses.includes(wa.status));
     }
@@ -1079,6 +1175,7 @@ export const storage = {
           title: wa.plannedSnapshot?.name || 'Entrenamiento',
           clientId: wa.clientId,
           clientName: getClientName(wa.clientId),
+          ...getCoachInfo(wa.clientId),
           status: wa.status,
           assignmentId: wa.id
         });
@@ -1087,9 +1184,7 @@ export const storage = {
 
     // 2. Extraer Free Sessions (Desde WorkoutResults)
     let workoutResults = await getCollection('workout_results');
-    if (clientId) {
-      workoutResults = workoutResults.filter(wr => String(wr.clientId) === String(clientId));
-    }
+    workoutResults = workoutResults.filter(wr => isAllowed(wr.clientId));
     const freeSessions = workoutResults.filter(wr => wr.workoutAssignmentId === null);
     freeSessions.forEach(fs => {
       const performedDate = (fs.performedAt || fs.createdAt).split('T')[0];
@@ -1101,6 +1196,7 @@ export const storage = {
           title: fs.freeSessionTitle || 'Sesión Libre',
           clientId: fs.clientId,
           clientName: getClientName(fs.clientId),
+          ...getCoachInfo(fs.clientId),
           status: fs.status,
           resultId: fs.id
         });
@@ -1110,9 +1206,7 @@ export const storage = {
     // 3. Extraer Hitos de Programas (Si se solicita)
     if (includeProgramMilestones) {
       let programAssignments = await getCollection('program_assignments');
-      if (clientId) {
-        programAssignments = programAssignments.filter(pa => String(pa.clientId) === String(clientId));
-      }
+      programAssignments = programAssignments.filter(pa => isAllowed(pa.clientId));
 
       for (const pa of programAssignments) {
         const startDate = pa.scheduledAt.split('T')[0];
@@ -1143,6 +1237,7 @@ export const storage = {
             title: `[INICIO] ${programTitle}`,
             clientId: pa.clientId,
             clientName: getClientName(pa.clientId),
+            ...getCoachInfo(pa.clientId),
             programId: pa.programId,
             programAssignmentId: pa.id
           });
@@ -1156,6 +1251,7 @@ export const storage = {
             title: `[FIN] ${programTitle}`,
             clientId: pa.clientId,
             clientName: getClientName(pa.clientId),
+            ...getCoachInfo(pa.clientId),
             programId: pa.programId,
             programAssignmentId: pa.id
           });

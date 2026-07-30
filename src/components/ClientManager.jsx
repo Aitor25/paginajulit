@@ -4,6 +4,7 @@ import { formatDate, formatDateTime } from '../utils/dateUtils';
 import GlobalCatalogModal from './GlobalCatalogModal';
 import AssessmentTab from './AssessmentTab';
 import { ClientCalendarTab } from './ClientCalendarTab';
+import { useAuth } from '../contexts/AuthProvider';
 import './ClientManager.css';
 
 /* ─── Helpers ─────────────────────────────────────────────── */
@@ -39,7 +40,13 @@ function ClientDetail({
   positions,
   competitiveLevels
 }) {
+  const { userProfile } = useAuth();
+  const isOwner = userProfile?.role === 'owner';
+
   const [client, setClient] = useState(null);
+  const [coaches, setCoaches] = useState([]);
+  const [savingCoach, setSavingCoach] = useState(false);
+  const [coachError, setCoachError] = useState('');
   const [activeTab, setActiveTab] = useState('info');
   const [notes, setNotes] = useState([]);
   const [newNoteText, setNewNoteText] = useState('');
@@ -80,6 +87,28 @@ function ClientDetail({
     }
     loadClientData();
   }, [clientId]);
+
+  // Listado de entrenadores para el selector de asignación. Solo el owner
+  // puede listar /users, así que para el resto de roles queda vacío.
+  useEffect(() => {
+    if (!isOwner) return;
+    storage.getCoaches().then(setCoaches).catch(err => {
+      console.error('Error cargando entrenadores', err);
+    });
+  }, [isOwner]);
+
+  async function handleAssignCoach(coachId) {
+    setCoachError('');
+    setSavingCoach(true);
+    try {
+      await storage.assignClientToCoach(clientId, coachId || null);
+      setClient(prev => prev ? { ...prev, coachId: coachId || null } : prev);
+    } catch (err) {
+      setCoachError(err.message);
+    } finally {
+      setSavingCoach(false);
+    }
+  }
 
   // Cargar analítica cuando cambie ejercicio o periodo
   useEffect(() => {
@@ -203,6 +232,31 @@ function ClientDetail({
             <p className="cm__detail-meta-text">
               {sportName} · {teamName} · <strong>{groupName}</strong>
             </p>
+
+            {/* Asignación de entrenador: solo el owner puede cambiarla */}
+            {isOwner ? (
+              <div className="cm__coach-assign">
+                <label className="cm__coach-assign-label" htmlFor="cm-coach-select">
+                  Entrenador asignado
+                </label>
+                <select
+                  id="cm-coach-select"
+                  className="el__input el__input--select cm__coach-assign-select"
+                  value={client.coachId || ''}
+                  onChange={e => handleAssignCoach(e.target.value)}
+                  disabled={savingCoach}
+                >
+                  <option value="">— Sin asignar —</option>
+                  {coaches.map(c => (
+                    <option key={c.uid || c.id} value={c.uid || c.id}>
+                      {c.fullName || c.email}{c.role === 'owner' ? ' (owner)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {savingCoach && <span className="cm__coach-assign-hint">Guardando…</span>}
+                {coachError && <span className="cm__coach-assign-error">{coachError}</span>}
+              </div>
+            ) : null}
           </div>
         </div>
 

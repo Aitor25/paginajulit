@@ -1,16 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { storage } from '../services/storage';
-import { CalendarGrid } from './CalendarGrid';
+import { CalendarGrid, buildCoachColorMap, SIN_ENTRENADOR_COLOR } from './CalendarGrid';
 import { CalendarWeek } from './CalendarWeek';
 import { RescheduleModal } from './RescheduleModal';
 import WorkoutAssignmentModal from './WorkoutAssignmentModal';
 import AssignmentDetailModal from './AssignmentDetailModal';
+import { useAuth } from '../contexts/AuthProvider';
 
 export default function GlobalCalendar() {
+  const { userProfile } = useAuth();
+  const isOwner = userProfile?.role === 'owner';
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month'); // 'month' | 'week'
   const [selectedClientId, setSelectedClientId] = useState('all');
   const [clients, setClients] = useState([]);
+  const [coaches, setCoaches] = useState([]);
+  const [selectedCoachId, setSelectedCoachId] = useState('all');
   
   const [detailEvent, setDetailEvent] = useState(null);
   const [rescheduleEvent, setRescheduleEvent] = useState(null);
@@ -35,6 +41,10 @@ export default function GlobalCalendar() {
       const allClients = await storage.getClients();
       setClients(allClients);
 
+      if (isOwner) {
+        setCoaches(await storage.getCoaches());
+      }
+
       let statuses = null;
       if (selectedStatus) {
         statuses = [selectedStatus];
@@ -58,7 +68,35 @@ export default function GlobalCalendar() {
 
   useEffect(() => {
     loadData();
-  }, [currentDate, selectedClientId, selectedStatus]);
+  }, [currentDate, selectedClientId, selectedStatus, isOwner]);
+
+  // Color estable por entrenador (solo lo usa la vista del owner)
+  const coachColors = useMemo(
+    () => buildCoachColorMap(coaches.map(c => c.uid || c.id)),
+    [coaches]
+  );
+
+  // Filtro por entrenador, aplicado en cliente sobre los eventos ya cargados
+  const visibleEvents = useMemo(() => {
+    if (!isOwner || selectedCoachId === 'all') return events;
+    if (selectedCoachId === 'none') return events.filter(ev => !ev.coachId);
+    return events.filter(ev => String(ev.coachId) === String(selectedCoachId));
+  }, [events, isOwner, selectedCoachId]);
+
+  // Entrenadores que realmente aparecen este mes, para la leyenda
+  const coachesEnLeyenda = useMemo(() => {
+    if (!isOwner) return [];
+    const presentes = new Map();
+    let haySinAsignar = false;
+    for (const ev of events) {
+      if (ev.coachId) presentes.set(String(ev.coachId), ev.coachName || 'Entrenador');
+      else haySinAsignar = true;
+    }
+    const list = [...presentes.entries()].map(([id, name]) => ({ id, name, color: coachColors[id] || SIN_ENTRENADOR_COLOR }));
+    list.sort((a, b) => a.name.localeCompare(b.name));
+    if (haySinAsignar) list.push({ id: 'none', name: 'Sin entrenador', color: SIN_ENTRENADOR_COLOR });
+    return list;
+  }, [events, isOwner, coachColors]);
 
   const handlePrevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -150,27 +188,64 @@ export default function GlobalCalendar() {
               <option value="missed">Perdido</option>
               <option value="in_progress">En progreso</option>
             </select>
+
+            {/* Filtro por entrenador: solo tiene sentido para el owner */}
+            {isOwner && (
+              <select
+                className="form-control"
+                value={selectedCoachId}
+                onChange={(e) => setSelectedCoachId(e.target.value)}
+                aria-label="Filtrar por entrenador"
+              >
+                <option value="all">Todos los entrenadores</option>
+                {coaches.map(c => (
+                  <option key={c.uid || c.id} value={c.uid || c.id}>
+                    {c.fullName || c.email}
+                  </option>
+                ))}
+                <option value="none">Sin entrenador</option>
+              </select>
+            )}
           </div>
         </div>
+
+        {/* Leyenda de colores por entrenador */}
+        {isOwner && coachesEnLeyenda.length > 0 && (
+          <div className="cal__legend">
+            <span className="cal__legend-label">Entrenador:</span>
+            {coachesEnLeyenda.map(c => (
+              <span key={c.id} className="cal__legend-item">
+                <span className="cal__legend-dot" style={{ backgroundColor: c.color }} />
+                {c.name}
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="card-body">
           {loading ? (
             <div style={{ textAlign: 'center', padding: '40px' }}>Cargando calendario...</div>
           ) : viewMode === 'month' ? (
-            <CalendarGrid 
-              currentDate={currentDate} 
-              events={events} 
+            <CalendarGrid
+              currentDate={currentDate}
+              events={visibleEvents}
               onDateClick={handleDateClick}
               onEventClick={handleEventClick}
               readOnly={false}
+              colorBy={isOwner ? 'coach' : 'status'}
+              coachColors={coachColors}
+              showCoachName={isOwner}
             />
           ) : (
             <CalendarWeek
               currentDateStr={currentDate.toISOString().split('T')[0]}
-              events={events}
+              events={visibleEvents}
               onDateClick={handleDateClick}
               onEventClick={handleEventClick}
               readOnly={false}
+              colorBy={isOwner ? 'coach' : 'status'}
+              coachColors={coachColors}
+              showCoachName={isOwner}
             />
           )}
         </div>

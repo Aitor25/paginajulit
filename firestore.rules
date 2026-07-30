@@ -113,13 +113,31 @@ service cloud.firestore {
     }
 
     match /clients/{clientId} {
-      allow read: if isCoach()
+      // El owner ve todas las fichas de la organización.
+      // Un coach solo las que tenga asignadas (campo coachId).
+      // Un cliente solo la suya.
+      allow read: if isOwner()
+        || (
+          isCoach()
+          && resource.data.coachId == request.auth.uid
+        )
         || (
           isClient()
           && resource.data.linkedUserId == request.auth.uid
         );
 
-      allow create, update, delete: if isCoach();
+      // Solo el owner puede cambiar a qué entrenador pertenece una ficha.
+      // Un coach solo puede crear fichas asignadas a sí mismo.
+      allow create: if isOwner()
+        || (isCoach() && request.resource.data.coachId == request.auth.uid);
+      allow update: if isOwner()
+        || (
+          isCoach()
+          && resource.data.coachId == request.auth.uid
+          && request.resource.data.coachId == resource.data.coachId
+        );
+      allow delete: if isOwner()
+        || (isCoach() && resource.data.coachId == request.auth.uid);
     }
 
     match /programs/{programId} {
