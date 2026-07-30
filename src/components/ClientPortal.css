@@ -54,6 +54,17 @@
   gap: 8px;
   border-bottom: 2px solid var(--gray-200);
   padding-bottom: 2px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.cp__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.cp__tab-btn {
+  flex-shrink: 0;
 }
 
 .cp__tab-btn {
@@ -325,4 +336,116 @@
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .cp__container {
+    padding: 12px;
+    gap: 16px;
+  }
+
+  .cp__header-card {
+    padding: 18px;
+  }
+
+  .cp__header-title {
+    font-size: 1.2rem;
+  }
+
+  /* El registro de sesión pasa a pantalla completa */
+  .cp__logger-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .cp__logger-header,
+  .cp__logger-footer {
+    padding: 14px 16px;
+  }
+
+  .cp__logger-body {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  /* La tabla de series scrollea dentro de su ficha, no en la página */
+  .cp__logger-exercise-box {
+    padding: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cp__logger-sets-table {
+    min-width: 320px;
+  }
+
+  .cp__logger-sets-table th,
+  .cp__logger-sets-table td {
+    padding: 6px 4px;
+  }
+
+  .cp__logger-input {
+    width: 52px;
+    height: 32px;
+    font-size: 16px; /* Evita el zoom automático de iOS */
+  }
+
+  .cp__logger-footer {
+    flex-direction: column-reverse;
+    gap: 10px;
+    align-items: stretch;
+  }
+}
+
+/* ─── Piezas que se usaban sin definir ───────────────────── */
+.cp__card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-xs);
+}
+
+.cp__logger-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gray-400);
+  font-family: inherit;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.cp__logger-close-btn:hover {
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+
+/* Faltaban las variantes de estos dos estados */
+.cp__agenda-card--missed {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.cp__agenda-card--cancelled {
+  border-color: var(--gray-200);
+  background: var(--gray-50);
+  opacity: 0.75;
+}
+
+@media (max-width: 640px) {
+  .cp__card {
+    padding: 12px;
+  }
 }

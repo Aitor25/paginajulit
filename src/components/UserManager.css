@@ -1,0 +1,170 @@
+/* ─── Gestión de Usuarios ────────────────────────────────── */
+/* Estas clases se usaban en UserManager.jsx sin estar definidas
+   en ningún sitio, por eso la tabla salía sin estilos. */
+
+.section-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--text-color);
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* ─── Variantes pequeñas de los controles globales ───────── */
+.el__input--small {
+  width: auto;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.el__btn--small {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8125rem;
+}
+
+/* ─── Tabla ──────────────────────────────────────────────── */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+.data-table {
+  width: 100%;
+  min-width: 900px; /* Por debajo de esto la tabla scrollea en horizontal */
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-elevated);
+  padding: 0.875rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-500);
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-700);
+  vertical-align: middle;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+/* El email puede ser largo: que parta en vez de estirar la tabla */
+.data-table td:nth-child(2) {
+  overflow-wrap: anywhere;
+}
+
+/* ─── Badges de rol y estado ─────────────────────────────── */
+/* .badge base vive en ExerciseLibrary.css; aquí solo las variantes
+   que usa esta vista. */
+.badge--owner   { background: rgba(217, 119, 6, 0.14);  color: #B45309; }
+.badge--coach   { background: rgba(79, 70, 229, 0.14);  color: var(--accent); }
+.badge--client  { background: rgba(107, 114, 128, 0.14); color: var(--gray-600); }
+.badge--success { background: rgba(16, 185, 129, 0.14); color: #047857; }
+.badge--warning { background: rgba(245, 158, 11, 0.16); color: #B45309; }
+
+/* ─── Alertas ────────────────────────────────────────────── */
+.alert.error {
+  background: var(--red-soft);
+  color: #B91C1C;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.alert.success {
+  background: var(--green-soft);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .section-container {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .section-container {
+    padding: 1rem;
+  }
+
+  .section-header {
+    align-items: stretch;
+  }
+
+  .section-title {
+    font-size: 1.4rem;
+  }
+
+  .section-actions {
+    width: 100%;
+  }
+
+  .section-actions .el__input--small {
+    flex: 1;
+    font-size: 16px; /* Evita el zoom automático de iOS */
+  }
+
+  /* La tabla no se apila: sigue scrolleando en horizontal dentro
+     de su caja, que es más legible que 6 columnas apretadas. */
+  .data-table {
+    min-width: 760px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.7rem 0.75rem;
+  }
+}

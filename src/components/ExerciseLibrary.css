@@ -98,7 +98,7 @@
 
 .el__search-wrap {
   flex: 1;
-  min-width: 280px;
+  min-width: min(280px, 100%);
   position: relative;
 }
 
@@ -138,7 +138,8 @@
 
 .el__select-wrap {
   position: relative;
-  min-width: 150px;
+  flex: 1 1 150px;
+  min-width: 0;
 }
 
 .el__select {
@@ -172,7 +173,8 @@
 
 .el__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  /* min() evita que la columna de 320px desborde pantallas más estrechas */
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 1.5rem;
   margin-top: 1.5rem;
 }
@@ -449,4 +451,72 @@
 }
 .el__btn-clear-filters:hover {
   background: rgba(239, 68, 68, 0.2);
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .el {
+    padding: 1.5rem;
+  }
+
+  .el__title {
+    font-size: 2rem;
+  }
+
+  .el__header {
+    margin-bottom: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .el {
+    padding: 1rem;
+  }
+
+  .el__title {
+    font-size: 1.6rem;
+  }
+
+  .el__subtitle {
+    font-size: 0.95rem;
+  }
+
+  .el__header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  /* Los botones de cabecera pasan a ancho completo */
+  .el__header-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+
+  .el__header-actions .el__btn {
+    width: 100%;
+  }
+
+  .el__grid {
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  /* Dos filtros por fila en vez de uno larguísimo */
+  .el__select-wrap {
+    flex: 1 1 calc(50% - 0.375rem);
+  }
+
+  .el__search-input {
+    font-size: 16px; /* Evita el zoom automático de iOS */
+  }
+
+  .el__modal-overlay {
+    padding: 1rem;
+  }
+
+  .el__empty {
+    padding: 2.5rem 1rem;
+  }
 }

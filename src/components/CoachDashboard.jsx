@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { storage } from '../services/storage';
-import { formatDate, isPastGracePeriod, isFuture } from '../utils/dateUtils';
+import { formatDate } from '../utils/dateUtils';
 
 export default function CoachDashboard() {
   const [loading, setLoading] = useState(true);
@@ -74,9 +74,9 @@ export default function CoachDashboard() {
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Dashboard de Cumplimiento</h2>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button 
             className={`el__btn ${selectedPeriod === 7 ? 'el__btn--primary' : 'el__btn--ghost'}`}
             onClick={() => setSelectedPeriod(7)}
@@ -124,7 +124,7 @@ export default function CoachDashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '24px' }}>
         
         {/* Clientes Críticos */}
         <div className="el__card" style={{ padding: '24px' }}>

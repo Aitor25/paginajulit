@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { storage } from '../services/storage';
 import { firestoreService } from '../services/firestoreService';
-import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthProvider';
+import './UserManager.css';
 
 export default function UserManager() {
   const { userProfile } = useAuth();

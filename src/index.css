@@ -27,6 +27,12 @@
 
   --green:       #10B981;
   --green-soft:  #ECFDF5;
+  --red:         #EF4444;
+  --red-soft:    #FEF2F2;
+  --yellow:      #F59E0B;
+  --yellow-soft: #FFFBEB;
+  --purple:      #8B5CF6;
+  --gold:        #D97706;
 
   /* Naming para el nuevo tema moderno */
   --bg-color:    #F9FAFB;
@@ -34,6 +40,11 @@
   --bg-elevated: #F3F4F6;
   --text-color:  #111827;
   --border-color:#E5E7EB;
+
+  /* Alias usados por componentes con estilos en línea */
+  --bg-card:        var(--bg-elevated);
+  --border:         var(--border-color);
+  --text-secondary: var(--gray-500);
 
   --radius-sm:   8px;
   --radius-md:   12px;
@@ -45,6 +56,7 @@
   --shadow-lg:   0 20px 25px -5px rgba(0,0,0,0.15);
 
   --nav-h:       72px;
+  --banner-h:    34px;
   --transition:  0.22s ease;
 }
 
@@ -59,12 +71,27 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  /* Red de seguridad: ningún elemento debe provocar scroll lateral */
+  overflow-x: hidden;
 }
 
 #root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Los medios nunca desbordan su contenedor */
+img, svg, video, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Las tablas anchas hacen scroll dentro de su caja, no en la página */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* =========================================
@@ -273,6 +300,388 @@ textarea.el__input {
   cursor: not-allowed;
 }
 
+/* =========================================
+   BOTONES GENÉRICOS (.btn)
+   Se usaban en App, GlobalCalendar, ClientCalendarTab e InvitePage
+   sin estar definidos en ninguna hoja de estilos.
+   ========================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn.primary,
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--white);
+}
+
+.btn.primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--gray-600);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--gray-50);
+  color: var(--gray-900);
+}
+
+.btn.secondary,
+.btn-secondary {
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  color: var(--gray-700);
+}
+
+.btn.secondary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled) {
+  background: var(--gray-50);
+  border-color: var(--gray-300);
+  color: var(--gray-900);
+}
+
+.btn.block {
+  width: 100%;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8125rem;
+}
+
+.invite-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+/* =========================================
+   LAYOUT DE VISTA Y TARJETAS (.view-*, .card)
+   También se usaban sin definir: por eso el Calendario Global
+   salía pegado al borde y sin tarjeta.
+   ========================================= */
+.view-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.view-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.25rem 0;
+  color: var(--text-color);
+}
+
+.view-subtitle {
+  font-size: 0.95rem;
+  color: var(--gray-500);
+  margin: 0;
+}
+
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+}
+
+.card-body {
+  padding: 1.25rem;
+}
+
+.form-control {
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+@media (max-width: 860px) {
+  .view-container {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .view-container {
+    padding: 1rem;
+  }
+
+  .view-title {
+    font-size: 1.4rem;
+  }
+
+  .card-header,
+  .card-body {
+    padding: 0.875rem;
+  }
+
+  .form-control {
+    font-size: 16px; /* Evita el zoom automático de iOS */
+    width: 100%;
+  }
+}
+
+/* =========================================
+   FORMULARIOS: PIEZAS QUE FALTABAN
+   Todas estas clases se usaban en el JSX sin existir en ningún CSS.
+   ========================================= */
+
+/* Agrupador de campo (variante de .el__field usada en ClientPortal) */
+.el__form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Texto de ayuda bajo un campo */
+.el__helper-text {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  line-height: 1.4;
+}
+
+/* Error de validación de un campo concreto */
+.el__field-error {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #B91C1C;
+  margin: 0;
+}
+
+/* Error general de un formulario o modal */
+.el__error-msg {
+  padding: 0.75rem 1rem;
+  background: var(--red-soft);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  color: #B91C1C;
+  font-size: 0.875rem;
+}
+
+/* Textarea */
+.el__input--textarea {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* Selector de archivo */
+.el__input--file {
+  padding: 0.5rem;
+  cursor: pointer;
+}
+
+.el__input--file::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--gray-700);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.el__input--file::file-selector-button:hover {
+  background: var(--gray-100);
+}
+
+/* Previsualización de imagen subida */
+.el__img-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.el__img-preview {
+  max-width: 180px;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+}
+
+.el__img-preview-remove {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 999px;
+  background: var(--red-soft);
+  color: #B91C1C;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.el__img-preview-remove:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Botón secundario (faltaba junto a --primary y --ghost) */
+.el__btn--secondary {
+  background: var(--bg-elevated);
+  color: var(--gray-700);
+  border: 1px solid var(--border-color);
+}
+
+.el__btn--secondary:hover {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+/* Botón de filtro (toggle) */
+.el__btn-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--gray-700);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.el__btn-filter:hover {
+  border-color: var(--gray-300);
+  background: var(--gray-50);
+}
+
+/* Estado vacío / cargando */
+.el__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 160px;
+  padding: 2rem 1rem;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-color);
+  color: var(--gray-500);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Tabla genérica dentro de vistas */
+.el__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.el__table th {
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-500);
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.el__table td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-700);
+}
+
+.el__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Pantalla de carga inicial (se veía en blanco: el div .spinner
+   no tenía forma propia) */
+.app-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg-color);
+}
+
+.app-loader .spinner {
+  width: 38px;
+  height: 38px;
+  border: 3px solid var(--gray-200);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Generic Alerts */
 .gc__alert {
   padding: 1rem;
@@ -293,4 +702,173 @@ textarea.el__input {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(15px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* =========================================
+   RESPONSIVE GLOBAL
+   ========================================= */
+
+/* Tablet */
+@media (max-width: 860px) {
+  .el__modal-overlay {
+    padding: 1rem;
+  }
+}
+
+/* Móvil: los modales ocupan casi toda la pantalla y los botones se apilan */
+@media (max-width: 640px) {
+  :root {
+    /* El banner de rol pasa a dos líneas al envolverse */
+    --banner-h: 58px;
+  }
+
+  .el__modal-overlay {
+    padding: 0.75rem;
+    align-items: flex-end; /* Hoja inferior, más cómoda con el pulgar */
+  }
+
+  .el__modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .el__modal-header,
+  .el__modal-form,
+  .el__modal-body,
+  .el__modal-actions,
+  .el__modal-footer {
+    padding: 1rem;
+  }
+
+  .el__modal-form {
+    max-height: none;
+  }
+
+  .el__modal-title {
+    font-size: 1.05rem;
+  }
+
+  /* Botones a ancho completo y en orden inverso: la acción principal arriba */
+  .el__modal-actions,
+  .el__modal-footer {
+    flex-direction: column-reverse;
+    gap: 0.6rem;
+  }
+
+  .el__modal-actions .el__btn,
+  .el__modal-footer .el__btn {
+    width: 100%;
+  }
+
+  /* Evita el zoom automático de iOS al enfocar un campo (<16px lo dispara) */
+  .el__input {
+    font-size: 16px;
+  }
+
+  .el__field--row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+}
+
+/* =========================================
+   BOTONES DE ACCIÓN DE CATÁLOGO / LISTAS
+   Otro grupo de clases que se usaba sin definir.
+   ========================================= */
+
+/* Botón circular pequeño de acción en línea (editar, borrar, confirmar) */
+.el__cat-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: var(--bg-surface);
+  color: var(--gray-600);
+  font-family: inherit;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.el__cat-action-btn:hover {
+  background: var(--gray-50);
+  border-color: var(--gray-300);
+  color: var(--gray-900);
+}
+
+.el__cat-action-btn--cancel:hover {
+  background: var(--red-soft);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #B91C1C;
+}
+
+/* Disparador de edición/despliegue en una fila */
+.el__cat-edit-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.el__cat-edit-trigger:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+/* Etiqueta de sección dentro de un modal de catálogo */
+.el__cat-section-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray-500);
+  margin: 0;
+}
+
+/* Botón de acción dentro de una tarjeta */
+.el__card-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--gray-700);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.el__card-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Columna de los constructores de rutinas/programas */
+.wb__col {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0; /* Permite encoger dentro de un grid/flex */
 }

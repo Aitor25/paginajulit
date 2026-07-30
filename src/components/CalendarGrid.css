@@ -417,3 +417,30 @@
     cursor: pointer;
   }
 }
+
+/* ─── Cabecera de navegación del calendario ──────────────── */
+.cal__nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cal__month-label {
+  margin: 0 15px;
+  font-size: 1.25rem;
+  min-width: 180px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  /* El mes pasa a su propia línea: con min-width 180px se salía
+     de la pantalla junto a los botones de navegación. */
+  .cal__month-label {
+    margin: 0;
+    min-width: 100%;
+    text-align: left;
+    font-size: 1.05rem;
+    order: -1; /* Encima de los botones */
+  }
+}

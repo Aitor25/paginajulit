@@ -11,7 +11,9 @@ export const Button = forwardRef(({
   type = 'button',
   ...props 
 }, ref) => {
-  const baseClass = variant === 'google' ? 'btn-google' : 'btn-primary';
+  // Clases propias de las páginas de auth: .btn-primary genérico vive en
+  // index.css y lo usan los calendarios, no debe colisionar con este.
+  const baseClass = variant === 'google' ? 'auth-btn auth-btn--google' : 'auth-btn auth-btn--primary';
   const finalDisabled = loading || disabled;
 
   return (
