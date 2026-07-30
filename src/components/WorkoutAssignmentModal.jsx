@@ -101,9 +101,9 @@ export default function WorkoutAssignmentModal({
     }
 
     const payload = {
-      workoutId: Number(selectedWorkoutId),
-      clientId: targetType === 'client' ? Number(targetId) : null,
-      groupId: targetType === 'group' ? Number(targetId) : null,
+      workoutId: String(selectedWorkoutId),
+      clientId: targetType === 'client' ? String(targetId) : null,
+      groupId: targetType === 'group' ? String(targetId) : null,
       // La hora de las 10:00 se añadía automáticamente, pero el usuario pidió "Mantén scheduledAt como fecha local YYYY-MM-DD. No añadas automáticamente una hora ficticia de las 10:00."
       // Storage saveWorkoutAssignment hace el snapshot. Dependiendo de cómo lo maneje storage, enviaremos la fecha como está o como ISO.
       // Modificaremos saveWorkoutAssignment para aceptar YYYY-MM-DD o ISO y normalizarlo. Por ahora, pasamos la fecha que será YYYY-MM-DD

@@ -146,7 +146,7 @@ export default function AssessmentTab({ clientId }) {
     const updated = {
       ...anamnesis,
       ...anamnesisForm,
-      clientId: Number(clientId)
+      clientId: String(clientId)
     };
 
     const saved = await storage.saveAnamnesis(updated);
@@ -222,7 +222,7 @@ export default function AssessmentTab({ clientId }) {
           unit: ''
         };
       }
-      const def = testDefinitions.find(d => d.id === Number(val));
+      const def = testDefinitions.find(d => String(d.id) === String(val));
       return {
         ...f,
         testDefinitionId: val,
@@ -255,7 +255,7 @@ export default function AssessmentTab({ clientId }) {
         name: newDefName,
         description: form.newDescription.trim(),
         protocol: form.newProtocol.trim(),
-        categoryId: Number(form.newCategoryId),
+        categoryId: String(form.newCategoryId),
         defaultUnit: form.newDefaultUnit.trim(),
         valueType: form.newValueType,
         comparisonDirection: form.newComparisonDirection
@@ -268,8 +268,8 @@ export default function AssessmentTab({ clientId }) {
       const dbDefs = await storage.getTestDefinitions();
       setTestDefinitions(dbDefs);
     } else {
-      defId = Number(form.testDefinitionId);
-      const def = testDefinitions.find(d => d.id === defId);
+      defId = String(form.testDefinitionId);
+      const def = testDefinitions.find(d => String(d.id) === defId);
       if (!def) return;
       valueType = def.valueType;
     }
@@ -302,7 +302,7 @@ export default function AssessmentTab({ clientId }) {
     const performedISO = form.performedAt ? new Date(form.performedAt).toISOString() : new Date().toISOString();
 
     const resultData = {
-      clientId: Number(clientId),
+      clientId: String(clientId),
       testDefinitionId: defId,
       performedAt: performedISO,
       numericValue: numericVal,
@@ -355,8 +355,8 @@ export default function AssessmentTab({ clientId }) {
 
     if (selectedCategoryFilter !== 'Todas') {
       result = result.filter(r => {
-        const def = testDefinitions.find(d => d.id === r.testDefinitionId);
-        return def && def.categoryId === Number(selectedCategoryFilter);
+        const def = testDefinitions.find(d => String(d.id) === String(r.testDefinitionId));
+        return def && String(def.categoryId) === String(selectedCategoryFilter);
       });
     }
 
@@ -703,7 +703,7 @@ export default function AssessmentTab({ clientId }) {
                   <input
                     type="text"
                     className="el__input"
-                    value={testDefinitions.find(d => d.id === Number(form.testDefinitionId))?.name || ''}
+                    value={testDefinitions.find(d => String(d.id) === String(form.testDefinitionId))?.name || ''}
                     disabled
                   />
                 </div>
@@ -821,7 +821,7 @@ export default function AssessmentTab({ clientId }) {
               <div className="el__field">
                 <label htmlFor="form-val" className="el__label">Resultado de la medición *</label>
                 {(() => {
-                  const def = testDefinitions.find(d => d.id === Number(form.testDefinitionId)) || (form.testDefinitionId === 'new' ? {
+                  const def = testDefinitions.find(d => String(d.id) === String(form.testDefinitionId)) || (form.testDefinitionId === 'new' ? {
                     valueType: form.newValueType
                   } : null);
 

@@ -84,7 +84,7 @@ function WorkoutLoggerModal({
         const initialBlocks = snapBlocks.map(b => ({
           blockId: b.id,
           exercises: (b.exercises || []).map(e => ({
-            exerciseId: Number(e.exerciseId),
+            exerciseId: String(e.exerciseId),
             exerciseName: e.exerciseName || 'Ejercicio',
             sets: Array.from({ length: Number(e.plannedSets) || 1 }, (_, setIdx) => ({
               setId: `${b.id}-${e.exerciseId}-${setIdx + 1}`,
@@ -652,7 +652,7 @@ export default function ClientPortal() {
       return;
     }
 
-    const def = testDefs.find(d => d.id === Number(selectedTestDefId));
+    const def = testDefs.find(d => String(d.id) === String(selectedTestDefId));
     if (!def) return;
 
     // Estructurar el valor según el tipo

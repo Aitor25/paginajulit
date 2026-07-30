@@ -115,7 +115,7 @@ export default function ProgramManager() {
 
     // 2. Etiqueta
     if (selectedTagFilter !== 'Todas') {
-      result = result.filter(p => Array.isArray(p.tagIds) && p.tagIds.includes(Number(selectedTagFilter)));
+      result = result.filter(p => Array.isArray(p.tagIds) && p.tagIds.some(t => String(t) === String(selectedTagFilter)));
     }
 
     // 3. Buscador

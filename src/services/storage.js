@@ -256,7 +256,7 @@ export const storage = {
   // ANAMNESIS
   getAnamnesisByClientId: async (clientId) => {
     const list = await getCollection('anamnesis');
-    return list.filter(a => a.clientId === Number(clientId));
+    return list.filter(a => String(a.clientId) === String(clientId));
   },
   saveAnamnesis: async (anamnesis) => {
     const orgId = sessionService.getOrgId();
@@ -286,15 +286,15 @@ export const storage = {
   getTestResults: async (clientId = null) => {
     const list = await getCollection('test_results');
     if (clientId) {
-      return list.filter(r => r.clientId === Number(clientId));
+      return list.filter(r => String(r.clientId) === String(clientId));
     }
     return list;
   },
   getTestResultsByDefinition: async (clientId, testDefinitionId) => {
     const list = await getCollection('test_results');
     return list.filter(r =>
-      r.clientId === Number(clientId) &&
-      r.testDefinitionId === Number(testDefinitionId)
+      String(r.clientId) === String(clientId) &&
+      String(r.testDefinitionId) === String(testDefinitionId)
     );
   },
   saveTestResult: async (result) => {
@@ -402,7 +402,7 @@ export const storage = {
             rounds: b.rounds,
             restBetweenRoundsSeconds: b.restBetweenRoundsSeconds,
             exercises: (b.exercises || []).map(e => {
-              const exName = exercises.find(ex => ex.id === Number(e.exerciseId) || ex.id === String(e.exerciseId))?.name || 'Ejercicio';
+              const exName = exercises.find(ex => String(ex.id) === String(e.exerciseId))?.name || 'Ejercicio';
               return {
                 ...e,
                 exerciseName: exName
@@ -453,7 +453,7 @@ export const storage = {
 
   getProgramById: async (id) => {
     const programs = await getCollection('programs');
-    const p = programs.find(item => item.id === Number(id));
+    const p = programs.find(item => String(item.id) === String(id));
     if (!p) return null;
 
     const weeks = (await getCollection('program_weeks')).filter(w => w.programId === p.id);
@@ -526,7 +526,7 @@ export const storage = {
   getProgramAssignments: async (clientId = null) => {
     const list = await getCollection('program_assignments');
     if (clientId) {
-      return list.filter(a => a.clientId === Number(clientId));
+      return list.filter(a => String(a.clientId) === String(clientId));
     }
     return list;
   },
@@ -571,7 +571,7 @@ export const storage = {
   getPrivateNotes: async (clientId = null) => {
     const list = await getCollection('private_notes');
     if (clientId) {
-      return list.filter(n => n.clientId === Number(clientId));
+      return list.filter(n => String(n.clientId) === String(clientId));
     }
     return list;
   },
@@ -764,13 +764,13 @@ export const storage = {
     const allResults = await getCollection('test_results');
     const defs = await getCollection('test_definitions');
 
-    const testDef = defs.find(d => d.id === Number(testDefinitionId));
+    const testDef = defs.find(d => String(d.id) === String(testDefinitionId));
     if (!testDef) throw new Error("Definición de test no encontrada.");
 
     // Filtrar cliente y test
     let clientResults = allResults.filter(r =>
-      Number(r.clientId) === Number(clientId) &&
-      Number(r.testDefinitionId) === Number(testDefinitionId)
+      String(r.clientId) === String(clientId) &&
+      String(r.testDefinitionId) === String(testDefinitionId)
     );
 
     // Ordenar cronológicamente (ascendente). Determinismo asegurado: Date -> createdAt -> id
@@ -783,7 +783,7 @@ export const storage = {
       const createdB = new Date(b.createdAt).getTime();
       if (createdA !== createdB) return createdA - createdB;
 
-      return a.id - b.id;
+      return String(a.id).localeCompare(String(b.id));
     });
 
     // Formatear para UI
@@ -857,15 +857,15 @@ export const storage = {
   },
 
   getExerciseAnalytics: async (clientId, exerciseId, periodDays = null) => {
-    const results = (await getCollection('workout_results')).filter(r => r.clientId === Number(clientId) && (r.status === 'completed' || r.status === 'submitted'));
+    const results = (await getCollection('workout_results')).filter(r => String(r.clientId) === String(clientId) && (r.status === 'completed' || r.status === 'submitted'));
     const exercises = await getCollection('exercises');
-    let exerciseDef = exercises.find(e => e.id === Number(exerciseId));
+    let exerciseDef = exercises.find(e => String(e.id) === String(exerciseId));
 
     // Si no está en catálogo, buscar en snapshots
     if (!exerciseDef) {
       for (const res of results) {
         if (res.loggedBlocks) {
-          const match = res.loggedBlocks.find(b => b.exerciseId === Number(exerciseId));
+          const match = res.loggedBlocks.find(b => String(b.exerciseId) === String(exerciseId));
           if (match && match.exerciseSnapshot) {
             exerciseDef = match.exerciseSnapshot;
             break;
@@ -884,7 +884,7 @@ export const storage = {
     for (const res of results) {
       if (!res.loggedBlocks) continue;
 
-      const blocksForExercise = res.loggedBlocks.filter(b => b.exerciseId === Number(exerciseId));
+      const blocksForExercise = res.loggedBlocks.filter(b => String(b.exerciseId) === String(exerciseId));
       if (blocksForExercise.length === 0) continue;
 
       let sessionDate = res.performedAt || res.createdAt;
@@ -1009,7 +1009,7 @@ export const storage = {
 
   getClientPersonalRecords: async (clientId) => {
     // Get all completed workouts
-    const results = (await getCollection('workout_results')).filter(r => r.clientId === Number(clientId) && (r.status === 'completed' || r.status === 'submitted'));
+    const results = (await getCollection('workout_results')).filter(r => String(r.clientId) === String(clientId) && (r.status === 'completed' || r.status === 'submitted'));
     const exercises = await getCollection('exercises');
 
     const executedExerciseIds = new Set();
@@ -1057,7 +1057,7 @@ export const storage = {
     // 1. Extraer Workout Assignments
     let workoutAssignments = await getCollection('workout_assignments');
     if (clientId) {
-      workoutAssignments = workoutAssignments.filter(wa => wa.clientId === Number(clientId));
+      workoutAssignments = workoutAssignments.filter(wa => String(wa.clientId) === String(clientId));
     }
     if (statuses && statuses.length > 0) {
       workoutAssignments = workoutAssignments.filter(wa => statuses.includes(wa.status));
@@ -1082,7 +1082,7 @@ export const storage = {
     // 2. Extraer Free Sessions (Desde WorkoutResults)
     let workoutResults = await getCollection('workout_results');
     if (clientId) {
-      workoutResults = workoutResults.filter(wr => wr.clientId === Number(clientId));
+      workoutResults = workoutResults.filter(wr => String(wr.clientId) === String(clientId));
     }
     const freeSessions = workoutResults.filter(wr => wr.workoutAssignmentId === null);
     freeSessions.forEach(fs => {
@@ -1105,7 +1105,7 @@ export const storage = {
     if (includeProgramMilestones) {
       let programAssignments = await getCollection('program_assignments');
       if (clientId) {
-        programAssignments = programAssignments.filter(pa => pa.clientId === Number(clientId));
+        programAssignments = programAssignments.filter(pa => String(pa.clientId) === String(clientId));
       }
 
       for (const pa of programAssignments) {

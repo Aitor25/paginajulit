@@ -787,7 +787,7 @@ export default function ClientManager() {
     if (selectedGroupFilter !== 'Todos') {
       result = result.filter(c => {
         if (selectedGroupFilter === 'none') return c.groupId === null;
-        return c.groupId === Number(selectedGroupFilter);
+        return String(c.groupId) === String(selectedGroupFilter);
       });
     }
 
@@ -811,7 +811,7 @@ export default function ClientManager() {
     } else if (sortOrder === 'name-desc') {
       sorted.sort((a, b) => `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`));
     } else if (sortOrder === 'newest') {
-      sorted.sort((a, b) => b.id - a.id);
+      sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     }
 
     return sorted;
@@ -888,12 +888,12 @@ export default function ClientManager() {
       email: form.email.trim(),
       height: form.height ? Number(form.height) : null,
       weight: form.weight ? Number(form.weight) : null,
-      sportId: form.sportId ? Number(form.sportId) : null,
-      teamId: form.teamId ? Number(form.teamId) : null,
-      categoryId: form.categoryId ? Number(form.categoryId) : null,
-      groupId: form.groupId ? Number(form.groupId) : null,
-      positionId: form.positionId ? Number(form.positionId) : null,
-      competitiveLevelId: form.competitiveLevelId ? Number(form.competitiveLevelId) : null,
+      sportId: form.sportId ? String(form.sportId) : null,
+      teamId: form.teamId ? String(form.teamId) : null,
+      categoryId: form.categoryId ? String(form.categoryId) : null,
+      groupId: form.groupId ? String(form.groupId) : null,
+      positionId: form.positionId ? String(form.positionId) : null,
+      competitiveLevelId: form.competitiveLevelId ? String(form.competitiveLevelId) : null,
       image: form.image,
       status: form.status,
       generalNotes: form.generalNotes.trim()

@@ -67,7 +67,7 @@ export default function CoachDashboard() {
   if (!activeMetrics) return null;
 
   const getClientName = (cId) => {
-    const c = clients.find(cl => cl.id === Number(cId));
+    const c = clients.find(cl => String(cl.id) === String(cId));
     return c ? `${c.firstName} ${c.lastName}` : `Deportista #${cId}`;
   };
 

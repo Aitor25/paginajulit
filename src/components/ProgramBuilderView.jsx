@@ -183,7 +183,7 @@ export default function ProgramBuilderView({
             return {
               ...d,
               restDay: false,
-              workoutId: Number(workoutId),
+              workoutId: String(workoutId),
               workoutVersion: 1
             };
           }
@@ -399,7 +399,7 @@ export default function ProgramBuilderView({
   const filteredWorkouts = useMemo(() => {
     let result = workouts;
     if (selectedTagFilter !== 'Todas') {
-      result = result.filter(w => w.tagIds?.includes(Number(selectedTagFilter)));
+      result = result.filter(w => w.tagIds?.some(t => String(t) === String(selectedTagFilter)));
     }
     if (search.trim()) {
       const query = stripAccents(search);

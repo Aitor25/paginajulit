@@ -83,7 +83,7 @@ export default function ExerciseFormModal({
 
   // Filtrar subcategorías según la categoría seleccionada
   const filteredSubcategories = subcategories.filter(
-    s => s.categoryId === Number(form.categoryId)
+    s => String(s.categoryId) === String(form.categoryId)
   );
 
   // Auto-seleccionar primera subcategoría si cambia la categoría y la actual no pertenece
@@ -195,11 +195,11 @@ export default function ExerciseFormModal({
 
     const exerciseData = {
       name: trimmedName,
-      categoryId: form.categoryId ? Number(form.categoryId) : null,
-      subcategoryId: form.subcategoryId ? Number(form.subcategoryId) : null,
-      materialIds: form.materialIds.map(Number),
-      tagIds: form.tagIds.map(Number),
-      exerciseTypeId: form.exerciseTypeId ? Number(form.exerciseTypeId) : null,
+      categoryId: form.categoryId ? String(form.categoryId) : null,
+      subcategoryId: form.subcategoryId ? String(form.subcategoryId) : null,
+      materialIds: form.materialIds.map(String),
+      tagIds: form.tagIds.map(String),
+      exerciseTypeId: form.exerciseTypeId ? String(form.exerciseTypeId) : null,
       description: form.description.trim(),
       technicalInstructions: form.technicalInstructions.trim(),
       musculos: muscleList,

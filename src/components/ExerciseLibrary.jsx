@@ -225,12 +225,12 @@ export default function ExerciseLibrary() {
 
     // 2. Filtro Categoría
     if (selectedCatFilter !== 'Todas') {
-      result = result.filter(ex => ex.categoryId === Number(selectedCatFilter));
+      result = result.filter(ex => String(ex.categoryId) === String(selectedCatFilter));
     }
 
     // 3. Filtro Subcategoría
     if (selectedSubcatFilter !== 'Todas') {
-      result = result.filter(ex => ex.subcategoryId === Number(selectedSubcatFilter));
+      result = result.filter(ex => String(ex.subcategoryId) === String(selectedSubcatFilter));
     }
 
     // 4. Filtro Músculos
@@ -243,14 +243,14 @@ export default function ExerciseLibrary() {
     // 5. Filtro Material
     if (selectedMaterialFilter !== 'Todos') {
       result = result.filter(ex => 
-        Array.isArray(ex.materialIds) && ex.materialIds.includes(Number(selectedMaterialFilter))
+        Array.isArray(ex.materialIds) && ex.materialIds.some(m => String(m) === String(selectedMaterialFilter))
       );
     }
 
     // 6. Filtro Tags
     if (selectedTagFilter !== 'Todas') {
       result = result.filter(ex => 
-        Array.isArray(ex.tagIds) && ex.tagIds.includes(Number(selectedTagFilter))
+        Array.isArray(ex.tagIds) && ex.tagIds.some(t => String(t) === String(selectedTagFilter))
       );
     }
 
@@ -406,7 +406,7 @@ export default function ExerciseLibrary() {
               <select className="el__select" value={selectedSubcatFilter} onChange={(e) => setSelectedSubcatFilter(e.target.value)}>
                 <option value="Todas">Subcategoría: Todas</option>
                 {subcategories
-                  .filter(s => selectedCatFilter === 'Todas' || s.categoryId === Number(selectedCatFilter))
+                  .filter(s => selectedCatFilter === 'Todas' || String(s.categoryId) === String(selectedCatFilter))
                   .map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))

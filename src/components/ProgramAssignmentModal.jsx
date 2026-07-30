@@ -73,25 +73,25 @@ export default function ProgramAssignmentModal({
         setErrorMsg('Selecciona un cliente.');
         return;
       }
-      targetClientIds = [Number(selectedClientId)];
+      targetClientIds = [String(selectedClientId)];
     } else if (assignmentType === 'multiple') {
       if (selectedClientIds.length === 0) {
         setErrorMsg('Selecciona al menos un cliente de la lista.');
         return;
       }
-      targetClientIds = selectedClientIds.map(Number);
+      targetClientIds = selectedClientIds.map(String);
     } else if (assignmentType === 'group') {
       if (!selectedGroupId) {
         setErrorMsg('Selecciona un grupo.');
         return;
       }
       // Obtener clientes del grupo
-      const groupClients = clients.filter(c => c.groupId === Number(selectedGroupId));
+      const groupClients = clients.filter(c => String(c.groupId) === String(selectedGroupId));
       if (groupClients.length === 0) {
         setErrorMsg('El grupo seleccionado no tiene deportistas activos.');
         return;
       }
-      targetClientIds = groupClients.map(c => c.id);
+      targetClientIds = groupClients.map(c => String(c.id));
     }
 
     // 1. CHEQUEAR SOLAPAMIENTOS EN CLIENTE
@@ -99,9 +99,9 @@ export default function ProgramAssignmentModal({
     const activeConflicts = [];
 
     targetClientIds.forEach(cId => {
-      const active = allAssignments.find(pa => pa.clientId === cId && pa.status === 'active');
+      const active = allAssignments.find(pa => String(pa.clientId) === cId && pa.status === 'active');
       if (active) {
-        const clientObj = clients.find(cl => cl.id === cId);
+        const clientObj = clients.find(cl => String(cl.id) === cId);
         activeConflicts.push({
           clientId: cId,
           clientName: clientObj ? `${clientObj.firstName} ${clientObj.lastName}` : `Cliente #${cId}`,
@@ -119,7 +119,7 @@ export default function ProgramAssignmentModal({
     try {
       // 2. APLICAR RESOLUCIÓN Y PERSISTIR
       for (const cId of targetClientIds) {
-        const conflict = conflicts.find(co => co.clientId === cId);
+        const conflict = conflicts.find(co => String(co.clientId) === cId);
         
         if (conflict && overlapResolution === 'pause') {
           // Pausar el programa anterior: cambiar estado a 'completed' y fijar endDate el día anterior a startDate
@@ -137,9 +137,9 @@ export default function ProgramAssignmentModal({
 
         // Crear la nueva asignación individual
         await storage.saveProgramAssignment({
-          programId: Number(programId),
+          programId: String(programId),
           clientId: cId,
-          groupId: assignmentType === 'group' ? Number(selectedGroupId) : null,
+          groupId: assignmentType === 'group' ? String(selectedGroupId) : null,
           startDate: startDate,
           status: 'active',
           progressPercentage: 0,

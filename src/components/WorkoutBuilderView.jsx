@@ -474,16 +474,16 @@ export default function WorkoutBuilderView({
     let result = exercises;
 
     if (selectedCatFilter !== 'Todas') {
-      result = result.filter(ex => ex.categoryId === Number(selectedCatFilter));
+      result = result.filter(ex => String(ex.categoryId) === String(selectedCatFilter));
     }
     if (selectedSubcatFilter !== 'Todas') {
-      result = result.filter(ex => ex.subcategoryId === Number(selectedSubcatFilter));
+      result = result.filter(ex => String(ex.subcategoryId) === String(selectedSubcatFilter));
     }
     if (selectedMaterialFilter !== 'Todos') {
-      result = result.filter(ex => ex.materialIds.includes(Number(selectedMaterialFilter)));
+      result = result.filter(ex => (ex.materialIds || []).some(m => String(m) === String(selectedMaterialFilter)));
     }
     if (selectedTagFilter !== 'Todas') {
-      result = result.filter(ex => ex.tagIds.includes(Number(selectedTagFilter)));
+      result = result.filter(ex => (ex.tagIds || []).some(t => String(t) === String(selectedTagFilter)));
     }
 
     if (search.trim()) {
@@ -927,7 +927,7 @@ export default function WorkoutBuilderView({
               <select className="el__select" style={{ height: '32px', fontSize: '0.75rem' }} value={selectedSubcatFilter} onChange={e => setSelectedSubcatFilter(e.target.value)}>
                 <option value="Todas">Subcategoría: Todas</option>
                 {subcategories
-                  .filter(s => selectedCatFilter === 'Todas' || s.categoryId === Number(selectedCatFilter))
+                  .filter(s => selectedCatFilter === 'Todas' || String(s.categoryId) === String(selectedCatFilter))
                   .map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))

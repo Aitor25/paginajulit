@@ -108,7 +108,7 @@ export default function WorkoutManager() {
 
     // 2. Etiqueta
     if (selectedTagFilter !== 'Todas') {
-      result = result.filter(w => Array.isArray(w.tagIds) && w.tagIds.includes(Number(selectedTagFilter)));
+      result = result.filter(w => Array.isArray(w.tagIds) && w.tagIds.some(t => String(t) === String(selectedTagFilter)));
     }
 
     // 3. Buscador

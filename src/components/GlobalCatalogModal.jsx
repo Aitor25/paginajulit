@@ -120,7 +120,7 @@ export default function GlobalCatalogModal({
         setErrorMsg('Debes seleccionar una categoría principal.');
         return;
       }
-      payload.categoryId = Number(extraField);
+      payload.categoryId = String(extraField);
     } else if (activeKey === KEYS.GROUPS) {
       payload.description = extraField.trim();
     } else if (activeKey === KEYS.EX_TYPES) {
@@ -130,7 +130,7 @@ export default function GlobalCatalogModal({
         setErrorMsg('Debes seleccionar una categoría de test.');
         return;
       }
-      payload.categoryId = Number(newDefinitionCategory);
+      payload.categoryId = String(newDefinitionCategory);
       payload.type = newDefinitionType;
       payload.unit = newDefinitionUnit.trim() || null;
       payload.allowClientEntry = !!newDefinitionAllowClientEntry;
@@ -160,13 +160,13 @@ export default function GlobalCatalogModal({
     };
 
     if (activeKey === KEYS.EX_SUBCATEGORIES) {
-      payload.categoryId = Number(editingExtra);
+      payload.categoryId = String(editingExtra);
     } else if (activeKey === KEYS.GROUPS) {
       payload.description = editingExtra.trim();
     } else if (activeKey === KEYS.EX_TYPES) {
       payload.code = editingExtra.trim();
     } else if (activeKey === KEYS.TEST_DEFINITIONS) {
-      payload.categoryId = Number(editingDefinitionCategory);
+      payload.categoryId = String(editingDefinitionCategory);
       payload.type = editingDefinitionType;
       payload.unit = editingDefinitionUnit.trim() || null;
       payload.allowClientEntry = !!editingDefinitionAllowClientEntry;
