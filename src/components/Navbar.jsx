@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './Navbar.css';
 
 const NAV_TABS = [
-  { id: 'clients',   label: 'Clientes',              icon: '👥' },
+  { id: 'dashboard', label: 'Dashboard',              icon: '📊' },
+  { id: 'clients',   label: 'Clientes',               icon: '👥' },
   { id: 'library',  label: 'Librería de Ejercicios', icon: '📚' },
   { id: 'workouts', label: 'Entrenamientos',          icon: '🏋️' },
   { id: 'schedule', label: 'Agenda',                  icon: '📅' },
@@ -16,11 +17,32 @@ export default function Navbar({ activeTab, onTabChange, role }) {
     visibleTabs.push({ id: 'users', label: 'Usuarios', icon: '⚙️' });
   }
 
+  // Cerrar el menú móvil con Escape
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [menuOpen]);
+
+  const handleTabChange = (tabId) => {
+    onTabChange(tabId);
+    setMenuOpen(false);
+  };
+
   return (
+    <>
     <nav className="navbar" role="navigation" aria-label="Main navigation">
 
-      {/* ── Logo ── */}
-      <div className="navbar__brand">
+      {/* ── Logo (vuelve al Dashboard) ── */}
+      <button
+        type="button"
+        className="navbar__brand"
+        onClick={() => handleTabChange('dashboard')}
+        aria-label="Ir al Dashboard"
+      >
         <div className="navbar__logo-mark">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path
@@ -33,9 +55,9 @@ export default function Navbar({ activeTab, onTabChange, role }) {
           </svg>
         </div>
         <span className="navbar__brand-name">FitCoach<span className="navbar__brand-accent">Pro</span></span>
-      </div>
+      </button>
 
-      {/* ── Tabs ── */}
+      {/* ── Tabs (escritorio) ── */}
       <ul className="navbar__tabs" role="tablist">
         {visibleTabs.map((tab) => (
           <li key={tab.id} role="presentation">
@@ -44,7 +66,7 @@ export default function Navbar({ activeTab, onTabChange, role }) {
               role="tab"
               aria-selected={activeTab === tab.id}
               className={`navbar__tab ${activeTab === tab.id ? 'navbar__tab--active' : ''}`}
-              onClick={() => onTabChange(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
             >
               <span className="navbar__tab-icon" aria-hidden="true">{tab.icon}</span>
               <span className="navbar__tab-label">{tab.label}</span>
@@ -53,6 +75,49 @@ export default function Navbar({ activeTab, onTabChange, role }) {
           </li>
         ))}
       </ul>
+
+      {/* ── Botón hamburguesa (móvil) ── */}
+      <button
+        type="button"
+        className={`navbar__burger ${menuOpen ? 'navbar__burger--open' : ''}`}
+        onClick={() => setMenuOpen(o => !o)}
+        aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+        aria-expanded={menuOpen}
+        aria-controls="navbar-mobile-menu"
+      >
+        <span className="navbar__burger-bar" />
+        <span className="navbar__burger-bar" />
+        <span className="navbar__burger-bar" />
+      </button>
     </nav>
+
+    {/* ── Menú desplegable (móvil) ──
+        Va fuera del <nav> a propósito: el backdrop-filter de la navbar
+        la convierte en bloque contenedor de sus hijos position:fixed,
+        y el overlay se quedaba con altura 0. */}
+    {menuOpen && (
+      <>
+        <div
+          className="navbar__overlay"
+          onClick={() => setMenuOpen(false)}
+          aria-hidden="true"
+        />
+        <ul id="navbar-mobile-menu" className="navbar__mobile-menu">
+          {visibleTabs.map((tab) => (
+            <li key={tab.id}>
+              <button
+                className={`navbar__mobile-tab ${activeTab === tab.id ? 'navbar__mobile-tab--active' : ''}`}
+                onClick={() => handleTabChange(tab.id)}
+                aria-current={activeTab === tab.id ? 'page' : undefined}
+              >
+                <span className="navbar__tab-icon" aria-hidden="true">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </>
+    )}
+    </>
   );
 }

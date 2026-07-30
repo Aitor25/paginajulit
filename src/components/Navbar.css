@@ -24,8 +24,18 @@
   gap: 10px;
   text-decoration: none;
   flex-shrink: 0;
-  cursor: default;
+  cursor: pointer;
   user-select: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+}
+
+.navbar__brand:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .navbar__logo-mark {
@@ -161,8 +171,106 @@
   box-shadow: var(--shadow-xs);
 }
 
+/* ─── Menú móvil ────────────────────────────────────────────*/
+.navbar__burger {
+  display: none; /* Solo visible en móvil */
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.navbar__burger:hover {
+  background: var(--gray-50);
+}
+
+.navbar__burger-bar {
+  display: block;
+  width: 22px;
+  height: 2px;
+  margin: 0 auto;
+  background: var(--gray-800);
+  border-radius: 99px;
+  transition: transform var(--transition), opacity var(--transition);
+}
+
+/* Hamburguesa -> aspa cuando está abierto */
+.navbar__burger--open .navbar__burger-bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.navbar__burger--open .navbar__burger-bar:nth-child(2) {
+  opacity: 0;
+}
+.navbar__burger--open .navbar__burger-bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.navbar__overlay {
+  position: fixed;
+  inset: var(--nav-h) 0 0 0;
+  background: rgba(17, 24, 39, 0.4);
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.navbar__mobile-menu {
+  position: fixed;
+  top: var(--nav-h);
+  left: 0;
+  right: 0;
+  z-index: 1001; /* Por encima de la navbar (1000) */
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--gray-100);
+  box-shadow: var(--shadow-md);
+  animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.navbar__mobile-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+
+.navbar__mobile-tab:hover {
+  background: var(--gray-50);
+  color: var(--gray-900);
+}
+
+.navbar__mobile-tab--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ─── Responsive ────────────────────────────────────────────*/
-@media (max-width: 860px) {
+/* Con las 6 pestañas y sus etiquetas la barra necesita ~1090px.
+   Por debajo de eso se muestran solo los iconos. */
+@media (max-width: 1100px) {
   .navbar {
     padding: 0 20px;
     gap: 12px;
@@ -182,8 +290,15 @@
   }
 }
 
-@media (max-width: 560px) {
-  .navbar__brand-name {
+/* Por debajo de 640px las pestañas no caben: pasamos a hamburguesa */
+@media (max-width: 640px) {
+  .navbar {
+    padding: 0 16px;
+  }
+  .navbar__tabs {
     display: none;
+  }
+  .navbar__burger {
+    display: flex;
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Navbar from './components/Navbar';
 import TabPlaceholder from './components/TabPlaceholder';
 import ExerciseLibrary from './components/ExerciseLibrary';
@@ -9,7 +9,6 @@ import CoachDashboard from './components/CoachDashboard';
 import GlobalCalendar from './components/GlobalCalendar';
 import UserManager from './components/UserManager';
 import { sessionService } from './services/session';
-import { storage } from './services/storage';
 import './App.css';
 
 /* ─── Tab content config ─────────────────────────────────── */
@@ -39,7 +38,7 @@ function ClientPortalLayout() {
         <div className="role-banner__left">
           <span className="role-banner__dot" />
           Vista activa: <strong>Portal Cliente</strong>
-          <span style={{marginLeft: '20px', fontSize: '0.8rem', opacity: 0.8}}>
+          <span className="role-banner__user">
             Usuario: {currentUser?.email}
           </span>
         </div>
@@ -74,7 +73,7 @@ function CoachAppLayout() {
         <div className="role-banner__left">
           <span className="role-banner__dot" />
           Vista activa: <strong>{userProfile?.role === 'owner' ? 'Owner' : 'Entrenador'}</strong>
-          <span style={{marginLeft: '20px', fontSize: '0.8rem', opacity: 0.8}}>
+          <span className="role-banner__user">
             Usuario: {currentUser?.email}
           </span>
         </div>
