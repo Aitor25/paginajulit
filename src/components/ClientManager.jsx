@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS } from '../services/storage';
+import { firestoreService } from '../services/firestoreService';
 import { formatDate, formatDateTime } from '../utils/dateUtils';
 import GlobalCatalogModal from './GlobalCatalogModal';
 import AssessmentTab from './AssessmentTab';
@@ -45,6 +46,7 @@ function ClientDetail({
 
   const [client, setClient] = useState(null);
   const [coaches, setCoaches] = useState([]);
+  const [linkedAccount, setLinkedAccount] = useState(null);
   const [savingCoach, setSavingCoach] = useState(false);
   const [coachError, setCoachError] = useState('');
   const [activeTab, setActiveTab] = useState('info');
@@ -96,6 +98,22 @@ function ClientDetail({
       console.error('Error cargando entrenadores', err);
     });
   }, [isOwner]);
+
+  // Cuenta de acceso vinculada a esta ficha. Se lee el documento concreto
+  // (no un listado): las reglas permiten "get" de /users a cualquier coach,
+  // pero "list" solo al owner.
+  useEffect(() => {
+    if (!client?.linkedUserId) {
+      setLinkedAccount(null);
+      return;
+    }
+    firestoreService.getDocument('users', String(client.linkedUserId))
+      .then(setLinkedAccount)
+      .catch(err => {
+        console.error('Error cargando la cuenta vinculada', err);
+        setLinkedAccount(null);
+      });
+  }, [client?.linkedUserId]);
 
   async function handleAssignCoach(coachId) {
     setCoachError('');
@@ -357,6 +375,16 @@ function ClientDetail({
                 <div className="cm__info-item">
                   <span className="cm__info-item-label">Email:</span>
                   <span className="cm__info-item-value">{client.email || 'N/A'}</span>
+                </div>
+                <div className="cm__info-item">
+                  <span className="cm__info-item-label">Cuenta de acceso:</span>
+                  <span className="cm__info-item-value">
+                    {client.linkedUserId
+                      ? (linkedAccount
+                          ? <span className="cm__linked-account">✅ {linkedAccount.email}</span>
+                          : 'Vinculada')
+                      : <span className="cm__linked-none">Sin vincular</span>}
+                  </span>
                 </div>
                 <div className="cm__info-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
                   <span className="cm__info-item-label">Observaciones Generales:</span>

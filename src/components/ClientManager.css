@@ -692,3 +692,15 @@
     font-size: 16px;
   }
 }
+
+/* ─── Cuenta de acceso vinculada ─────────────────────────── */
+.cm__linked-account {
+  color: #047857;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.cm__linked-none {
+  color: var(--gray-400);
+  font-weight: 500;
+}

@@ -201,10 +201,18 @@ export const storage = {
       }
     }
 
-    await firestoreService.updateDocument('clients', String(clientId), {
-      linkedUserId: String(userId),
-      updatedAt: now
-    });
+    // El email de contacto de la ficha pasa a ser el de la cuenta vinculada,
+    // para que ambos coincidan siempre. Se lee el documento concreto porque
+    // una cuenta pendiente de asignar todavía tiene organizationId a null y
+    // no saldría en la consulta filtrada por organización.
+    let cuenta = users.find(u => String(u.uid || u.id) === String(userId));
+    if (!cuenta) {
+      cuenta = await firestoreService.getDocument('users', String(userId));
+    }
+    const cambios = { linkedUserId: String(userId), updatedAt: now };
+    if (cuenta?.email) cambios.email = cuenta.email;
+
+    await firestoreService.updateDocument('clients', String(clientId), cambios);
 
     await firestoreService.updateDocument('users', String(userId), {
       clientId: String(clientId),
