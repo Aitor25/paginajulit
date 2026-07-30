@@ -26,9 +26,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          # firebase-admin exige Node >=22 y puppeteer >=22.12; con Node 20
-          # el paso "npm ci" falla al instalarlos.
-          node-version: 22
+          node-version: 20
           cache: npm
 
       - name: Install dependencies
