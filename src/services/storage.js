@@ -1010,7 +1010,6 @@ export const storage = {
   getClientPersonalRecords: async (clientId) => {
     // Get all completed workouts
     const results = (await getCollection('workout_results')).filter(r => String(r.clientId) === String(clientId) && (r.status === 'completed' || r.status === 'submitted'));
-    const exercises = await getCollection('exercises');
 
     const executedExerciseIds = new Set();
     results.forEach(r => {
@@ -1052,7 +1051,14 @@ export const storage = {
 
     let events = [];
     const clients = await getCollection('clients');
-    const getClientName = (cId) => clients.find(c => c.id === cId)?.name || 'Cliente Desconocido';
+    // Los clientes se guardan con firstName/lastName; no existe campo "name",
+    // así que esto devolvía siempre "Cliente Desconocido".
+    const getClientName = (cId) => {
+      const c = clients.find(cl => String(cl.id) === String(cId));
+      if (!c) return 'Cliente Desconocido';
+      const full = `${c.firstName || ''} ${c.lastName || ''}`.trim();
+      return full || 'Cliente Desconocido';
+    };
 
     // 1. Extraer Workout Assignments
     let workoutAssignments = await getCollection('workout_assignments');

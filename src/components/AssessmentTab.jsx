@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS } from '../services/storage';
-import { formatDate, formatDateTime } from '../utils/dateUtils';
+import { formatDateTime } from '../utils/dateUtils';
 import GlobalCatalogModal from './GlobalCatalogModal';
 import './AssessmentTab.css';
 
@@ -369,13 +369,6 @@ export default function AssessmentTab({ clientId }) {
 
     return sorted;
   }, [results, search, selectedCategoryFilter, sortBy, testDefinitions]);
-
-  const historyList = useMemo(() => {
-    if (!selectedHistoryDefId) return [];
-    return results
-      .filter(r => r.testDefinitionId === selectedHistoryDefId)
-      .sort((a, b) => new Date(b.performedAt) - new Date(a.performedAt));
-  }, [results, selectedHistoryDefId]);
 
   return (
     <div className="as__container">

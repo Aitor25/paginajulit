@@ -538,7 +538,6 @@ export default function ClientPortal() {
   // Tests
   const [testDefs, setTestDefs] = useState([]);
   const [testResults, setTestResults] = useState([]);
-  const [testCategories, setTestCategories] = useState([]);
   const [clientPRs, setClientPRs] = useState([]);
   
   // Registrar Test
@@ -622,6 +621,32 @@ export default function ClientPortal() {
     }
   }, [userProfile?.clientId]);
 
+  // Filtrado de Agenda
+  // IMPORTANTE: debe ir antes de cualquier return temprano. Estaba más
+  // abajo y, al vincular la ficha, el componente pasaba de 0 a 1 hook
+  // entre renders y React lanzaba "Rendered more hooks than expected".
+  const agendaItems = useMemo(() => {
+    let items = [];
+    if (activeFilter === 'pending') {
+      items = assignments.filter(a => a.status === 'pending' || a.status === 'in_progress');
+    } else {
+      const pastAssignments = assignments.filter(a => a.status === 'completed' || a.status === 'cancelled' || a.status === 'missed');
+      const freeSessions = workoutResults.filter(r => r.workoutAssignmentId === null || r.workoutAssignmentId === undefined).map(r => ({
+        ...r,
+        isFreeSession: true,
+        scheduledAt: r.createdAt // Usar createdAt como scheduledAt para ordenar
+      }));
+      items = [...pastAssignments, ...freeSessions];
+    }
+    // Ordenar descendente para historial, ascendente para pendientes
+    items.sort((a, b) => {
+      const dA = new Date(a.scheduledAt);
+      const dB = new Date(b.scheduledAt);
+      return activeFilter === 'pending' ? dA - dB : dB - dA;
+    });
+    return items;
+  }, [assignments, workoutResults, activeFilter]);
+
   // Pantalla de Espera para Clientes sin asignar
   if (userProfile?.status === 'pending_assignment' || !userProfile?.clientId) {
     return (
@@ -634,10 +659,6 @@ export default function ClientPortal() {
       </div>
     );
   }
-
-  const handleLogout = () => {
-    sessionService.clearSession();
-  };
 
   const handleRegisterTest = async (e) => {
     e.preventDefault();
@@ -688,29 +709,6 @@ export default function ClientPortal() {
     }
   };
 
-  // Filtrado de Agenda
-  const agendaItems = useMemo(() => {
-    let items = [];
-    if (activeFilter === 'pending') {
-      items = assignments.filter(a => a.status === 'pending' || a.status === 'in_progress');
-    } else {
-      const pastAssignments = assignments.filter(a => a.status === 'completed' || a.status === 'cancelled' || a.status === 'missed');
-      const freeSessions = workoutResults.filter(r => r.workoutAssignmentId === null || r.workoutAssignmentId === undefined).map(r => ({
-        ...r,
-        isFreeSession: true,
-        scheduledAt: r.createdAt // Usar createdAt como scheduledAt para ordenar
-      }));
-      items = [...pastAssignments, ...freeSessions];
-    }
-    // Ordenar descendente para historial, ascendente para pendientes
-    items.sort((a, b) => {
-      const dA = new Date(a.scheduledAt);
-      const dB = new Date(b.scheduledAt);
-      return activeFilter === 'pending' ? dA - dB : dB - dA;
-    });
-    return items;
-  }, [assignments, workoutResults, activeFilter]);
-
   if (!client) {
     return (
       <div className="el__placeholder">
@@ -759,16 +757,36 @@ export default function ClientPortal() {
         >
           Mi Planificación (Agenda)
         </button>
-        <button className={`cp__nav-btn ${activeTab === 'profile' ? 'cp__nav-btn--active' : ''}`} onClick={() => setActiveTab('profile')}>
+        <button
+          className={`cp__tab-btn ${activeTab === 'profile' ? 'cp__tab-btn--active' : ''}`}
+          role="tab"
+          aria-selected={activeTab === 'profile'}
+          onClick={() => setActiveTab('profile')}
+        >
           Mi Perfil
         </button>
-        <button className={`cp__nav-btn ${activeTab === 'progress' ? 'cp__nav-btn--active' : ''}`} onClick={() => setActiveTab('progress')}>
+        <button
+          className={`cp__tab-btn ${activeTab === 'progress' ? 'cp__tab-btn--active' : ''}`}
+          role="tab"
+          aria-selected={activeTab === 'progress'}
+          onClick={() => setActiveTab('progress')}
+        >
           Tests Físicos
         </button>
-        <button className={`cp__nav-btn ${activeTab === 'records' ? 'cp__nav-btn--active' : ''}`} onClick={() => setActiveTab('records')}>
+        <button
+          className={`cp__tab-btn ${activeTab === 'records' ? 'cp__tab-btn--active' : ''}`}
+          role="tab"
+          aria-selected={activeTab === 'records'}
+          onClick={() => setActiveTab('records')}
+        >
           Mis Récords
         </button>
-        <button className={`cp__nav-btn ${activeTab === 'metrics' ? 'cp__nav-btn--active' : ''}`} onClick={() => setActiveTab('metrics')}>
+        <button
+          className={`cp__tab-btn ${activeTab === 'metrics' ? 'cp__tab-btn--active' : ''}`}
+          role="tab"
+          aria-selected={activeTab === 'metrics'}
+          onClick={() => setActiveTab('metrics')}
+        >
           Métricas
         </button>
       </div>

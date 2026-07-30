@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import { formatDateTime } from '../utils/dateUtils';
 import { createFocusTrap } from '../utils/focusTrap';
 
 export default function AssignmentDetailModal({

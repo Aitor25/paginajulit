@@ -8,7 +8,7 @@ import {
   signInWithPopup
 } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const googleProvider = new GoogleAuthProvider();
 

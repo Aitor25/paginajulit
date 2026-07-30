@@ -82,8 +82,9 @@ export default function GlobalCalendar() {
 
   const handleRescheduleSave = async (assignmentId, newDateStr) => {
     await storage.rescheduleWorkoutAssignment(assignmentId, newDateStr);
-    setSelectedEvent(null);
-    loadData(); // Recargar datos
+    setRescheduleEvent(null);
+    setDetailEvent(null);
+    await loadData(); // Recargar datos
   };
 
   return (
@@ -98,11 +99,11 @@ export default function GlobalCalendar() {
       <div className="card">
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
           
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div className="cal__nav">
             <button className="btn btn-secondary" onClick={handlePrevMonth}>&lt;</button>
             <button className="btn btn-secondary" onClick={handleToday}>Hoy</button>
             <button className="btn btn-secondary" onClick={handleNextMonth}>&gt;</button>
-            <h2 style={{ margin: '0 15px', fontSize: '1.25rem', minWidth: '180px', textAlign: 'center' }}>
+            <h2 className="cal__month-label">
               {viewMode === 'month' 
                 ? currentDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
                 : `Semana del ${currentDate.getDate()} ${currentDate.toLocaleDateString('es-ES', { month: 'short' })}`
@@ -185,13 +186,10 @@ export default function GlobalCalendar() {
       )}
 
       {rescheduleEvent && (
-        <RescheduleModal 
-          event={rescheduleEvent} 
+        <RescheduleModal
+          event={rescheduleEvent}
           onClose={() => setRescheduleEvent(null)}
-          onSave={async () => {
-            setRescheduleEvent(null);
-            await loadData();
-          }}
+          onSave={handleRescheduleSave}
         />
       )}
 
