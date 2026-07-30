@@ -177,6 +177,64 @@ export const storage = {
       .sort((a, b) => (a.fullName || a.email || '').localeCompare(b.fullName || b.email || ''));
   },
 
+  // Vincula una cuenta de usuario con una ficha de cliente.
+  // Escribe los DOS lados: users.clientId y clients.linkedUserId. El segundo
+  // es imprescindible: la regla de Firestore que deja a un cliente leer su
+  // propia ficha compara resource.data.linkedUserId con su uid.
+  linkUserToClient: async (userId, clientId) => {
+    if (sessionService.getRole() !== 'owner') {
+      throw new Error('Solo el owner puede vincular fichas.');
+    }
+    const orgId = sessionService.getOrgId();
+    const now = new Date().toISOString();
+
+    // Si la ficha ya estaba vinculada a otra cuenta, se libera esa primero
+    const users = await firestoreService.getDocumentsByQuery('users', [
+      { field: 'organizationId', op: '==', value: orgId }
+    ]);
+    for (const u of users) {
+      if (String(u.clientId || '') === String(clientId) && String(u.uid || u.id) !== String(userId)) {
+        await firestoreService.updateDocument('users', String(u.uid || u.id), {
+          clientId: null,
+          updatedAt: now
+        });
+      }
+    }
+
+    await firestoreService.updateDocument('clients', String(clientId), {
+      linkedUserId: String(userId),
+      updatedAt: now
+    });
+
+    await firestoreService.updateDocument('users', String(userId), {
+      clientId: String(clientId),
+      status: 'active',
+      organizationId: orgId,
+      updatedAt: now
+    });
+
+    return true;
+  },
+
+  // Deshace la vinculación por ambos lados.
+  unlinkUserFromClient: async (userId, clientId) => {
+    if (sessionService.getRole() !== 'owner') {
+      throw new Error('Solo el owner puede desvincular fichas.');
+    }
+    const now = new Date().toISOString();
+    if (clientId) {
+      await firestoreService.updateDocument('clients', String(clientId), {
+        linkedUserId: null,
+        updatedAt: now
+      });
+    }
+    await firestoreService.updateDocument('users', String(userId), {
+      clientId: null,
+      updatedAt: now
+    });
+    return true;
+  },
+
   // Vincula (o desvincula, pasando null) un cliente a un entrenador.
   assignClientToCoach: async (clientId, coachId) => {
     if (sessionService.getRole() !== 'owner') {
