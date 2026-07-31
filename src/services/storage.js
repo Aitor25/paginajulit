@@ -209,8 +209,19 @@ export const storage = {
     if (!cuenta) {
       cuenta = await firestoreService.getDocument('users', String(userId));
     }
+
+    const ficha = await firestoreService.getDocument('clients', String(clientId));
     const cambios = { linkedUserId: String(userId), updatedAt: now };
-    if (cuenta?.email) cambios.email = cuenta.email;
+
+    if (cuenta?.email) {
+      // Se guarda el email de contacto original para poder devolverlo al
+      // desvincular. Solo la primera vez: si la ficha ya estaba vinculada,
+      // su email actual es el de la cuenta anterior, no el original.
+      if (!ficha?.linkedUserId) {
+        cambios.emailBeforeLink = ficha?.email || '';
+      }
+      cambios.email = cuenta.email;
+    }
 
     await firestoreService.updateDocument('clients', String(clientId), cambios);
 
@@ -231,10 +242,19 @@ export const storage = {
     }
     const now = new Date().toISOString();
     if (clientId) {
-      await firestoreService.updateDocument('clients', String(clientId), {
-        linkedUserId: null,
-        updatedAt: now
-      });
+      const ficha = await firestoreService.getDocument('clients', String(clientId));
+      const cambios = { linkedUserId: null, updatedAt: now };
+
+      // Se devuelve el email de contacto que tenía antes de vincularse
+      // (cadena vacía si no tenía). Si la ficha se vinculó antes de que
+      // existiera este guardado, emailBeforeLink no está y se deja el email
+      // actual tal cual, en vez de inventarse un valor.
+      if (ficha && ficha.emailBeforeLink !== undefined) {
+        cambios.email = ficha.emailBeforeLink || '';
+        cambios.emailBeforeLink = null;
+      }
+
+      await firestoreService.updateDocument('clients', String(clientId), cambios);
     }
     await firestoreService.updateDocument('users', String(userId), {
       clientId: null,
