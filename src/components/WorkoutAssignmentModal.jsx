@@ -16,7 +16,8 @@ export default function WorkoutAssignmentModal({
   const [targetType, setTargetType] = useState('client'); // 'client' | 'group'
   const [targetId, setTargetId] = useState('');
   const [selectedWorkoutId, setSelectedWorkoutId] = useState('');
-  const [scheduledAt, setScheduledAt] = useState('');
+  // Varias fechas: la misma rutina se puede asignar varios días de una vez.
+  const [scheduledDates, setScheduledDates] = useState(['']);
   const [errorMsg, setErrorMsg] = useState('');
   const modalRef = useRef(null);
 
@@ -44,14 +45,9 @@ export default function WorkoutAssignmentModal({
       }
     }
     loadData();
-    
-    // Inicializar fecha
-    if (initialDate) {
-      setScheduledAt(initialDate);
-    } else {
-      const today = new Date().toISOString().split('T')[0];
-      setScheduledAt(today);
-    }
+
+    // Inicializar la primera fecha
+    setScheduledDates([initialDate || new Date().toISOString().split('T')[0]]);
   }, [clientId, initialDate, workoutId]);
 
   useEffect(() => {
@@ -73,6 +69,18 @@ export default function WorkoutAssignmentModal({
   const groupMemberCount = targetType === 'group' && targetId
     ? clients.filter(c => String(c.groupId) === String(targetId)).length
     : 0;
+
+  const handleDateChange = (index, value) => {
+    setScheduledDates(prev => prev.map((d, i) => (i === index ? value : d)));
+  };
+
+  const handleAddDate = () => {
+    setScheduledDates(prev => [...prev, '']);
+  };
+
+  const handleRemoveDate = (index) => {
+    setScheduledDates(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleTargetTypeChange = (type) => {
     if (clientId) return; // Bloquear si el cliente vino preseleccionado
@@ -99,8 +107,10 @@ export default function WorkoutAssignmentModal({
       setErrorMsg('Debes seleccionar una rutina para asignar.');
       return;
     }
-    if (!scheduledAt) {
-      setErrorMsg('Debes seleccionar una fecha.');
+    // Fechas válidas y sin duplicados, en el orden en que se introdujeron.
+    const dates = [...new Set(scheduledDates.map(d => d.trim()).filter(Boolean))];
+    if (dates.length === 0) {
+      setErrorMsg('Debes seleccionar al menos una fecha.');
       return;
     }
 
@@ -119,15 +129,23 @@ export default function WorkoutAssignmentModal({
       return;
     }
 
-    const results = await Promise.allSettled(
-      targetClientIds.map(cId => storage.saveWorkoutAssignment({
-        workoutId: String(selectedWorkoutId),
-        clientId: cId,
-        // La hora de las 10:00 se añadía automáticamente, pero el usuario pidió "Mantén scheduledAt como fecha local YYYY-MM-DD. No añadas automáticamente una hora ficticia de las 10:00."
-        scheduledAt: scheduledAt,
-        status: 'pending'
-      }))
-    );
+    // Se cruzan destinatarios × fechas: una asignación individual por cada
+    // combinación cliente-día. La hora de las 10:00 se añadía
+    // automáticamente antes, pero el usuario pidió mantener scheduledAt
+    // como fecha local YYYY-MM-DD, sin hora ficticia.
+    const jobs = [];
+    for (const cId of targetClientIds) {
+      for (const date of dates) {
+        jobs.push(storage.saveWorkoutAssignment({
+          workoutId: String(selectedWorkoutId),
+          clientId: cId,
+          scheduledAt: date,
+          status: 'pending'
+        }));
+      }
+    }
+
+    const results = await Promise.allSettled(jobs);
 
     const fallidas = results.filter(r => r.status === 'rejected');
     const guardadas = results.filter(r => r.status === 'fulfilled').map(r => r.value);
@@ -141,7 +159,7 @@ export default function WorkoutAssignmentModal({
 
     if (fallidas.length > 0) {
       setErrorMsg(
-        `Se asignó a ${guardadas.length} de ${results.length} deportistas. ` +
+        `Se crearon ${guardadas.length} de ${results.length} asignaciones. ` +
         `Fallo en ${fallidas.length}: ${fallidas[0].reason?.message || 'error desconocido'}.`
       );
       return;
@@ -231,16 +249,38 @@ export default function WorkoutAssignmentModal({
             )}
           </div>
 
-          {/* Fecha Programada */}
+          {/* Fecha(s) Programada(s) */}
           <div className="el__field">
-            <label className="el__label">Fecha Programada</label>
-            <input
-              type="date"
-              className="el__input"
-              value={scheduledAt}
-              onChange={e => setScheduledAt(e.target.value)}
-              required
-            />
+            <label className="el__label">
+              {scheduledDates.length > 1 ? 'Días Programados' : 'Fecha Programada'}
+            </label>
+            <div className="wa__dates-list">
+              {scheduledDates.map((date, i) => (
+                <div key={i} className="wa__date-row">
+                  <input
+                    type="date"
+                    className="el__input"
+                    value={date}
+                    onChange={e => handleDateChange(i, e.target.value)}
+                    required
+                  />
+                  {scheduledDates.length > 1 && (
+                    <button
+                      type="button"
+                      className="wa__date-remove"
+                      onClick={() => handleRemoveDate(i)}
+                      aria-label="Quitar esta fecha"
+                      title="Quitar esta fecha"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button type="button" className="el__btn el__btn--ghost wa__add-date-btn" onClick={handleAddDate}>
+              + Añadir otro día
+            </button>
           </div>
 
           <div className="el__modal-actions">

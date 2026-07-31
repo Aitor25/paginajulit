@@ -75,7 +75,7 @@ export const CalendarGrid = ({
       : getStatusColor(ev.status, ev.type);
 
   const [expandedDate, setExpandedDate] = useState(null);
-  const { daysInMonth, blankDaysBefore, blankDaysAfter } = useMemo(() => {
+  const { daysInMonth, blankDaysBefore, blankDaysAfter, totalRows } = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     
@@ -89,10 +89,13 @@ export const CalendarGrid = ({
     let endDayOfWeek = lastDayOfMonth.getDay() - 1;
     if (endDayOfWeek === -1) endDayOfWeek = 6;
     
+    const totalCells = startDayOfWeek + lastDayOfMonth.getDate() + (6 - endDayOfWeek);
+
     return {
       daysInMonth: lastDayOfMonth.getDate(),
       blankDaysBefore: startDayOfWeek,
-      blankDaysAfter: 6 - endDayOfWeek
+      blankDaysAfter: 6 - endDayOfWeek,
+      totalRows: totalCells / 7
     };
   }, [currentDate]);
 
@@ -224,7 +227,7 @@ export const CalendarGrid = ({
           <div key={day} className="cal__header-cell">{day}</div>
         ))}
       </div>
-      <div className="cal__grid">
+      <div className="cal__grid" style={{ '--cal-rows': totalRows }}>
         {/* Blank days before first day of month */}
         {Array.from({ length: blankDaysBefore }).map((_, i) => renderCell(null, false))}
         

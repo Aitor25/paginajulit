@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS } from '../services/storage';
-import { formatDateTime } from '../utils/dateUtils';
+import { formatDate } from '../utils/dateUtils';
 import WorkoutBuilderView from './WorkoutBuilderView';
 import WorkoutAssignmentModal from './WorkoutAssignmentModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
@@ -29,6 +29,13 @@ export default function WorkoutManager() {
   const [search, setSearch] = useState('');
   const [selectedTagFilter, setSelectedTagFilter] = useState('Todas');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('active');
+
+  // Listas compactas: por defecto solo se ven los primeros N, con opción
+  // de desplegar el resto (la búsqueda ya permite llegar a cualquiera).
+  const WORKOUTS_PAGE_SIZE = 10;
+  const ASSIGNMENTS_PAGE_SIZE = 5;
+  const [showAllWorkouts, setShowAllWorkouts] = useState(false);
+  const [showAllAssignments, setShowAllAssignments] = useState(false);
 
   // Modales
   const [assignWorkoutId, setAssignWorkoutId] = useState(null);
@@ -123,6 +130,14 @@ export default function WorkoutManager() {
 
     return result;
   }, [workouts, selectedStatusFilter, selectedTagFilter, search]);
+
+  const visibleWorkouts = showAllWorkouts ? filteredWorkouts : filteredWorkouts.slice(0, WORKOUTS_PAGE_SIZE);
+
+  const sortedAssignments = useMemo(
+    () => [...assignments].sort((a, b) => String(b.scheduledAt).localeCompare(String(a.scheduledAt))),
+    [assignments]
+  );
+  const visibleAssignments = showAllAssignments ? sortedAssignments : sortedAssignments.slice(0, ASSIGNMENTS_PAGE_SIZE);
 
   if (loading) {
     return <div className="wm-container"><p>Cargando módulo de entrenamientos...</p></div>;
@@ -229,132 +244,75 @@ export default function WorkoutManager() {
           </div>
 
           <div style={{ marginBottom: '16px', fontSize: '0.8125rem', color: 'var(--gray-400)' }}>
-            Mostrando <strong>{filteredWorkouts.length}</strong> de {workouts.length} plantillas de entrenamiento.
+            Mostrando <strong>{visibleWorkouts.length}</strong> de {filteredWorkouts.length} plantillas de entrenamiento.
           </div>
 
-          {/* Cuadrícula de Rutinas */}
+          {/* Lista de Rutinas */}
           {filteredWorkouts.length === 0 ? (
             <div className="cm__empty" style={{ padding: '60px 24px' }}>
               <p>No se encontraron plantillas de entrenamiento.</p>
               <span>Ajusta los filtros o empieza creando una nueva rutina en el constructor.</span>
             </div>
           ) : (
-            <div className="wk__grid">
-              {filteredWorkouts.map(w => {
-                // Contadores
-                const blockCount = w.blocks?.length || 0;
-                let exerciseCount = 0;
-                w.blocks?.forEach(b => {
-                  exerciseCount += b.exercises?.length || 0;
-                });
-
-                return (
-                  <article key={w.id} className="wk__card">
-                    <div className="wk__card-header">
-                      <h3 className="wk__card-title">{w.name}</h3>
-                      <span className={`cm__card-status-badge cm__card-status-badge--${w.status}`}>
-                        {w.status === 'active' ? 'Activo' : w.status === 'draft' ? 'Borrador' : 'Archivado'}
-                      </span>
-                    </div>
-
-                    <p className="wk__card-desc">{w.description || 'Sin descripción de objetivos.'}</p>
-
-                    {/* Badges de tags */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {w.tagIds?.map(tagId => {
-                        const tName = workoutTags.find(t => t.id === tagId)?.name;
-                        return tName ? <span key={tagId} className="badge badge--default" style={{ fontSize: '0.65rem' }}>{tName}</span> : null;
-                      })}
-                    </div>
-
-                    <div className="wk__card-meta">
-                      <span>{w.estimatedDurationMinutes} minutos</span>
-                      <span>{blockCount} Bloques ({exerciseCount} Ej.)</span>
-                    </div>
-
-                    {/* Acciones */}
-                    <div className="wk__card-actions">
-                      <button className="el__btn el__btn--primary" style={{ flex: 1, height: '32px', padding: 0, fontSize: '0.75rem' }} onClick={() => setAssignWorkoutId(w.id)}>
-                        Asignar
-                      </button>
-                      <button className="el__btn el__btn--ghost" style={{ height: '32px', width: '32px', padding: 0 }} onClick={() => handleOpenEdit(w)} title="Editar rutina">
-                        ✎
-                      </button>
-                      <button className="el__btn el__btn--ghost" style={{ height: '32px', width: '32px', padding: 0 }} onClick={() => handleQuickArchive(w)} title={w.status === 'archived' ? 'Desarchivar' : 'Archivar'}>
-                        🗃
-                      </button>
-                      <button className="el__btn el__btn--ghost" style={{ height: '32px', width: '32px', padding: 0, color: '#e53e3e', borderColor: '#fbc2c2' }} onClick={() => handleDeleteWorkout(w.id, w.name)} title="Eliminar definitivamente">
-                        ✕
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-
-          {/* ══ APARTADO 3: HISTORIAL DE ASIGNACIONES RECIENTES ═════ */}
-          <div style={{ marginTop: '48px', borderTop: '1px solid var(--gray-200)', paddingTop: '32px' }}>
-            <h3 className="wb__section-title">Calendario de Rutinas Asignadas</h3>
-            
-            {assignments.length === 0 ? (
-              <p style={{ fontSize: '0.8125rem', color: 'var(--gray-400)', textAlign: 'center', padding: '24px', background: 'var(--off-white)', borderRadius: 'var(--radius-sm)' }}>
-                No hay asignaciones registradas recientemente.
-              </p>
-            ) : (
-              <div style={{ overflowX: 'auto', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', textAlign: 'left' }}>
+            <>
+              <div className="table-responsive">
+                <table className="data-table">
                   <thead>
-                    <tr style={{ background: 'var(--off-white)', borderBottom: '1px solid var(--gray-200)' }}>
-                      <th style={{ padding: '12px 16px', fontWeight: '700', color: 'var(--gray-700)' }}>Entrenamiento</th>
-                      <th style={{ padding: '12px 16px', fontWeight: '700', color: 'var(--gray-700)' }}>Asignado a</th>
-                      <th style={{ padding: '12px 16px', fontWeight: '700', color: 'var(--gray-700)' }}>Programado para</th>
-                      <th style={{ padding: '12px 16px', fontWeight: '700', color: 'var(--gray-700)' }}>Estado</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>Acciones</th>
+                    <tr>
+                      <th>Rutina</th>
+                      <th>Duración</th>
+                      <th>Etiquetas</th>
+                      <th>Estado</th>
+                      <th style={{ textAlign: 'center' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {assignments.map(a => {
-                      const wName = workouts.find(w => w.id === a.workoutId)?.name || 'Rutina eliminada';
-                      
-                      let targetName = 'N/A';
-                      if (a.clientId) {
-                        const c = clients.find(cl => cl.id === a.clientId);
-                        targetName = c ? `👤 ${c.firstName} ${c.lastName}` : 'Cliente no encontrado';
-                      } else if (a.groupId) {
-                        const g = groups.find(gp => gp.id === a.groupId);
-                        targetName = g ? `👥 Grupo: ${g.name}` : 'Grupo no encontrado';
-                      }
+                    {visibleWorkouts.map(w => {
+                      const blockCount = w.blocks?.length || 0;
+                      let exerciseCount = 0;
+                      w.blocks?.forEach(b => {
+                        exerciseCount += b.exercises?.length || 0;
+                      });
 
                       return (
-                        <tr key={a.id} style={{ borderBottom: '1px solid var(--gray-100)' }}>
-                          <td style={{ padding: '12px 16px', fontWeight: '600' }}>{wName}</td>
-                          <td style={{ padding: '12px 16px' }}>{targetName}</td>
-                          <td style={{ padding: '12px 16px' }}>{formatDateTime(a.performedAt || a.scheduledAt)}</td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <span className={`cm__card-status-badge cm__card-status-badge--${a.status === 'completed' ? 'active' : 'pending'}`}>
-                              {a.status === 'completed' ? 'Completado' : 'Pendiente'}
+                        <tr key={w.id}>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{w.name}</div>
+                            {w.description && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--gray-400)', marginTop: '2px' }}>{w.description}</div>
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            {w.estimatedDurationMinutes} min · {blockCount} bloques ({exerciseCount} ej.)
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                              {w.tagIds?.map(tagId => {
+                                const tName = workoutTags.find(t => t.id === tagId)?.name;
+                                return tName ? <span key={tagId} className="badge badge--default" style={{ fontSize: '0.65rem' }}>{tName}</span> : null;
+                              })}
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`cm__card-status-badge cm__card-status-badge--${w.status}`} style={{ position: 'static' }}>
+                              {w.status === 'active' ? 'Activo' : w.status === 'draft' ? 'Borrador' : 'Archivado'}
                             </span>
                           </td>
-                          <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                            {a.status === 'completed' && (
-                              <button
-                                className="el__card-admin-btn"
-                                style={{ marginRight: '6px', borderColor: '#fde047', color: '#854d0e' }}
-                                onClick={async () => {
-                                  if (window.confirm("¿Seguro que deseas reabrir esta sesión finalizada para el deportista? El resultado volverá a estado borrador.")) {
-                                    await storage.reopenWorkoutResult(a.id);
-                                    await loadData();
-                                  }
-                                }}
-                                title="Reabrir entrenamiento"
-                              >
-                                Reabrir
+                          <td>
+                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                              <button className="el__btn el__btn--primary" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => setAssignWorkoutId(w.id)}>
+                                Asignar
                               </button>
-                            )}
-                            <button className="el__card-admin-btn el__card-admin-btn--delete" onClick={() => handleDeleteAssignment(a.id)} title="Anular asignación">
-                              Anular
-                            </button>
+                              <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0 }} onClick={() => handleOpenEdit(w)} title="Editar rutina">
+                                ✎
+                              </button>
+                              <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0 }} onClick={() => handleQuickArchive(w)} title={w.status === 'archived' ? 'Desarchivar' : 'Archivar'}>
+                                🗃
+                              </button>
+                              <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0, color: '#e53e3e', borderColor: '#fbc2c2' }} onClick={() => handleDeleteWorkout(w.id, w.name)} title="Eliminar definitivamente">
+                                ✕
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -362,6 +320,100 @@ export default function WorkoutManager() {
                   </tbody>
                 </table>
               </div>
+
+              {!showAllWorkouts && filteredWorkouts.length > WORKOUTS_PAGE_SIZE && (
+                <button
+                  className="el__btn el__btn--ghost"
+                  style={{ marginTop: '12px', width: '100%' }}
+                  onClick={() => setShowAllWorkouts(true)}
+                >
+                  Ver más… ({filteredWorkouts.length - WORKOUTS_PAGE_SIZE} más)
+                </button>
+              )}
+            </>
+          )}
+
+          {/* ══ APARTADO 3: HISTORIAL DE ASIGNACIONES RECIENTES ═════ */}
+          <div style={{ marginTop: '48px', borderTop: '1px solid var(--gray-200)', paddingTop: '32px' }}>
+            <h3 className="wb__section-title">Calendario de Rutinas Asignadas</h3>
+
+            {assignments.length === 0 ? (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--gray-400)', textAlign: 'center', padding: '24px', background: 'var(--off-white)', borderRadius: 'var(--radius-sm)' }}>
+                No hay asignaciones registradas recientemente.
+              </p>
+            ) : (
+              <>
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Entrenamiento</th>
+                        <th>Asignado a</th>
+                        <th>Programado para</th>
+                        <th>Estado</th>
+                        <th style={{ textAlign: 'center' }}>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleAssignments.map(a => {
+                        const wName = workouts.find(w => w.id === a.workoutId)?.name || 'Rutina eliminada';
+
+                        let targetName = 'N/A';
+                        if (a.clientId) {
+                          const c = clients.find(cl => cl.id === a.clientId);
+                          targetName = c ? `👤 ${c.firstName} ${c.lastName}` : 'Cliente no encontrado';
+                        } else if (a.groupId) {
+                          const g = groups.find(gp => gp.id === a.groupId);
+                          targetName = g ? `👥 Grupo: ${g.name}` : 'Grupo no encontrado';
+                        }
+
+                        return (
+                          <tr key={a.id}>
+                            <td style={{ fontWeight: 600 }}>{wName}</td>
+                            <td>{targetName}</td>
+                            <td>{formatDate(a.scheduledAt)}</td>
+                            <td>
+                              <span className={`cm__card-status-badge cm__card-status-badge--${a.status === 'completed' ? 'active' : 'pending'}`} style={{ position: 'static' }}>
+                                {a.status === 'completed' ? 'Completado' : 'Pendiente'}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              {a.status === 'completed' && (
+                                <button
+                                  className="el__card-admin-btn"
+                                  style={{ marginRight: '6px', borderColor: '#fde047', color: '#854d0e' }}
+                                  onClick={async () => {
+                                    if (window.confirm("¿Seguro que deseas reabrir esta sesión finalizada para el deportista? El resultado volverá a estado borrador.")) {
+                                      await storage.reopenWorkoutResult(a.id);
+                                      await loadData();
+                                    }
+                                  }}
+                                  title="Reabrir entrenamiento"
+                                >
+                                  Reabrir
+                                </button>
+                              )}
+                              <button className="el__card-admin-btn el__card-admin-btn--delete" onClick={() => handleDeleteAssignment(a.id)} title="Anular asignación">
+                                Anular
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {!showAllAssignments && sortedAssignments.length > ASSIGNMENTS_PAGE_SIZE && (
+                  <button
+                    className="el__btn el__btn--ghost"
+                    style={{ marginTop: '12px', width: '100%' }}
+                    onClick={() => setShowAllAssignments(true)}
+                  >
+                    Ver más… ({sortedAssignments.length - ASSIGNMENTS_PAGE_SIZE} más)
+                  </button>
+                )}
+              </>
             )}
           </div>
 

@@ -494,3 +494,84 @@
     font-size: 0.75rem;
   }
 }
+
+/* =========================================
+   AJUSTE A PANTALLA COMPLETA SIN SCROLL (Agenda, escritorio)
+   El usuario quiere ver el mes entero sin desplazarse. Se reparte la
+   altura disponible bajo la navbar entre cabecera, filtros, leyenda y
+   la rejilla, y esta última reparte sus filas a partes iguales según
+   las que tenga el mes (--cal-rows, calculado en CalendarGrid.jsx).
+   Solo en escritorio: en móvil el patrón natural sigue siendo scroll.
+   ========================================= */
+@media (min-width: 641px) {
+  .cal__page {
+    height: calc(100vh - var(--nav-h));
+    display: flex;
+    flex-direction: column;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .cal__page .view-header {
+    flex-shrink: 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .cal__page .view-title {
+    font-size: 1.15rem;
+    margin: 0;
+  }
+
+  .cal__page .card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cal__page .card-header {
+    flex-shrink: 0;
+    padding: 0.5rem 1rem;
+  }
+
+  .cal__page .cal__legend {
+    flex-shrink: 0;
+    padding: 4px 1rem;
+  }
+
+  .cal__page .card-body {
+    flex: 1;
+    min-height: 0;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .cal__page .cal__wrapper,
+  .cal__page .cal__week-wrapper {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+
+  .cal__page .cal__header-row {
+    flex-shrink: 0;
+  }
+
+  .cal__page .cal__grid {
+    flex: 1;
+    min-height: 0;
+    grid-auto-rows: unset;
+    grid-template-rows: repeat(var(--cal-rows, 6), 1fr);
+  }
+
+  .cal__page .cal__cell {
+    overflow: hidden;
+  }
+
+  .cal__page .cal__week-grid {
+    flex: 1;
+    min-height: 0;
+  }
+}

@@ -873,3 +873,47 @@ textarea.el__input {
   color: var(--gray-500);
   margin-top: 4px;
 }
+
+/* Lista de fechas del modal de asignación de entrenamiento (varios días) */
+.wa__dates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wa__date-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wa__date-row .el__input {
+  flex: 1;
+}
+
+.wa__date-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.wa__date-remove:hover {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: var(--red-soft);
+  color: #B91C1C;
+}
+
+.wa__add-date-btn {
+  margin-top: 8px;
+  width: 100%;
+  font-size: 0.85rem;
+}

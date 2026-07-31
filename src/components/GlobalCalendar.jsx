@@ -126,12 +126,9 @@ export default function GlobalCalendar() {
   };
 
   return (
-    <div className="view-container">
+    <div className="view-container cal__page">
       <div className="view-header">
-        <div>
-          <h1 className="view-title">Calendario Global</h1>
-          <p className="view-subtitle">Planificación multicliente y control de agenda.</p>
-        </div>
+        <h1 className="view-title">Calendario Global</h1>
       </div>
 
       <div className="card">
