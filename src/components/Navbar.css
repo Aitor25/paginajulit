@@ -171,6 +171,29 @@
   box-shadow: var(--shadow-xs);
 }
 
+/* ─── Cerrar sesión ──────────────────────────────────────────*/
+.navbar__logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--gray-500);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--transition), background var(--transition);
+}
+
+.navbar__logout-btn:hover {
+  color: var(--red);
+  background: var(--red-soft);
+}
+
 /* ─── Menú móvil ────────────────────────────────────────────*/
 .navbar__burger {
   display: none; /* Solo visible en móvil */
@@ -179,7 +202,6 @@
   gap: 5px;
   width: 44px;
   height: 44px;
-  margin-left: auto;
   padding: 0;
   border: none;
   background: transparent;
@@ -267,10 +289,24 @@
   font-weight: 600;
 }
 
+.navbar__mobile-divider {
+  height: 1px;
+  margin: 6px 8px;
+  background: var(--gray-100);
+}
+
+.navbar__mobile-tab--logout {
+  color: var(--red);
+}
+
+.navbar__mobile-tab--logout:hover {
+  background: var(--red-soft);
+}
+
 /* ─── Responsive ────────────────────────────────────────────*/
-/* Con las 6 pestañas y sus etiquetas la barra necesita ~1090px.
-   Por debajo de eso se muestran solo los iconos. */
-@media (max-width: 1100px) {
+/* Con las 5 pestañas de owner, el logo y el botón de cerrar sesión, la
+   barra con etiquetas necesita ~990px. Por debajo se muestran solo iconos. */
+@media (max-width: 1010px) {
   .navbar {
     padding: 0 20px;
     gap: 12px;

@@ -25,6 +25,28 @@
   overflow: hidden;
 }
 
+.cp__logout-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.cp__logout-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .cp__header-card::before {
   content: '';
   position: absolute;

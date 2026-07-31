@@ -2,7 +2,7 @@
 
 .cm {
   padding: 32px 40px 60px;
-  max-width: 1280px;
+  max-width: 1600px;
   margin: 0 auto;
   width: 100%;
   animation: cm-fade-up 0.3s ease both;
@@ -146,9 +146,11 @@
 }
 
 /* ── Grid de tarjetas de clientes ── */
+/* auto-fill en vez de un número fijo de columnas: en monitores anchos
+   caben más tarjetas por fila en lugar de dejar hueco vacío a los lados. */
 .cm__grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px;
 }
 

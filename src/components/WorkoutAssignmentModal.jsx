@@ -70,6 +70,10 @@ export default function WorkoutAssignmentModal({
     }
   }, []);
 
+  const groupMemberCount = targetType === 'group' && targetId
+    ? clients.filter(c => String(c.groupId) === String(targetId)).length
+    : 0;
+
   const handleTargetTypeChange = (type) => {
     if (clientId) return; // Bloquear si el cliente vino preseleccionado
     setTargetType(type);
@@ -100,24 +104,50 @@ export default function WorkoutAssignmentModal({
       return;
     }
 
-    const payload = {
-      workoutId: String(selectedWorkoutId),
-      clientId: targetType === 'client' ? String(targetId) : null,
-      groupId: targetType === 'group' ? String(targetId) : null,
-      // La hora de las 10:00 se añadía automáticamente, pero el usuario pidió "Mantén scheduledAt como fecha local YYYY-MM-DD. No añadas automáticamente una hora ficticia de las 10:00."
-      // Storage saveWorkoutAssignment hace el snapshot. Dependiendo de cómo lo maneje storage, enviaremos la fecha como está o como ISO.
-      // Modificaremos saveWorkoutAssignment para aceptar YYYY-MM-DD o ISO y normalizarlo. Por ahora, pasamos la fecha que será YYYY-MM-DD
-      scheduledAt: scheduledAt,
-      status: 'pending'
-    };
+    // Un grupo no es un destinatario válido para la asignación en sí: se
+    // expande a una asignación individual por cada cliente del grupo. La
+    // Cloud Function exige un clientId real en cada documento (un
+    // workout_assignment con groupId y sin clientId no se puede guardar,
+    // y tampoco lo vería el cliente en su agenda ni el calendario, que
+    // filtran siempre por clientId).
+    const targetClientIds = targetType === 'client'
+      ? [String(targetId)]
+      : clients.filter(c => String(c.groupId) === String(targetId)).map(c => String(c.id));
 
-    try {
-      const saved = await storage.saveWorkoutAssignment(payload);
-      if (onSave) onSave(saved);
-      onClose();
-    } catch (err) {
-      setErrorMsg(err.message);
+    if (targetClientIds.length === 0) {
+      setErrorMsg('Este grupo no tiene deportistas asignados.');
+      return;
     }
+
+    const results = await Promise.allSettled(
+      targetClientIds.map(cId => storage.saveWorkoutAssignment({
+        workoutId: String(selectedWorkoutId),
+        clientId: cId,
+        // La hora de las 10:00 se añadía automáticamente, pero el usuario pidió "Mantén scheduledAt como fecha local YYYY-MM-DD. No añadas automáticamente una hora ficticia de las 10:00."
+        scheduledAt: scheduledAt,
+        status: 'pending'
+      }))
+    );
+
+    const fallidas = results.filter(r => r.status === 'rejected');
+    const guardadas = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+
+    if (fallidas.length === results.length) {
+      setErrorMsg(fallidas[0].reason?.message || 'No se pudo guardar la asignación.');
+      return;
+    }
+
+    if (onSave) onSave(guardadas);
+
+    if (fallidas.length > 0) {
+      setErrorMsg(
+        `Se asignó a ${guardadas.length} de ${results.length} deportistas. ` +
+        `Fallo en ${fallidas.length}: ${fallidas[0].reason?.message || 'error desconocido'}.`
+      );
+      return;
+    }
+
+    onClose();
   };
 
   return (
@@ -189,11 +219,16 @@ export default function WorkoutAssignmentModal({
               disabled={!!clientId}
             >
               <option value="">-- Selecciona --</option>
-              {targetType === 'client' 
-                ? clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)
+              {targetType === 'client'
+                ? clients.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)
                 : groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)
               }
             </select>
+            {targetType === 'group' && targetId && (
+              <span className="wa__group-hint">
+                {groupMemberCount} deportista{groupMemberCount === 1 ? '' : 's'} en este grupo
+              </span>
+            )}
           </div>
 
           {/* Fecha Programada */}

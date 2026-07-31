@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react';
 import './Navbar.css';
 
 const NAV_TABS = [
-  { id: 'dashboard', label: 'Dashboard',              icon: '📊' },
-  { id: 'clients',   label: 'Clientes',               icon: '👥' },
+  { id: 'clients',  label: 'Clientes',               icon: '👥' },
   { id: 'library',  label: 'Librería de Ejercicios', icon: '📚' },
   { id: 'workouts', label: 'Entrenamientos',          icon: '🏋️' },
   { id: 'schedule', label: 'Agenda',                  icon: '📅' },
 ];
 
-export default function Navbar({ activeTab, onTabChange, role }) {
+export default function Navbar({ activeTab, onTabChange, role, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const visibleTabs = [...NAV_TABS];
@@ -36,12 +35,12 @@ export default function Navbar({ activeTab, onTabChange, role }) {
     <>
     <nav className="navbar" role="navigation" aria-label="Main navigation">
 
-      {/* ── Logo (vuelve al Dashboard) ── */}
+      {/* ── Logo (vuelve a la primera pestaña) ── */}
       <button
         type="button"
         className="navbar__brand"
-        onClick={() => handleTabChange('dashboard')}
-        aria-label="Ir al Dashboard"
+        onClick={() => handleTabChange(visibleTabs[0]?.id)}
+        aria-label="Ir al inicio"
       >
         <div className="navbar__logo-mark">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -75,6 +74,21 @@ export default function Navbar({ activeTab, onTabChange, role }) {
           </li>
         ))}
       </ul>
+
+      {/* ── Cerrar sesión (siempre visible, icono compacto) ── */}
+      <button
+        type="button"
+        className="navbar__logout-btn"
+        onClick={onLogout}
+        aria-label="Cerrar sesión"
+        title="Cerrar sesión"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+      </button>
 
       {/* ── Botón hamburguesa (móvil) ── */}
       <button
@@ -115,6 +129,16 @@ export default function Navbar({ activeTab, onTabChange, role }) {
               </button>
             </li>
           ))}
+          <li className="navbar__mobile-divider" role="presentation" />
+          <li>
+            <button
+              className="navbar__mobile-tab navbar__mobile-tab--logout"
+              onClick={() => { setMenuOpen(false); onLogout(); }}
+            >
+              <span className="navbar__tab-icon" aria-hidden="true">🚪</span>
+              <span>Cerrar sesión</span>
+            </button>
+          </li>
         </ul>
       </>
     )}

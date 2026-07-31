@@ -56,7 +56,6 @@
   --shadow-lg:   0 20px 25px -5px rgba(0,0,0,0.15);
 
   --nav-h:       72px;
-  --banner-h:    34px;
   --transition:  0.22s ease;
 }
 
@@ -388,7 +387,7 @@ textarea.el__input {
    ========================================= */
 .view-container {
   padding: 2rem;
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   width: 100%;
 }
@@ -717,11 +716,6 @@ textarea.el__input {
 
 /* Móvil: los modales ocupan casi toda la pantalla y los botones se apilan */
 @media (max-width: 640px) {
-  :root {
-    /* El banner de rol pasa a dos líneas al envolverse */
-    --banner-h: 58px;
-  }
-
   .el__modal-overlay {
     padding: 0.75rem;
     align-items: flex-end; /* Hoja inferior, más cómoda con el pulgar */
@@ -871,4 +865,11 @@ textarea.el__input {
   flex-direction: column;
   gap: 1rem;
   min-width: 0; /* Permite encoger dentro de un grid/flex */
+}
+
+/* Pista de tamaño de grupo en el modal de asignación de entrenamiento */
+.wa__group-hint {
+  font-size: 0.78rem;
+  color: var(--gray-500);
+  margin-top: 4px;
 }

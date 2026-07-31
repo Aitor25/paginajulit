@@ -7,6 +7,30 @@ initializeApp();
 const db = getFirestore();
 
 /**
+ * Perfil de usuario real de la app: users/{uid}, con role y organizationId.
+ * NUNCA usar la colección "organization_members" ni "client_profiles":
+ * son de un modelo de datos anterior que nada en la app llega a escribir
+ * (ni el frontend ni firestore.rules las usan), así que cualquier función
+ * que dependiera de ellas fallaba siempre con las cuentas reales.
+ */
+async function getUserProfile(uid) {
+  const snap = await db.collection('users').doc(uid).get();
+  return snap.exists ? snap.data() : null;
+}
+
+function requireCoachOrOwner(profile, orgId) {
+  if (!profile || profile.organizationId !== orgId) {
+    throw new HttpsError('permission-denied', 'User is not a member of this organization');
+  }
+  if (profile.role !== 'coach' && profile.role !== 'owner') {
+    throw new HttpsError('permission-denied', 'Only coaches or owners can perform this action');
+  }
+  if (profile.status !== 'active') {
+    throw new HttpsError('permission-denied', 'Your account is suspended');
+  }
+}
+
+/**
  * createInvite
  * Genera un enlace de invitación para un cliente.
  */
@@ -22,18 +46,8 @@ export const createInvite = onCall(async (request) => {
   }
 
   // 1. Validar que el usuario sea Owner o Coach de la organización
-  const memberRef = db.collection('organization_members').doc(`${orgId}_${auth.uid}`);
-  const memberSnap = await memberRef.get();
-  if (!memberSnap.exists) {
-    throw new HttpsError('permission-denied', 'User is not a member of this organization');
-  }
-  const memberData = memberSnap.data();
-  if (memberData.role !== 'owner' && memberData.role !== 'coach') {
-    throw new HttpsError('permission-denied', 'Only coaches or owners can create invitations');
-  }
-  if (memberData.status !== 'active') {
-    throw new HttpsError('permission-denied', 'Your account is suspended');
-  }
+  const profile = await getUserProfile(auth.uid);
+  requireCoachOrOwner(profile, orgId);
 
   // Generar token y hash
   const rawToken = randomUUID();
@@ -134,28 +148,27 @@ export const consumeInvite = onCall(async (request) => {
     const uid = auth.uid;
 
     const userRef = db.collection('users').doc(uid);
-    const memberRef = db.collection('organization_members').doc(`${orgId}_${uid}`);
-    const clientProfileRef = db.collection('client_profiles').doc(`${orgId}_${uid}_${clientId}`);
+    const clientRef = db.collection('clients').doc(String(clientId));
 
-    // Solo actualizamos 'users' de forma segura (sin sobreescribir si ya existe, o actualizando 'lastLogin')
-    t.set(userRef, { email: auth.token.email }, { merge: true });
-
-    t.set(memberRef, {
-      orgId,
-      userId: uid,
+    // El modelo real de la app vive en users/{uid}: role, organizationId,
+    // clientId y status. Se actualiza aquí en vez de en una colección
+    // paralela que el resto de la app nunca lee.
+    t.set(userRef, {
+      email: auth.token.email,
       role: 'client',
-      status: 'active'
-    }, { merge: true });
-
-    t.set(clientProfileRef, {
-      orgId,
-      userId: uid,
-      clientId,
+      organizationId: orgId,
+      clientId: String(clientId),
       status: 'active',
-      linkedAt: FieldValue.serverTimestamp()
+      updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
-    // 5. Marcar invitación como consumida
+    // linkedUserId es lo que permite al cliente leer su propia ficha
+    // (ver firestore.rules).
+    t.set(clientRef, {
+      linkedUserId: uid,
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+
     // 5. Marcar invitación como consumida
     t.update(inviteDoc.ref, {
       status: 'accepted',
@@ -174,25 +187,22 @@ export const consumeInvite = onCall(async (request) => {
 export const saveAssignmentFn = onCall(async (request) => {
   const { auth, data } = request;
   if (!auth) throw new HttpsError('unauthenticated', 'User must be authenticated');
-  
+
   const { assignment } = data;
   if (!assignment || !assignment.orgId || !assignment.clientId || !assignment.id) {
     throw new HttpsError('invalid-argument', 'Missing required assignment fields');
   }
 
   const { orgId } = assignment;
-  
+
   // Validar rol de Coach
-  const memberRef = db.collection('organization_members').doc(`${orgId}_${auth.uid}`);
-  const memberSnap = await memberRef.get();
-  if (!memberSnap.exists || (memberSnap.data().role !== 'coach' && memberSnap.data().role !== 'owner')) {
-    throw new HttpsError('permission-denied', 'Only coaches can save assignments');
-  }
+  const profile = await getUserProfile(auth.uid);
+  requireCoachOrOwner(profile, orgId);
 
   await db.runTransaction(async (t) => {
     const assignmentRef = db.collection('workout_assignments').doc(assignment.id);
     const snap = await t.get(assignmentRef);
-    
+
     // Control de concurrencia optimista
     let currentVersion = 0;
     if (snap.exists) {
@@ -201,7 +211,7 @@ export const saveAssignmentFn = onCall(async (request) => {
         throw new HttpsError('aborted', 'Conflict: Document was modified by another request');
       }
     }
-    
+
     const newVersion = currentVersion + 1;
     const docData = {
       ...assignment,
@@ -209,9 +219,9 @@ export const saveAssignmentFn = onCall(async (request) => {
       updatedAt: FieldValue.serverTimestamp()
     };
     if (!snap.exists) docData.createdAt = FieldValue.serverTimestamp();
-    
+
     t.set(assignmentRef, docData);
-    
+
     // Auditoría
     const auditRef = db.collection('audit_logs').doc();
     t.set(auditRef, {
@@ -221,49 +231,46 @@ export const saveAssignmentFn = onCall(async (request) => {
       entityType: 'workout_assignment',
       actorId: auth.uid,
       createdAt: FieldValue.serverTimestamp(),
-      details: { 
+      details: {
         clientId: assignment.clientId,
         workoutId: assignment.workoutId,
         date: assignment.scheduledAt
       }
     });
   });
-  
+
   return { success: true };
 });
 
 export const rescheduleAssignmentFn = onCall(async (request) => {
   const { auth, data } = request;
   if (!auth) throw new HttpsError('unauthenticated', 'User must be authenticated');
-  
+
   const { assignmentId, newDate, orgId, version } = data;
   if (!assignmentId || !newDate || !orgId) {
     throw new HttpsError('invalid-argument', 'Missing fields');
   }
 
-  const memberRef = db.collection('organization_members').doc(`${orgId}_${auth.uid}`);
-  const memberSnap = await memberRef.get();
-  if (!memberSnap.exists || (memberSnap.data().role !== 'coach' && memberSnap.data().role !== 'owner')) {
-    throw new HttpsError('permission-denied', 'Only coaches can reschedule assignments');
-  }
+  const profile = await getUserProfile(auth.uid);
+  requireCoachOrOwner(profile, orgId);
 
   await db.runTransaction(async (t) => {
     const assignmentRef = db.collection('workout_assignments').doc(assignmentId);
     const snap = await t.get(assignmentRef);
     if (!snap.exists) throw new HttpsError('not-found', 'Assignment not found');
-    
+
     const currentData = snap.data();
     if (currentData.orgId !== orgId) throw new HttpsError('permission-denied', 'Wrong orgId');
     if (version !== undefined && currentData.version !== version) {
       throw new HttpsError('aborted', 'Conflict: Document modified');
     }
-    
+
     t.update(assignmentRef, {
       scheduledAt: newDate,
       version: FieldValue.increment(1),
       updatedAt: FieldValue.serverTimestamp()
     });
-    
+
     const auditRef = db.collection('audit_logs').doc();
     t.set(auditRef, {
       orgId,
@@ -278,34 +285,33 @@ export const rescheduleAssignmentFn = onCall(async (request) => {
       }
     });
   });
-  
+
   return { success: true };
 });
 
 export const saveResultFn = onCall(async (request) => {
   const { auth, data } = request;
   if (!auth) throw new HttpsError('unauthenticated', 'User must be authenticated');
-  
+
   const { result } = data;
   if (!result || !result.orgId || !result.clientId || !result.id || !result.assignmentId) {
     throw new HttpsError('invalid-argument', 'Missing result fields');
   }
 
   const { orgId, clientId } = result;
-  
-  // Validar rol (puede ser Cliente del propio clientId o Coach)
-  const memberRef = db.collection('organization_members').doc(`${orgId}_${auth.uid}`);
-  const memberSnap = await memberRef.get();
-  if (!memberSnap.exists) throw new HttpsError('permission-denied', 'Not a member');
-  
-  const role = memberSnap.data().role;
-  if (role === 'client') {
-    // Si es cliente, verificar que está escribiendo SU resultado
-    const profileRef = db.collection('client_profiles').doc(`${orgId}_${auth.uid}_${clientId}`);
-    const profileSnap = await profileRef.get();
-    if (!profileSnap.exists) {
+
+  // Validar rol: puede ser el propio cliente registrando su resultado, o
+  // un coach/owner de la organización.
+  const profile = await getUserProfile(auth.uid);
+  if (!profile || profile.organizationId !== orgId) {
+    throw new HttpsError('permission-denied', 'Not a member');
+  }
+  if (profile.role === 'client') {
+    if (String(profile.clientId || '') !== String(clientId)) {
       throw new HttpsError('permission-denied', 'Cannot save results for other clients');
     }
+  } else if (profile.role !== 'coach' && profile.role !== 'owner') {
+    throw new HttpsError('permission-denied', 'Not a member');
   }
 
   await db.runTransaction(async (t) => {
@@ -318,7 +324,7 @@ export const saveResultFn = onCall(async (request) => {
 
     const resultRef = db.collection('workout_results').doc(result.id);
     const snap = await t.get(resultRef);
-    
+
     let currentVersion = 0;
     if (snap.exists) {
       currentVersion = snap.data().version || 0;
@@ -326,20 +332,16 @@ export const saveResultFn = onCall(async (request) => {
         throw new HttpsError('aborted', 'Conflict: Document was modified by another request');
       }
     }
-    
+
     const docData = {
       ...result,
       version: currentVersion + 1,
       updatedAt: FieldValue.serverTimestamp()
     };
     if (!snap.exists) docData.createdAt = FieldValue.serverTimestamp();
-    
+
     t.set(resultRef, docData);
-    
-    // Si la asignación estaba pendiente, marcarla como en progreso/completada
-    // (Lógica simplificada: en Julit V8 el resultado contiene el estado global del workout)
-    // No modificaremos assignment aquí salvo que sea necesario por dominio. En V8 no se alteraba assignment, solo se creaba result.
-    
+
     const auditRef = db.collection('audit_logs').doc();
     t.set(auditRef, {
       orgId,
@@ -354,7 +356,6 @@ export const saveResultFn = onCall(async (request) => {
       }
     });
   });
-  
+
   return { success: true };
 });
-

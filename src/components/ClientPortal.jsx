@@ -523,7 +523,7 @@ function FreeSessionModal({ clientId, onClose, onSave }) {
 
 // Client Portal Main View Component
 export default function ClientPortal() {
-  const { userProfile } = useAuth();
+  const { userProfile, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('agenda');
   const [agendaViewMode, setAgendaViewMode] = useState('list'); // 'list' or 'calendar'
   const [client, setClient] = useState(null);
@@ -721,6 +721,19 @@ export default function ClientPortal() {
 
       {/* Cabecera del Portal del Cliente */}
       <div className="cp__header-card">
+        <button
+          type="button"
+          className="cp__logout-btn"
+          onClick={logout}
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+        </button>
         <h2 className="cp__header-title">
           {client ? `¡Hola, ${client.firstName}!` : '¡Hola!'}
         </h2>
