@@ -163,12 +163,23 @@ function ClientDetail({
     return <div className="cm__placeholder"><p>Cargando información del cliente...</p></div>;
   }
 
-  const groupName = groups.find(g => g.id === client.groupId)?.name || 'Sin grupo';
-  const sportName = sports.find(s => s.id === client.sportId)?.name || 'Sin deporte';
-  const teamName = teams.find(t => t.id === client.teamId)?.name || 'Sin equipo';
-  const catName = clientCategories.find(c => c.id === client.categoryId)?.name || 'Sin categoría';
-  const posName = positions.find(p => p.id === client.positionId)?.name || 'Sin asignar';
-  const levelName = competitiveLevels.find(l => l.id === client.competitiveLevelId)?.name || 'Sin asignar';
+  // Sin valor => undefined, para poder ocultar la fila en vez de mostrar
+  // "Sin deporte", "Sin equipo"... en todos los deportistas.
+  const groupName = groups.find(g => String(g.id) === String(client.groupId))?.name;
+  const sportName = sports.find(s => String(s.id) === String(client.sportId))?.name;
+  const teamName = teams.find(t => String(t.id) === String(client.teamId))?.name;
+  const catName = clientCategories.find(c => String(c.id) === String(client.categoryId))?.name;
+  const posName = positions.find(p => String(p.id) === String(client.positionId))?.name;
+  const levelName = competitiveLevels.find(l => String(l.id) === String(client.competitiveLevelId))?.name;
+
+  const datosDeportivos = [
+    ['Deporte', sportName],
+    ['Equipo / Club', teamName],
+    ['Categoría', catName],
+    ['Posición / Función', posName],
+    ['Nivel Competitivo', levelName],
+    ['Grupo de Entrenamiento', groupName]
+  ].filter(([, valor]) => !!valor);
 
   const age = calculateAge(client.birthDate);
 
@@ -227,9 +238,13 @@ function ClientDetail({
             <div className="cm__detail-name-row">
               <h2 className="cm__detail-name">{client.firstName} {client.lastName}</h2>
             </div>
-            <p className="cm__detail-meta-text">
-              {sportName} · {teamName} · <strong>{groupName}</strong>
-            </p>
+            {(sportName || teamName || groupName) && (
+              <p className="cm__detail-meta-text">
+                {[sportName, teamName].filter(Boolean).join(' · ')}
+                {groupName && (sportName || teamName) ? ' · ' : ''}
+                {groupName && <strong>{groupName}</strong>}
+              </p>
+            )}
 
             {/* Asignación de entrenador: solo el owner puede cambiarla */}
             {isOwner ? (
@@ -356,30 +371,12 @@ function ClientDetail({
             <div className="cm__info-card">
               <h3 className="cm__info-card-title">Ficha Deportiva</h3>
               <div className="cm__info-list">
-                <div className="cm__info-item">
-                  <span className="cm__info-item-label">Deporte:</span>
-                  <span className="cm__info-item-value">{sportName}</span>
-                </div>
-                <div className="cm__info-item">
-                  <span className="cm__info-item-label">Equipo / Club:</span>
-                  <span className="cm__info-item-value">{teamName}</span>
-                </div>
-                <div className="cm__info-item">
-                  <span className="cm__info-item-label">Categoría:</span>
-                  <span className="cm__info-item-value">{catName}</span>
-                </div>
-                <div className="cm__info-item">
-                  <span className="cm__info-item-label">Posición / Función:</span>
-                  <span className="cm__info-item-value">{posName}</span>
-                </div>
-                <div className="cm__info-item">
-                  <span className="cm__info-item-label">Nivel Competitivo:</span>
-                  <span className="cm__info-item-value">{levelName}</span>
-                </div>
-                <div className="cm__info-item">
-                  <span className="cm__info-item-label">Grupo de Entrenamiento:</span>
-                  <span className="cm__info-item-value">{groupName}</span>
-                </div>
+                {datosDeportivos.map(([etiqueta, valor]) => (
+                  <div className="cm__info-item" key={etiqueta}>
+                    <span className="cm__info-item-label">{etiqueta}:</span>
+                    <span className="cm__info-item-value">{valor}</span>
+                  </div>
+                ))}
                 <div className="cm__info-item">
                   <span className="cm__info-item-label">Altura:</span>
                   <span className="cm__info-item-value">{client.height ? `${client.height} cm` : 'N/A'}</span>
@@ -1181,9 +1178,12 @@ export default function ClientManager() {
           ) : (
             <div className="cm__grid" role="list">
               {filteredClients.map(c => {
-                const sportName = sports.find(s => s.id === c.sportId)?.name || 'Sin deporte';
-                const teamName = teams.find(t => t.id === c.teamId)?.name || 'Sin equipo';
-                const groupName = groups.find(g => g.id === c.groupId)?.name || 'Sin grupo';
+                // Solo se muestra lo que el deportista tenga realmente
+                // asignado: no todos tienen deporte, equipo o grupo.
+                const sportName = sports.find(s => String(s.id) === String(c.sportId))?.name;
+                const teamName = teams.find(t => String(t.id) === String(c.teamId))?.name;
+                const groupName = groups.find(g => String(g.id) === String(c.groupId))?.name;
+                const subtitulo = [sportName, teamName].filter(Boolean).join(' · ');
                 
                 return (
                   <article key={c.id} className="cm__card" onClick={() => setSelectedClientId(c.id)} role="listitem">
@@ -1198,11 +1198,13 @@ export default function ClientManager() {
                     </div>
                     
                     <h3 className="cm__card-name">{c.firstName} {c.lastName}</h3>
-                    <p className="cm__card-sport">{sportName} · {teamName}</p>
-                    
-                    <div className="cm__card-badges">
-                      <span className="badge badge--default" style={{ fontSize: '0.625rem' }}>{groupName}</span>
-                    </div>
+                    {subtitulo && <p className="cm__card-sport">{subtitulo}</p>}
+
+                    {groupName && (
+                      <div className="cm__card-badges">
+                        <span className="badge badge--default" style={{ fontSize: '0.625rem' }}>{groupName}</span>
+                      </div>
+                    )}
 
                     {isOwner && (
                       <span className="cm__card-coach">
@@ -1361,6 +1363,7 @@ export default function ClientManager() {
                     value={form.sportId}
                     onChange={e => setForm(f => ({ ...f, sportId: e.target.value }))}
                   >
+                    <option value="">Sin deporte</option>
                     {sports.map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
@@ -1374,6 +1377,7 @@ export default function ClientManager() {
                     value={form.teamId}
                     onChange={e => setForm(f => ({ ...f, teamId: e.target.value }))}
                   >
+                    <option value="">Sin equipo</option>
                     {teams.map(t => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
@@ -1391,6 +1395,7 @@ export default function ClientManager() {
                     value={form.categoryId}
                     onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
                   >
+                    <option value="">Sin categoría</option>
                     {clientCategories.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}

@@ -252,6 +252,7 @@ export default function ExerciseFormModal({
               value={form.exerciseTypeId}
               onChange={e => setForm(f => ({ ...f, exerciseTypeId: e.target.value }))}
             >
+              <option value="">Sin clasificar</option>
               {types.map(t => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
