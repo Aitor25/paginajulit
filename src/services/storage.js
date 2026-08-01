@@ -10,13 +10,10 @@ export const KEYS = {
   // Catálogos Normalizados V4
   EX_CATEGORIES: 'fitcoach_ex_categories',
   EX_SUBCATEGORIES: 'fitcoach_ex_subcategories',
-  MATERIALS: 'fitcoach_materials',
-  EX_TAGS: 'fitcoach_ex_tags',
   EX_TYPES: 'fitcoach_ex_types',
   POSITIONS: 'fitcoach_positions',
   COMPETITIVE_LEVELS: 'fitcoach_competitive_levels',
   TEST_CATEGORIES: 'fitcoach_test_categories',
-  WORKOUT_TAGS: 'fitcoach_workout_tags',
 
   CLIENTS: 'fitcoach_clients',
   WORKOUTS: 'fitcoach_workouts',
@@ -643,8 +640,6 @@ export const storage = {
       name: `[Copia] - ${fullProg.name}`,
       description: fullProg.description,
       durationWeeks: fullProg.durationWeeks,
-      tagIds: [...(fullProg.tagIds || [])],
-      status: 'draft',
       weeks: fullProg.weeks.map(w => ({
         weekNumber: w.weekNumber,
         name: w.name,

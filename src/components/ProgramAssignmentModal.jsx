@@ -28,7 +28,7 @@ export default function ProgramAssignmentModal({
       const dbClients = await storage.getClients();
       const dbGroups = await storage.getEntities(KEYS.GROUPS);
 
-      const activeClients = dbClients.filter(c => c.status === 'active');
+      const activeClients = dbClients;
       setClients(activeClients);
       setGroups(dbGroups);
 

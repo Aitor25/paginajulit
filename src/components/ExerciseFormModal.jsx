@@ -9,8 +9,6 @@ export default function ExerciseFormModal({
   // Catálogos
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [materials, setMaterials] = useState([]);
-  const [tags, setTags] = useState([]);
   const [types, setTypes] = useState([]);
 
   // Formulario
@@ -18,8 +16,6 @@ export default function ExerciseFormModal({
     name: '',
     categoryId: '',
     subcategoryId: '',
-    materialIds: [],
-    tagIds: [],
     exerciseTypeId: '1', // Fuerza por defecto
     description: '',
     technicalInstructions: '',
@@ -36,14 +32,10 @@ export default function ExerciseFormModal({
     async function loadData() {
       const dbCats = await storage.getEntities(KEYS.EX_CATEGORIES);
       const dbSubs = await storage.getEntities(KEYS.EX_SUBCATEGORIES);
-      const dbMats = await storage.getEntities(KEYS.MATERIALS);
-      const dbTags = await storage.getEntities(KEYS.EX_TAGS);
       const dbTypes = await storage.getEntities(KEYS.EX_TYPES);
 
       setCategories(dbCats);
       setSubcategories(dbSubs);
-      setMaterials(dbMats);
-      setTags(dbTags);
       setTypes(dbTypes);
 
       if (editingEx) {
@@ -51,8 +43,6 @@ export default function ExerciseFormModal({
           name: editingEx.name || '',
           categoryId: editingEx.categoryId ? String(editingEx.categoryId) : (dbCats[0]?.id ? String(dbCats[0].id) : ''),
           subcategoryId: editingEx.subcategoryId ? String(editingEx.subcategoryId) : '',
-          materialIds: Array.isArray(editingEx.materialIds) ? editingEx.materialIds : [],
-          tagIds: Array.isArray(editingEx.tagIds) ? editingEx.tagIds : [],
           exerciseTypeId: editingEx.exerciseTypeId ? String(editingEx.exerciseTypeId) : (dbTypes[0]?.id ? String(dbTypes[0].id) : '1'),
           description: editingEx.description || '',
           technicalInstructions: editingEx.technicalInstructions || '',
@@ -66,8 +56,6 @@ export default function ExerciseFormModal({
           name: '',
           categoryId: dbCats[0]?.id ? String(dbCats[0].id) : '',
           subcategoryId: '',
-          materialIds: [],
-          tagIds: [],
           exerciseTypeId: dbTypes[0]?.id ? String(dbTypes[0].id) : '1',
           description: '',
           technicalInstructions: '',
@@ -98,30 +86,6 @@ export default function ExerciseFormModal({
       }
     }
   }, [form.categoryId, subcategories]);
-
-  // Manejar selección múltiple de materiales
-  const handleMaterialToggle = (id) => {
-    setForm(f => {
-      const idx = f.materialIds.indexOf(id);
-      if (idx === -1) {
-        return { ...f, materialIds: [...f.materialIds, id] };
-      } else {
-        return { ...f, materialIds: f.materialIds.filter(mId => mId !== id) };
-      }
-    });
-  };
-
-  // Manejar selección de tags
-  const handleTagToggle = (id) => {
-    setForm(f => {
-      const idx = f.tagIds.indexOf(id);
-      if (idx === -1) {
-        return { ...f, tagIds: [...f.tagIds, id] };
-      } else {
-        return { ...f, tagIds: f.tagIds.filter(tId => tId !== id) };
-      }
-    });
-  };
 
   // Procesar archivo de imagen con canvas y fondo blanco neutro
   const handleImageChange = (e) => {
@@ -197,8 +161,6 @@ export default function ExerciseFormModal({
       name: trimmedName,
       categoryId: form.categoryId ? String(form.categoryId) : null,
       subcategoryId: form.subcategoryId ? String(form.subcategoryId) : null,
-      materialIds: form.materialIds.map(String),
-      tagIds: form.tagIds.map(String),
       exerciseTypeId: form.exerciseTypeId ? String(form.exerciseTypeId) : null,
       description: form.description.trim(),
       technicalInstructions: form.technicalInstructions.trim(),
@@ -294,41 +256,6 @@ export default function ExerciseFormModal({
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
-          </div>
-
-          {/* Selección de Materiales Multiple */}
-          <div className="el__field">
-            <label className="el__label">Materiales Requeridos</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', maxHeight: '120px', overflowY: 'auto', padding: '6px', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)' }}>
-              {materials.map(m => (
-                <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={form.materialIds.includes(m.id)}
-                    onChange={() => handleMaterialToggle(m.id)}
-                  />
-                  {m.name}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Selección de Etiquetas de Ejercicio */}
-          <div className="el__field">
-            <label className="el__label">Etiquetas del Ejercicio</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '6px', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)' }}>
-              {tags.map(t => (
-                <label key={t.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '3px 8px', background: form.tagIds.includes(t.id) ? 'var(--gray-200)' : 'var(--off-white)', borderRadius: '12px', border: '1px solid var(--gray-300)', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    style={{ margin: 0 }}
-                    checked={form.tagIds.includes(t.id)}
-                    onChange={() => handleTagToggle(t.id)}
-                  />
-                  {t.name}
-                </label>
-              ))}
-            </div>
           </div>
 
           {/* Músculos implicados (Texto) */}

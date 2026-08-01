@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS } from '../services/storage';
-import GlobalCatalogModal from './GlobalCatalogModal';
 
 function stripAccents(str) {
   if (!str) return '';
@@ -24,21 +23,14 @@ export default function ProgramBuilderView({
 }) {
   // Ejercicios y Catálogos de la biblioteca
   const [workouts, setWorkouts] = useState([]);
-  const [workoutTags, setWorkoutTags] = useState([]);
 
   // Estados de la biblioteca lateral (Filtros de rutinas)
   const [search, setSearch] = useState('');
-  const [selectedTagFilter, setSelectedTagFilter] = useState('Todas');
-
-  // Modales
-  const [showCatalogModal, setShowCatalogModal] = useState(false);
 
   // Formulario del Programa
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [durationWeeks, setDurationWeeks] = useState(4);
-  const [selectedTagIds, setSelectedTagIds] = useState([]);
-  const [status, setStatus] = useState('active');
   const [weeks, setWeeks] = useState([]);
 
   // Control SPA de navegación del constructor
@@ -49,10 +41,8 @@ export default function ProgramBuilderView({
   // Cargar datos iniciales
   async function loadData() {
     const dbWorkouts = await storage.getWorkouts();
-    const dbWTags = await storage.getEntities(KEYS.WORKOUT_TAGS);
 
-    setWorkouts(dbWorkouts.filter(w => w.status === 'active'));
-    setWorkoutTags(dbWTags);
+    setWorkouts(dbWorkouts);
   }
 
   useEffect(() => {
@@ -62,8 +52,6 @@ export default function ProgramBuilderView({
       setName(editingProgram.name || '');
       setDescription(editingProgram.description || '');
       setDurationWeeks(editingProgram.durationWeeks || 1);
-      setSelectedTagIds(Array.isArray(editingProgram.tagIds) ? editingProgram.tagIds : []);
-      setStatus(editingProgram.status || 'active');
 
       // Mapear semanas y días estructurados desde el relacional completo
       const mappedWeeks = (editingProgram.weeks || []).map(w => {
@@ -98,8 +86,6 @@ export default function ProgramBuilderView({
       setName('');
       setDescription('');
       setDurationWeeks(4);
-      setSelectedTagIds([]);
-      setStatus('active');
       rebuildWeeks(4);
     }
   }, [editingProgram]);
@@ -136,16 +122,6 @@ export default function ProgramBuilderView({
     const num = Math.max(1, Number(val) || 1);
     setDurationWeeks(num);
     rebuildWeeks(num);
-  };
-
-  const handleTagToggle = (tagId) => {
-    setSelectedTagIds(prev => {
-      if (prev.includes(tagId)) {
-        return prev.filter(id => id !== tagId);
-      } else {
-        return [...prev, tagId];
-      }
-    });
   };
 
   // --- Operaciones en el Calendario de la Columna Izquierda ---
@@ -303,8 +279,6 @@ export default function ProgramBuilderView({
       name: trimmedName,
       description: description.trim(),
       durationWeeks: Number(durationWeeks),
-      tagIds: selectedTagIds.map(Number),
-      status: status,
       weeks: weeks.map(w => ({
         weekNumber: w.weekNumber,
         name: w.name,
@@ -398,15 +372,12 @@ export default function ProgramBuilderView({
   // --- Biblioteca lateral de rutinas (Filtros) ---
   const filteredWorkouts = useMemo(() => {
     let result = workouts;
-    if (selectedTagFilter !== 'Todas') {
-      result = result.filter(w => w.tagIds?.some(t => String(t) === String(selectedTagFilter)));
-    }
     if (search.trim()) {
       const query = stripAccents(search);
       result = result.filter(w => stripAccents(w.name).includes(query));
     }
     return result;
-  }, [workouts, selectedTagFilter, search]);
+  }, [workouts, search]);
 
   return (
     <div className="wb__container">
@@ -470,39 +441,6 @@ export default function ProgramBuilderView({
                 value={description}
                 onChange={e => setDescription(e.target.value)}
               />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div className="el__field">
-                <label className="el__label">Estado</label>
-                <select
-                  className="el__input el__input--select"
-                  value={status}
-                  onChange={e => setStatus(e.target.value)}
-                >
-                  <option value="active">Activo (Disponible para asignar)</option>
-                  <option value="draft">Borrador</option>
-                  <option value="archived">Archivado</option>
-                </select>
-              </div>
-
-              {/* Tags de rutina */}
-              <div className="el__field">
-                <label className="el__label">Etiquetas del Programa</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', padding: '6px', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)' }}>
-                  {workoutTags.map(wt => (
-                    <label key={wt.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '2px 6px', background: selectedTagIds.includes(wt.id) ? 'var(--gray-200)' : 'var(--off-white)', borderRadius: '12px', border: '1px solid var(--gray-300)', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        style={{ margin: 0 }}
-                        checked={selectedTagIds.includes(wt.id)}
-                        onChange={() => handleTagToggle(wt.id)}
-                      />
-                      {wt.name}
-                    </label>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* ══ CRONOGRAMA DE SEMANAS (ACORDEONES) ══ */}
@@ -680,13 +618,6 @@ export default function ProgramBuilderView({
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-
-          <select className="el__select" style={{ height: '32px', fontSize: '0.75rem' }} value={selectedTagFilter} onChange={e => setSelectedTagFilter(e.target.value)}>
-            <option value="Todas">Etiqueta: Todas</option>
-            {workoutTags.map(wt => (
-              <option key={wt.id} value={wt.id}>{wt.name}</option>
-            ))}
-          </select>
 
           <div className="wb__library-list" style={{ marginTop: '8px' }}>
             {filteredWorkouts.map(w => (

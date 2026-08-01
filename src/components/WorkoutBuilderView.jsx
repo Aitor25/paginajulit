@@ -17,16 +17,11 @@ export default function WorkoutBuilderView({
   const [exercises, setExercises] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [materials, setMaterials] = useState([]);
-  const [tags, setTags] = useState([]);
-  const [workoutTags, setWorkoutTags] = useState([]);
 
   // Estados de la biblioteca (Filtros del lateral derecho)
   const [search, setSearch] = useState('');
   const [selectedCatFilter, setSelectedCatFilter] = useState('Todas');
   const [selectedSubcatFilter, setSelectedSubcatFilter] = useState('Todas');
-  const [selectedMaterialFilter, setSelectedMaterialFilter] = useState('Todos');
-  const [selectedTagFilter, setSelectedTagFilter] = useState('Todas');
 
   // Modales embebidos
   const [showFormModal, setShowFormModal] = useState(false);
@@ -39,8 +34,6 @@ export default function WorkoutBuilderView({
     name: '',
     description: '',
     estimatedDurationMinutes: 45,
-    tagIds: [],
-    status: 'active',
     blocks: []
   });
 
@@ -63,16 +56,10 @@ export default function WorkoutBuilderView({
     const dbExs = await storage.getExercises();
     const dbCats = await storage.getEntities(KEYS.EX_CATEGORIES);
     const dbSubs = await storage.getEntities(KEYS.EX_SUBCATEGORIES);
-    const dbMats = await storage.getEntities(KEYS.MATERIALS);
-    const dbTags = await storage.getEntities(KEYS.EX_TAGS);
-    const dbWTags = await storage.getEntities(KEYS.WORKOUT_TAGS);
 
-    setExercises(dbExs.filter(e => e.status !== 'archived'));
+    setExercises(dbExs);
     setCategories(dbCats);
     setSubcategories(dbSubs);
-    setMaterials(dbMats);
-    setTags(dbTags);
-    setWorkoutTags(dbWTags);
   }
 
   useEffect(() => {
@@ -83,8 +70,6 @@ export default function WorkoutBuilderView({
         name: editingWorkout.name || '',
         description: editingWorkout.description || '',
         estimatedDurationMinutes: editingWorkout.estimatedDurationMinutes || 45,
-        tagIds: Array.isArray(editingWorkout.tagIds) ? editingWorkout.tagIds : [],
-        status: editingWorkout.status || 'active',
         blocks: Array.isArray(editingWorkout.blocks) ? JSON.parse(JSON.stringify(editingWorkout.blocks)) : []
       });
       if (editingWorkout.blocks?.length > 0) {
@@ -97,8 +82,6 @@ export default function WorkoutBuilderView({
         name: '',
         description: '',
         estimatedDurationMinutes: 45,
-        tagIds: [],
-        status: 'active',
         blocks: [
           {
             id: defaultBlockId,
@@ -373,18 +356,6 @@ export default function WorkoutBuilderView({
     }));
   };
 
-  // --- Manejo de Etiquetas de Rutina ---
-  const handleTagToggle = (tagId) => {
-    setWorkoutForm(prev => {
-      const idx = prev.tagIds.indexOf(tagId);
-      if (idx === -1) {
-        return { ...prev, tagIds: [...prev.tagIds, tagId] };
-      } else {
-        return { ...prev, tagIds: prev.tagIds.filter(id => id !== tagId) };
-      }
-    });
-  };
-
   // --- Guardar Sesión ---
   async function handleSaveWorkout(e) {
     e.preventDefault();
@@ -450,8 +421,6 @@ export default function WorkoutBuilderView({
       name: trimmedName,
       description: workoutForm.description.trim(),
       estimatedDurationMinutes: Number(workoutForm.estimatedDurationMinutes) || 45,
-      tagIds: workoutForm.tagIds.map(Number),
-      status: workoutForm.status,
       blocks: workoutForm.blocks
     };
 
@@ -479,12 +448,6 @@ export default function WorkoutBuilderView({
     if (selectedSubcatFilter !== 'Todas') {
       result = result.filter(ex => String(ex.subcategoryId) === String(selectedSubcatFilter));
     }
-    if (selectedMaterialFilter !== 'Todos') {
-      result = result.filter(ex => (ex.materialIds || []).some(m => String(m) === String(selectedMaterialFilter)));
-    }
-    if (selectedTagFilter !== 'Todas') {
-      result = result.filter(ex => (ex.tagIds || []).some(t => String(t) === String(selectedTagFilter)));
-    }
 
     if (search.trim()) {
       const query = stripAccents(search);
@@ -496,7 +459,7 @@ export default function WorkoutBuilderView({
     }
 
     return result;
-  }, [exercises, selectedCatFilter, selectedSubcatFilter, selectedMaterialFilter, selectedTagFilter, search]);
+  }, [exercises, selectedCatFilter, selectedSubcatFilter, search]);
 
   return (
     <div className="wb__container">
@@ -556,38 +519,6 @@ export default function WorkoutBuilderView({
                 value={workoutForm.description}
                 onChange={e => setWorkoutForm(w => ({ ...w, description: e.target.value }))}
               />
-            </div>
-
-            {/* Estado */}
-            <div className="el__field">
-              <label className="el__label">Estado de la Plantilla</label>
-              <select
-                className="el__input el__input--select"
-                value={workoutForm.status}
-                onChange={e => setWorkoutForm(w => ({ ...w, status: e.target.value }))}
-              >
-                <option value="active">Activo (Disponible para asignar)</option>
-                <option value="draft">Borrador</option>
-                <option value="archived">Archivado</option>
-              </select>
-            </div>
-
-            {/* Etiquetas de Rutina */}
-            <div className="el__field">
-              <label className="el__label">Etiquetas del Entrenamiento</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '6px', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)' }}>
-                {workoutTags.map(wt => (
-                  <label key={wt.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '3px 8px', background: workoutForm.tagIds.includes(wt.id) ? 'var(--gray-200)' : 'var(--off-white)', borderRadius: '12px', border: '1px solid var(--gray-300)', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      style={{ margin: 0 }}
-                      checked={workoutForm.tagIds.includes(wt.id)}
-                      onChange={() => handleTagToggle(wt.id)}
-                    />
-                    {wt.name}
-                  </label>
-                ))}
-              </div>
             </div>
 
             {/* ══ CONSTRUCTOR DE BLOQUES SECUENCIALES ══ */}
@@ -995,7 +926,7 @@ export default function WorkoutBuilderView({
       {showCatalogModal && (
         <GlobalCatalogModal
           mode="contextual"
-          contextKeys={[KEYS.EX_CATEGORIES, KEYS.EX_SUBCATEGORIES, KEYS.MATERIALS, KEYS.EX_TAGS, KEYS.EX_TYPES]}
+          contextKeys={[KEYS.EX_CATEGORIES, KEYS.EX_SUBCATEGORIES, KEYS.EX_TYPES]}
           initialActiveKey={KEYS.EX_CATEGORIES}
           onClose={() => setShowCatalogModal(false)}
           onRefresh={loadLibraryData}

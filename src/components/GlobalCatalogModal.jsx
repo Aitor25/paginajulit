@@ -5,8 +5,6 @@ import './GlobalCatalogModal.css';
 const ALL_CATALOGS = [
   { key: KEYS.EX_CATEGORIES, label: 'Categorías de Ejercicios' },
   { key: KEYS.EX_SUBCATEGORIES, label: 'Subcategorías de Ejercicios' },
-  { key: KEYS.MATERIALS, label: 'Materiales' },
-  { key: KEYS.EX_TAGS, label: 'Etiquetas de Ejercicios' },
   { key: KEYS.EX_TYPES, label: 'Tipos de Ejercicios' },
   { key: KEYS.GROUPS, label: 'Grupos de Entrenamiento' },
   { key: KEYS.SPORTS, label: 'Deportes' },
@@ -15,8 +13,7 @@ const ALL_CATALOGS = [
   { key: KEYS.POSITIONS, label: 'Posiciones de Cliente' },
   { key: KEYS.COMPETITIVE_LEVELS, label: 'Niveles Competitivos' },
   { key: KEYS.TEST_CATEGORIES, label: 'Categorías de Test' },
-  { key: KEYS.TEST_DEFINITIONS, label: 'Definiciones de Tests' },
-  { key: KEYS.WORKOUT_TAGS, label: 'Etiquetas de Entrenamiento' }
+  { key: KEYS.TEST_DEFINITIONS, label: 'Definiciones de Tests' }
 ];
 
 export default function GlobalCatalogModal({
@@ -189,8 +186,6 @@ export default function GlobalCatalogModal({
     
     if (activeKey === KEYS.EX_CATEGORIES || activeKey === KEYS.EX_SUBCATEGORIES) {
       confirmPrompt += `\n* IMPORTANTE: Se bloqueará la acción si algún ejercicio está utilizándolo.`;
-    } else if (activeKey === KEYS.MATERIALS || activeKey === KEYS.EX_TAGS) {
-      confirmPrompt += `\n* IMPORTANTE: Se desvinculará de los ejercicios asociados de forma segura sin borrarlos.`;
     } else if (activeKey === KEYS.TEST_DEFINITIONS) {
       confirmPrompt += `\n* IMPORTANTE: Se bloqueará el borrado si tiene mediciones históricas guardadas.`;
     } else {

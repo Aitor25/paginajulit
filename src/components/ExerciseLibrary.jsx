@@ -99,9 +99,6 @@ export default function ExerciseLibrary() {
   const [exercises, setExercises] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [materials, setMaterials] = useState([]);
-  const [tags, setTags] = useState([]);
-  const [types, setTypes] = useState([]);
 
   // Estados visuales
   const [loading, setLoading] = useState(true);
@@ -114,8 +111,6 @@ export default function ExerciseLibrary() {
   const [selectedCatFilter, setSelectedCatFilter] = useState('Todas');
   const [selectedSubcatFilter, setSelectedSubcatFilter] = useState('Todas');
   const [selectedMuscleFilter, setSelectedMuscleFilter] = useState('Todos');
-  const [selectedMaterialFilter, setSelectedMaterialFilter] = useState('Todos');
-  const [selectedTagFilter, setSelectedTagFilter] = useState('Todas');
   const [sortOrder, setSortOrder] = useState('name-asc');
 
   // Modales
@@ -134,17 +129,10 @@ export default function ExerciseLibrary() {
       const dbExs = await storage.getExercises();
       const dbCats = await storage.getEntities(KEYS.EX_CATEGORIES);
       const dbSubs = await storage.getEntities(KEYS.EX_SUBCATEGORIES);
-      const dbMats = await storage.getEntities(KEYS.MATERIALS);
-      const dbTags = await storage.getEntities(KEYS.EX_TAGS);
-      const dbTypes = await storage.getEntities(KEYS.EX_TYPES);
 
-      // Filtrar solo activos para la biblioteca principal
-      setExercises(dbExs.filter(e => e.status !== 'archived'));
+      setExercises(dbExs);
       setCategories(dbCats);
       setSubcategories(dbSubs);
-      setMaterials(dbMats);
-      setTags(dbTags);
-      setTypes(dbTypes);
     } catch (error) {
       console.error("Error loading library data:", error);
       setErrorMsg(error.message || String(error));
@@ -174,8 +162,6 @@ export default function ExerciseLibrary() {
     setSelectedCatFilter('Todas');
     setSelectedSubcatFilter('Todas');
     setSelectedMuscleFilter('Todos');
-    setSelectedMaterialFilter('Todos');
-    setSelectedTagFilter('Todas');
     setSortOrder('name-asc');
   };
 
@@ -240,27 +226,13 @@ export default function ExerciseLibrary() {
       );
     }
 
-    // 5. Filtro Material
-    if (selectedMaterialFilter !== 'Todos') {
-      result = result.filter(ex => 
-        Array.isArray(ex.materialIds) && ex.materialIds.some(m => String(m) === String(selectedMaterialFilter))
-      );
-    }
-
-    // 6. Filtro Tags
-    if (selectedTagFilter !== 'Todas') {
-      result = result.filter(ex => 
-        Array.isArray(ex.tagIds) && ex.tagIds.some(t => String(t) === String(selectedTagFilter))
-      );
-    }
-
     // 7. Buscador
     if (search.trim()) {
       const query = stripAccents(search);
       result = result.filter(ex => {
         const nameMatch = stripAccents(ex.name).includes(query);
         
-        // Buscar nombres correspondientes a los IDs para buscar por categoría/material/etiquetas
+        // Buscar nombres correspondientes a los IDs para buscar por categoría
         const catName = categories.find(c => c.id === ex.categoryId)?.name || '';
         const catMatch = stripAccents(catName).includes(query);
 
@@ -269,17 +241,7 @@ export default function ExerciseLibrary() {
 
         const musclesMatch = Array.isArray(ex.musculos) && ex.musculos.some(m => stripAccents(m).includes(query));
 
-        const matMatch = Array.isArray(ex.materialIds) && ex.materialIds.some(mId => {
-          const mName = materials.find(m => m.id === mId)?.name || '';
-          return stripAccents(mName).includes(query);
-        });
-
-        const tagMatch = Array.isArray(ex.tagIds) && ex.tagIds.some(tId => {
-          const tName = tags.find(t => t.id === tId)?.name || '';
-          return stripAccents(tName).includes(query);
-        });
-
-        return nameMatch || catMatch || subcatMatch || musclesMatch || matMatch || tagMatch;
+        return nameMatch || catMatch || subcatMatch || musclesMatch;
       });
     }
 
@@ -294,7 +256,7 @@ export default function ExerciseLibrary() {
     }
 
     return sorted;
-  }, [exercises, onlyFavorites, selectedCatFilter, selectedSubcatFilter, selectedMuscleFilter, selectedMaterialFilter, selectedTagFilter, search, sortOrder, categories, subcategories, materials, tags]);
+  }, [exercises, onlyFavorites, selectedCatFilter, selectedSubcatFilter, selectedMuscleFilter, search, sortOrder, categories, subcategories]);
 
   if (loading) {
     return <div className="el__placeholder"><p>Cargando biblioteca de ejercicios...</p></div>;
@@ -316,7 +278,7 @@ export default function ExerciseLibrary() {
         </div>
 
         <div className="el__header-actions">
-          <button className="el__btn el__btn--ghost" onClick={() => setShowCatalogModal(true)} title="Gestionar categorías, materiales y etiquetas">
+          <button className="el__btn el__btn--ghost" onClick={() => setShowCatalogModal(true)} title="Gestionar categorías y subcategorías">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
             </svg>
@@ -343,7 +305,7 @@ export default function ExerciseLibrary() {
             <input
               type="text"
               className="el__search-input"
-              placeholder="Buscar por nombre, categoría, material, etiquetas o músculos..."
+              placeholder="Buscar por nombre, categoría o músculos..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Buscar ejercicios"
@@ -424,27 +386,7 @@ export default function ExerciseLibrary() {
               </select>
             </div>
 
-            {/* Material */}
-            <div className="el__select-wrap">
-              <select className="el__select" value={selectedMaterialFilter} onChange={(e) => setSelectedMaterialFilter(e.target.value)}>
-                <option value="Todos">Material: Todos</option>
-                {materials.map(m => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Etiquetas */}
-            <div className="el__select-wrap">
-              <select className="el__select" value={selectedTagFilter} onChange={(e) => setSelectedTagFilter(e.target.value)}>
-                <option value="Todas">Etiqueta: Todas</option>
-                {tags.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {(selectedCatFilter !== 'Todas' || selectedSubcatFilter !== 'Todas' || selectedMuscleFilter !== 'Todos' || selectedMaterialFilter !== 'Todos' || selectedTagFilter !== 'Todas') && (
+            {(selectedCatFilter !== 'Todas' || selectedSubcatFilter !== 'Todas' || selectedMuscleFilter !== 'Todos') && (
               <button className="el__btn-clear-filters" onClick={handleClearFilters}>
                 Limpiar
               </button>
@@ -473,11 +415,6 @@ export default function ExerciseLibrary() {
             const catName = categories.find(c => c.id === ex.categoryId)?.name || 'Sin categoría';
             const subName = subcategories.find(s => s.id === ex.subcategoryId)?.name || '';
             
-            // Resolver nombres de materiales
-            const matNames = Array.isArray(ex.materialIds) 
-              ? ex.materialIds.map(mId => materials.find(m => m.id === mId)?.name).filter(Boolean).join(', ')
-              : 'Sin material';
-
             return (
               <article
                 key={ex.id}
@@ -519,12 +456,6 @@ export default function ExerciseLibrary() {
                       <strong>Instrucciones:</strong> {ex.technicalInstructions}
                     </div>
                   )}
-
-                  <div className="el__card-footer">
-                    <span className="el__card-meta">
-                      <strong>Material:</strong> {matNames}
-                    </span>
-                  </div>
 
                   {/* Acciones de administración */}
                   <div className="el__card-admin-actions">
@@ -588,7 +519,7 @@ export default function ExerciseLibrary() {
       {showCatalogModal && (
         <GlobalCatalogModal
           mode="contextual"
-          contextKeys={[KEYS.EX_CATEGORIES, KEYS.EX_SUBCATEGORIES, KEYS.MATERIALS, KEYS.EX_TAGS, KEYS.EX_TYPES]}
+          contextKeys={[KEYS.EX_CATEGORIES, KEYS.EX_SUBCATEGORIES, KEYS.EX_TYPES]}
           initialActiveKey={KEYS.EX_CATEGORIES}
           onClose={() => setShowCatalogModal(false)}
           onRefresh={loadLibraryData}

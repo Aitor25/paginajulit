@@ -17,7 +17,6 @@ export default function WorkoutManager() {
 
   const [workouts, setWorkouts] = useState([]);
   const [assignments, setAssignments] = useState([]);
-  const [workoutTags, setWorkoutTags] = useState([]);
   const [clients, setClients] = useState([]);
   const [groups, setGroups] = useState([]);
 
@@ -27,8 +26,6 @@ export default function WorkoutManager() {
 
   // Filtros
   const [search, setSearch] = useState('');
-  const [selectedTagFilter, setSelectedTagFilter] = useState('Todas');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('active');
 
   // Listas compactas: por defecto solo se ven los primeros N, con opción
   // de desplegar el resto (la búsqueda ya permite llegar a cualquiera).
@@ -50,13 +47,11 @@ export default function WorkoutManager() {
       setErrorMsg(null);
       const dbWorkouts = await storage.getWorkouts();
       const dbAssigns = await storage.getWorkoutAssignments();
-      const dbWTags = await storage.getEntities(KEYS.WORKOUT_TAGS);
       const dbClients = await storage.getClients();
       const dbGroups = await storage.getEntities(KEYS.GROUPS);
 
       setWorkouts(dbWorkouts);
       setAssignments(dbAssigns);
-      setWorkoutTags(dbWTags);
       setClients(dbClients);
       setGroups(dbGroups);
     } catch (error) {
@@ -88,15 +83,6 @@ export default function WorkoutManager() {
     await loadData();
   };
 
-  const handleQuickArchive = async (w) => {
-    const nextStatus = w.status === 'archived' ? 'active' : 'archived';
-    await storage.saveWorkout({
-      ...w,
-      status: nextStatus
-    });
-    await loadData();
-  };
-
   // --- CRUD Asignaciones ---
   const handleDeleteAssignment = async (id) => {
     if (!window.confirm("¿Seguro que deseas anular esta asignación programada?")) return;
@@ -107,16 +93,6 @@ export default function WorkoutManager() {
   // --- Filtrado ---
   const filteredWorkouts = useMemo(() => {
     let result = workouts;
-
-    // 1. Estado
-    if (selectedStatusFilter !== 'Todas') {
-      result = result.filter(w => w.status === selectedStatusFilter);
-    }
-
-    // 2. Etiqueta
-    if (selectedTagFilter !== 'Todas') {
-      result = result.filter(w => Array.isArray(w.tagIds) && w.tagIds.some(t => String(t) === String(selectedTagFilter)));
-    }
 
     // 3. Buscador
     if (search.trim()) {
@@ -129,7 +105,7 @@ export default function WorkoutManager() {
     }
 
     return result;
-  }, [workouts, selectedStatusFilter, selectedTagFilter, search]);
+  }, [workouts, search]);
 
   const visibleWorkouts = showAllWorkouts ? filteredWorkouts : filteredWorkouts.slice(0, WORKOUTS_PAGE_SIZE);
 
@@ -224,23 +200,6 @@ export default function WorkoutManager() {
               />
             </div>
 
-            <div className="cm__select-wrap">
-              <select className="cm__select" value={selectedTagFilter} onChange={e => setSelectedTagFilter(e.target.value)} aria-label="Filtrar por etiqueta de rutina">
-                <option value="Todas">Etiqueta: Todas</option>
-                {workoutTags.map(wt => (
-                  <option key={wt.id} value={wt.id}>{wt.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="cm__select-wrap">
-              <select className="cm__select" value={selectedStatusFilter} onChange={e => setSelectedStatusFilter(e.target.value)} aria-label="Filtrar por estado">
-                <option value="Todas">Estado: Todos</option>
-                <option value="active">Activas</option>
-                <option value="draft">Borrador</option>
-                <option value="archived">Archivadas</option>
-              </select>
-            </div>
           </div>
 
           <div style={{ marginBottom: '16px', fontSize: '0.8125rem', color: 'var(--gray-400)' }}>
@@ -261,8 +220,6 @@ export default function WorkoutManager() {
                     <tr>
                       <th>Rutina</th>
                       <th>Duración</th>
-                      <th>Etiquetas</th>
-                      <th>Estado</th>
                       <th style={{ textAlign: 'center' }}>Acciones</th>
                     </tr>
                   </thead>
@@ -286,28 +243,12 @@ export default function WorkoutManager() {
                             {w.estimatedDurationMinutes} min · {blockCount} bloques ({exerciseCount} ej.)
                           </td>
                           <td>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                              {w.tagIds?.map(tagId => {
-                                const tName = workoutTags.find(t => t.id === tagId)?.name;
-                                return tName ? <span key={tagId} className="badge badge--default" style={{ fontSize: '0.65rem' }}>{tName}</span> : null;
-                              })}
-                            </div>
-                          </td>
-                          <td>
-                            <span className={`cm__card-status-badge cm__card-status-badge--${w.status}`} style={{ position: 'static' }}>
-                              {w.status === 'active' ? 'Activo' : w.status === 'draft' ? 'Borrador' : 'Archivado'}
-                            </span>
-                          </td>
-                          <td>
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
                               <button className="el__btn el__btn--primary" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => setAssignWorkoutId(w.id)}>
                                 Asignar
                               </button>
                               <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0 }} onClick={() => handleOpenEdit(w)} title="Editar rutina">
                                 ✎
-                              </button>
-                              <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0 }} onClick={() => handleQuickArchive(w)} title={w.status === 'archived' ? 'Desarchivar' : 'Archivar'}>
-                                🗃
                               </button>
                               <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0, color: '#e53e3e', borderColor: '#fbc2c2' }} onClick={() => handleDeleteWorkout(w.id, w.name)} title="Eliminar definitivamente">
                                 ✕

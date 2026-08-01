@@ -15,7 +15,6 @@ export default function ProgramManager() {
   // Datos principales
   const [programs, setPrograms] = useState([]);
   const [assignments, setAssignments] = useState([]);
-  const [workoutTags, setWorkoutTags] = useState([]);
   const [clients, setClients] = useState([]);
   const [groups, setGroups] = useState([]);
 
@@ -26,8 +25,6 @@ export default function ProgramManager() {
 
   // Filtros
   const [search, setSearch] = useState('');
-  const [selectedTagFilter, setSelectedTagFilter] = useState('Todas');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('active');
 
   // Modales
   const [assignProgramId, setAssignProgramId] = useState(null);
@@ -39,13 +36,11 @@ export default function ProgramManager() {
     setLoading(true);
     const dbPrograms = await storage.getPrograms();
     const dbAssigns = await storage.getProgramAssignments();
-    const dbWTags = await storage.getEntities(KEYS.WORKOUT_TAGS);
     const dbClients = await storage.getClients();
     const dbGroups = await storage.getEntities(KEYS.GROUPS);
 
     setPrograms(dbPrograms);
     setAssignments(dbAssigns);
-    setWorkoutTags(dbWTags);
     setClients(dbClients);
     setGroups(dbGroups);
     setLoading(false);
@@ -83,20 +78,6 @@ export default function ProgramManager() {
     await loadData();
   };
 
-  const handleQuickArchive = async (p) => {
-    const nextStatus = p.status === 'archived' ? 'active' : 'archived';
-    try {
-      const full = await storage.getProgramById(p.id);
-      await storage.saveProgram({
-        ...full,
-        status: nextStatus
-      });
-      await loadData();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
   // --- CRUD Asignaciones ---
   const handleDeleteAssignment = async (id) => {
     if (!window.confirm("¿Seguro que deseas anular este programa para el deportista? Se removerán sus sesiones pendientes del calendario.")) return;
@@ -107,16 +88,6 @@ export default function ProgramManager() {
   // --- Filtrado ---
   const filteredPrograms = useMemo(() => {
     let result = programs;
-
-    // 1. Estado
-    if (selectedStatusFilter !== 'Todas') {
-      result = result.filter(p => p.status === selectedStatusFilter);
-    }
-
-    // 2. Etiqueta
-    if (selectedTagFilter !== 'Todas') {
-      result = result.filter(p => Array.isArray(p.tagIds) && p.tagIds.some(t => String(t) === String(selectedTagFilter)));
-    }
 
     // 3. Buscador
     if (search.trim()) {
@@ -129,7 +100,7 @@ export default function ProgramManager() {
     }
 
     return result;
-  }, [programs, selectedStatusFilter, selectedTagFilter, search]);
+  }, [programs, search]);
 
   if (loading) {
     return <div className="el__placeholder"><p>Cargando módulo de programas...</p></div>;
@@ -192,23 +163,6 @@ export default function ProgramManager() {
           />
         </div>
 
-        <div className="cm__select-wrap">
-          <select className="cm__select" value={selectedTagFilter} onChange={e => setSelectedTagFilter(e.target.value)} aria-label="Filtrar por etiqueta">
-            <option value="Todas">Etiqueta: Todas</option>
-            {workoutTags.map(wt => (
-              <option key={wt.id} value={wt.id}>{wt.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="cm__select-wrap">
-          <select className="cm__select" value={selectedStatusFilter} onChange={e => setSelectedStatusFilter(e.target.value)} aria-label="Filtrar por estado">
-            <option value="Todas">Estado: Todos</option>
-            <option value="active">Activos</option>
-            <option value="draft">Borrador</option>
-            <option value="archived">Archivados</option>
-          </select>
-        </div>
       </div>
 
       <div style={{ marginBottom: '16px', fontSize: '0.8125rem', color: 'var(--gray-400)' }}>
@@ -230,20 +184,9 @@ export default function ProgramManager() {
               <article key={p.id} className="wk__card">
                 <div className="wk__card-header">
                   <h3 className="wk__card-title">{p.name}</h3>
-                  <span className={`cm__card-status-badge cm__card-status-badge--${p.status}`}>
-                    {p.status === 'active' ? 'Activo' : p.status === 'draft' ? 'Borrador' : 'Archivado'}
-                  </span>
                 </div>
 
                 <p className="wk__card-desc">{p.description || 'Sin objetivos de fase definidos.'}</p>
-
-                {/* Badges de tags */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {p.tagIds?.map(tagId => {
-                    const tName = workoutTags.find(t => t.id === tagId)?.name;
-                    return tName ? <span key={tagId} className="badge badge--default" style={{ fontSize: '0.65rem' }}>{tName}</span> : null;
-                  })}
-                </div>
 
                 <div className="wk__card-meta-program">
                   <span>{p.durationWeeks} Semanas</span>
@@ -267,9 +210,6 @@ export default function ProgramManager() {
                   </button>
                   <button className="el__btn el__btn--ghost" style={{ height: '32px', width: '32px', padding: 0 }} onClick={() => handleDuplicateProgram(p.id)} title="Duplicar (Deep Clone)">
                     📋
-                  </button>
-                  <button className="el__btn el__btn--ghost" style={{ height: '32px', width: '32px', padding: 0 }} onClick={() => handleQuickArchive(p)} title={p.status === 'archived' ? 'Desarchivar' : 'Archivar'}>
-                    🗃
                   </button>
                   <button className="el__btn el__btn--ghost" style={{ height: '32px', width: '32px', padding: 0, color: '#e53e3e', borderColor: '#fbc2c2' }} onClick={() => handleDeleteProgram(p.id, p.name)} title="Eliminar definitivamente">
                     ✕

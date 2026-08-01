@@ -27,9 +27,9 @@ export default function WorkoutAssignmentModal({
       const dbGroups = await storage.getEntities(KEYS.GROUPS);
       const dbWorkouts = await storage.getWorkouts();
       
-      setClients(dbClients.filter(c => c.status !== 'archived'));
+      setClients(dbClients);
       setGroups(dbGroups);
-      setWorkouts(dbWorkouts.filter(w => w.status === 'active'));
+      setWorkouts(dbWorkouts);
 
       if (clientId) {
         setTargetType('client');
