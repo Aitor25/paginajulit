@@ -5,6 +5,7 @@ import { formatDate, formatDateTime } from '../utils/dateUtils';
 import GlobalCatalogModal from './GlobalCatalogModal';
 import AssessmentTab from './AssessmentTab';
 import { ClientCalendarTab } from './ClientCalendarTab';
+import { buildCoachColorMap, SIN_ENTRENADOR_COLOR } from './CalendarGrid';
 import { useAuth } from '../contexts/AuthProvider';
 import './ClientManager.css';
 
@@ -33,7 +34,6 @@ function ClientDetail({
   onClose,
   onEdit,
   onDelete,
-  onStatusChange,
   groups,
   sports,
   teams,
@@ -209,23 +209,6 @@ function ClientDetail({
     setNotes(prev => prev.filter(n => n.id !== noteId));
   }
 
-  // --- Toggle Archivado y Reactivación Directa ---
-  async function handleToggleArchive() {
-    const isArchived = client.status === 'archived';
-    const nextStatus = isArchived ? 'active' : 'archived';
-    
-    const updated = {
-      ...client,
-      status: nextStatus
-    };
-    
-    const saved = await storage.saveClient(updated);
-    setClient(saved);
-    if (onStatusChange) {
-      onStatusChange(saved);
-    }
-  }
-
   return (
     <div className="cm__detail">
       {/* Cabecera de Ficha */}
@@ -243,9 +226,6 @@ function ClientDetail({
           <div className="cm__detail-title-group">
             <div className="cm__detail-name-row">
               <h2 className="cm__detail-name">{client.firstName} {client.lastName}</h2>
-              <span className={`cm__card-status-badge cm__card-status-badge--${client.status}`} style={{ position: 'static' }}>
-                {client.status === 'active' ? 'Activo' : client.status === 'inactive' ? 'Inactivo' : 'Archivado'}
-              </span>
             </div>
             <p className="cm__detail-meta-text">
               {sportName} · {teamName} · <strong>{groupName}</strong>
@@ -279,28 +259,6 @@ function ClientDetail({
         </div>
 
         <div className="cm__detail-actions">
-          <button 
-            className="el__btn el__btn--ghost" 
-            onClick={handleToggleArchive}
-            title={client.status === 'archived' ? 'Reactivar cliente a la lista activa' : 'Ocultar cliente enviándolo al archivo'}
-          >
-            {client.status === 'archived' ? (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                </svg>
-                Reactivar Cliente
-              </>
-            ) : (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
-                </svg>
-                Archivar Cliente
-              </>
-            )}
-          </button>
-
           <button className="el__btn el__btn--ghost" onClick={() => onEdit(client)} aria-label="Editar deportista">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -748,7 +706,11 @@ function ClientDetail({
 
 /* ─── Componente Principal (ClientManager) ────────────────── */
 export default function ClientManager() {
+  const { userProfile } = useAuth();
+  const isOwner = userProfile?.role === 'owner';
+
   const [clients, setClients] = useState([]);
+  const [coaches, setCoaches] = useState([]);
   const [groups, setGroups] = useState([]);
   const [sports, setSports] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -760,7 +722,7 @@ export default function ClientManager() {
   const [search, setSearch] = useState('');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('Todos');
   const [selectedSportFilter, setSelectedSportFilter] = useState('Todos');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('active');
+  const [selectedCoachFilter, setSelectedCoachFilter] = useState('Todos');
   const [sortOrder, setSortOrder] = useState('name-asc');
 
   /* Enrutamiento SPA interno */
@@ -788,7 +750,6 @@ export default function ClientManager() {
     categoryId: '',
     groupId: '',
     image: '',
-    status: 'active',
     generalNotes: '',
     positionId: '',
     competitiveLevelId: ''
@@ -807,6 +768,9 @@ export default function ClientManager() {
 
     setClients(dbClients);
     setGroups(dbGroups);
+    if (isOwner) {
+      storage.getCoaches().then(setCoaches).catch(err => console.error('Error cargando entrenadores', err));
+    }
     setSports(dbSports);
     setTeams(dbTeams);
     setClientCategories(dbCats);
@@ -816,7 +780,19 @@ export default function ClientManager() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [isOwner]);
+
+  // Color estable por entrenador, el mismo que usa el calendario
+  const coachColors = useMemo(
+    () => buildCoachColorMap(coaches.map(c => c.uid || c.id)),
+    [coaches]
+  );
+
+  const coachName = (coachId) => {
+    if (!coachId) return null;
+    const c = coaches.find(x => String(x.uid || x.id) === String(coachId));
+    return c ? (c.fullName || c.email) : 'Entrenador';
+  };
 
   // Deportes dinámicos para filtros
   const dynamicSports = useMemo(() => {
@@ -829,6 +805,7 @@ export default function ClientManager() {
     setSearch('');
     setSelectedGroupFilter('Todos');
     setSelectedSportFilter('Todos');
+    setSelectedCoachFilter('Todos');
     setSelectedStatusFilter('active');
     setSortOrder('name-asc');
   };
@@ -881,9 +858,13 @@ export default function ClientManager() {
       });
     }
 
-    // 4. Filtro Estado
-    if (selectedStatusFilter !== 'Todos') {
-      result = result.filter(c => c.status === selectedStatusFilter);
+    // 4. Filtro Entrenador
+    if (selectedCoachFilter !== 'Todos') {
+      if (selectedCoachFilter === 'none') {
+        result = result.filter(c => !c.coachId);
+      } else {
+        result = result.filter(c => String(c.coachId) === String(selectedCoachFilter));
+      }
     }
 
     // 5. Ordenación
@@ -897,7 +878,7 @@ export default function ClientManager() {
     }
 
     return sorted;
-  }, [clients, search, selectedGroupFilter, selectedSportFilter, selectedStatusFilter, sortOrder, sports, teams, groups, positions, competitiveLevels]);
+  }, [clients, search, selectedGroupFilter, selectedSportFilter, selectedCoachFilter, sortOrder, sports, teams, groups, positions, competitiveLevels]);
 
   /* ── Procesamiento de Foto con Canvas y Fondo Blanco ── */
   const handleImageChange = (e) => {
@@ -977,7 +958,6 @@ export default function ClientManager() {
       positionId: form.positionId ? String(form.positionId) : null,
       competitiveLevelId: form.competitiveLevelId ? String(form.competitiveLevelId) : null,
       image: form.image,
-      status: form.status,
       generalNotes: form.generalNotes.trim()
     };
 
@@ -1020,7 +1000,6 @@ export default function ClientManager() {
       positionId: '',
       competitiveLevelId: '',
       image: '',
-      status: 'active',
       generalNotes: ''
     });
     setFormError('');
@@ -1045,7 +1024,6 @@ export default function ClientManager() {
       positionId: c.positionId || '',
       competitiveLevelId: c.competitiveLevelId || '',
       image: c.image || '',
-      status: c.status || 'active',
       generalNotes: c.generalNotes || ''
     });
     setFormError('');
@@ -1088,7 +1066,6 @@ export default function ClientManager() {
           onClose={() => setSelectedClientId(null)}
           onEdit={handleOpenEditModal}
           onDelete={handleDeleteClientClick}
-          onStatusChange={handleDetailStatusChange => setClients(prev => prev.map(c => c.id === handleDetailStatusChange.id ? handleDetailStatusChange : c))}
           groups={groups}
           sports={sports}
           teams={teams}
@@ -1161,14 +1138,17 @@ export default function ClientManager() {
               </select>
             </div>
 
-            <div className="cm__select-wrap">
-              <select className="cm__select" value={selectedStatusFilter} onChange={e => setSelectedStatusFilter(e.target.value)} aria-label="Filtrar por estado">
-                <option value="Todos">Estado: Todos</option>
-                <option value="active">Activos</option>
-                <option value="inactive">Inactivos</option>
-                <option value="archived">Archivados</option>
-              </select>
-            </div>
+            {isOwner && (
+              <div className="cm__select-wrap">
+                <select className="cm__select" value={selectedCoachFilter} onChange={e => setSelectedCoachFilter(e.target.value)} aria-label="Filtrar por entrenador">
+                  <option value="Todos">Entrenador: Todos</option>
+                  {coaches.map(c => (
+                    <option key={c.uid || c.id} value={c.uid || c.id}>{c.fullName || c.email}</option>
+                  ))}
+                  <option value="none">Sin entrenador</option>
+                </select>
+              </div>
+            )}
 
             <div className="cm__select-wrap">
               <select className="cm__select" value={sortOrder} onChange={e => setSortOrder(e.target.value)} aria-label="Ordenar listado">
@@ -1178,7 +1158,7 @@ export default function ClientManager() {
               </select>
             </div>
 
-            {(search || selectedGroupFilter !== 'Todos' || selectedSportFilter !== 'Todos' || selectedStatusFilter !== 'active' || sortOrder !== 'name-asc') && (
+            {(search || selectedGroupFilter !== 'Todos' || selectedSportFilter !== 'Todos' || selectedCoachFilter !== 'Todos' || sortOrder !== 'name-asc') && (
               <button className="el__btn el__btn--ghost" onClick={handleClearFilters} style={{ padding: '8px 12px', fontSize: '0.8rem' }}>
                 Limpiar filtros
               </button>
@@ -1207,10 +1187,6 @@ export default function ClientManager() {
                 
                 return (
                   <article key={c.id} className="cm__card" onClick={() => setSelectedClientId(c.id)} role="listitem">
-                    <span className={`cm__card-status-badge cm__card-status-badge--${c.status}`}>
-                      {c.status === 'active' ? 'Activo' : c.status === 'inactive' ? 'Inactivo' : 'Archivado'}
-                    </span>
-                    
                     <div className="cm__card-avatar-wrap">
                       {c.image ? (
                         <img src={c.image} alt={c.firstName} className="cm__card-avatar" />
@@ -1227,6 +1203,16 @@ export default function ClientManager() {
                     <div className="cm__card-badges">
                       <span className="badge badge--default" style={{ fontSize: '0.625rem' }}>{groupName}</span>
                     </div>
+
+                    {isOwner && (
+                      <span className="cm__card-coach">
+                        <span
+                          className="cm__card-coach-dot"
+                          style={{ backgroundColor: c.coachId ? (coachColors[String(c.coachId)] || SIN_ENTRENADOR_COLOR) : SIN_ENTRENADOR_COLOR }}
+                        />
+                        {coachName(c.coachId) || 'Sin entrenador'}
+                      </span>
+                    )}
 
                     <button className="el__btn el__btn--ghost el__card-btn" onClick={(e) => {
                       e.stopPropagation();
@@ -1458,21 +1444,6 @@ export default function ClientManager() {
                 </div>
               </div>
 
-              {/* Estado */}
-              <div className="el__field">
-                <label htmlFor="form-status" className="el__label">Estado deportivo</label>
-                <select
-                  id="form-status"
-                  className="el__input el__input--select"
-                  value={form.status}
-                  onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                >
-                  <option value="active">Activo</option>
-                  <option value="inactive">Inactivo</option>
-                  <option value="archived">Archivado</option>
-                </select>
-              </div>
-
               {/* Observaciones generales */}
               <div className="el__field">
                 <label htmlFor="form-notes" className="el__label">Observaciones Generales</label>
@@ -1537,11 +1508,6 @@ export default function ClientManager() {
                 Esta acción es **irreversible** y destruirá todas sus notas privadas.
               </p>
               
-              <div style={{ margin: '12px 0', padding: '10px 14px', background: '#fff5f5', borderRadius: 'var(--radius-sm)', border: '1px solid #fecaca', color: '#c53030' }}>
-                <strong>Archivar frente a Eliminar:</strong><br />
-                Si el deportista simplemente ha dejado de entrenar temporalmente, te aconsejamos cerrar este modal y pulsar **"Archivar Cliente"** en su ficha para conservar su historial.
-              </div>
-
               <div className="el__field">
                 <label className="el__label" htmlFor="confirm-del-name">
                   Escribe el primer nombre del deportista (<strong>{deletingClient.firstName}</strong>) para confirmar:
