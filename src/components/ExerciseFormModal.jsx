@@ -9,17 +9,14 @@ export default function ExerciseFormModal({
   // Catálogos
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [types, setTypes] = useState([]);
 
   // Formulario
   const [form, setForm] = useState({
     name: '',
     categoryId: '',
     subcategoryId: '',
-    exerciseTypeId: '1', // Fuerza por defecto
     description: '',
     technicalInstructions: '',
-    musculos: '',
     favorite: false,
     image: '',
     videoUrl: ''
@@ -32,21 +29,17 @@ export default function ExerciseFormModal({
     async function loadData() {
       const dbCats = await storage.getEntities(KEYS.EX_CATEGORIES);
       const dbSubs = await storage.getEntities(KEYS.EX_SUBCATEGORIES);
-      const dbTypes = await storage.getEntities(KEYS.EX_TYPES);
 
       setCategories(dbCats);
       setSubcategories(dbSubs);
-      setTypes(dbTypes);
 
       if (editingEx) {
         setForm({
           name: editingEx.name || '',
           categoryId: editingEx.categoryId ? String(editingEx.categoryId) : (dbCats[0]?.id ? String(dbCats[0].id) : ''),
           subcategoryId: editingEx.subcategoryId ? String(editingEx.subcategoryId) : '',
-          exerciseTypeId: editingEx.exerciseTypeId ? String(editingEx.exerciseTypeId) : (dbTypes[0]?.id ? String(dbTypes[0].id) : '1'),
           description: editingEx.description || '',
           technicalInstructions: editingEx.technicalInstructions || '',
-          musculos: Array.isArray(editingEx.musculos) ? editingEx.musculos.join(', ') : '',
           favorite: !!editingEx.favorite,
           image: editingEx.image || '',
           videoUrl: editingEx.videoUrl || ''
@@ -56,10 +49,8 @@ export default function ExerciseFormModal({
           name: '',
           categoryId: dbCats[0]?.id ? String(dbCats[0].id) : '',
           subcategoryId: '',
-          exerciseTypeId: dbTypes[0]?.id ? String(dbTypes[0].id) : '1',
           description: '',
           technicalInstructions: '',
-          musculos: '',
           favorite: false,
           image: '',
           videoUrl: ''
@@ -151,20 +142,12 @@ export default function ExerciseFormModal({
       return;
     }
 
-    // Desglosar músculos por comas
-    const muscleList = form.musculos
-      .split(',')
-      .map(m => m.trim())
-      .filter(Boolean);
-
     const exerciseData = {
       name: trimmedName,
       categoryId: form.categoryId ? String(form.categoryId) : null,
       subcategoryId: form.subcategoryId ? String(form.subcategoryId) : null,
-      exerciseTypeId: form.exerciseTypeId ? String(form.exerciseTypeId) : null,
       description: form.description.trim(),
       technicalInstructions: form.technicalInstructions.trim(),
-      musculos: muscleList,
       favorite: !!form.favorite,
       image: form.image,
       videoUrl: form.videoUrl.trim()
@@ -241,35 +224,6 @@ export default function ExerciseFormModal({
                 ))}
               </select>
             </div>
-          </div>
-
-          {/* Tipo de Ejercicio */}
-          <div className="el__field">
-            <label htmlFor="ex-type" className="el__label">Tipo de Ejercicio / Clasificación</label>
-            <select
-              id="ex-type"
-              className="el__input el__input--select"
-              value={form.exerciseTypeId}
-              onChange={e => setForm(f => ({ ...f, exerciseTypeId: e.target.value }))}
-            >
-              <option value="">Sin clasificar</option>
-              {types.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Músculos implicados (Texto) */}
-          <div className="el__field">
-            <label htmlFor="ex-muscles" className="el__label">Músculos Implicados (Separados por comas)</label>
-            <input
-              id="ex-muscles"
-              type="text"
-              className="el__input"
-              placeholder="ej. Deltoides anterior, Tríceps braquial, Pectoral superior"
-              value={form.musculos}
-              onChange={e => setForm(f => ({ ...f, musculos: e.target.value }))}
-            />
           </div>
 
           {/* Descripción */}

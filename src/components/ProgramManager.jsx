@@ -169,55 +169,63 @@ export default function ProgramManager() {
         Mostrando <strong>{filteredPrograms.length}</strong> de {programs.length} programas.
       </div>
 
-      {/* Cuadrícula de Programas */}
+      {/* Lista de Programas: misma tabla que las rutinas — fila completa
+          clicable para editar, sin lápiz. */}
       {filteredPrograms.length === 0 ? (
         <div className="cm__empty" style={{ padding: '60px 24px' }}>
           <p>No se encontraron programas de entrenamiento.</p>
           <span>Ajusta los filtros o empieza creando una nueva planificación.</span>
         </div>
       ) : (
-        <div className="wk__grid">
-          {filteredPrograms.map(p => {
-            const activeCount = assignments.filter(a => a.programId === p.id && a.status === 'active').length;
+        <div className="table-responsive">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Programa</th>
+                <th>Duración</th>
+                <th style={{ textAlign: 'center' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPrograms.map(p => {
+                const activeCount = assignments.filter(a => a.programId === p.id && a.status === 'active').length;
 
-            return (
-              <article key={p.id} className="wk__card">
-                <div className="wk__card-header">
-                  <h3 className="wk__card-title">{p.name}</h3>
-                </div>
-
-                <p className="wk__card-desc">{p.description || 'Sin objetivos de fase definidos.'}</p>
-
-                <div className="wk__card-meta-program">
-                  <span>{p.durationWeeks} Semanas</span>
-                  <span>{activeCount} Atletas activos</span>
-                </div>
-
-                {/* Acciones */}
-                <div className="wk__card-actions">
-                  <button
-                    className="el__btn el__btn--primary"
-                    style={{ flex: 1, height: '32px', padding: 0, fontSize: '0.75rem' }}
-                    onClick={() => {
-                      setAssignProgramId(p.id);
-                      setAssignDurationWeeks(p.durationWeeks);
-                    }}
-                  >
-                    Asignar Plan
-                  </button>
-                  <button className="el__btn el__btn--ghost" style={{ height: '32px', width: '32px', padding: 0 }} onClick={() => handleOpenEdit(p)} title="Editar planificación">
-                    ✎
-                  </button>
-                  <button className="el__btn el__btn--ghost" style={{ height: '32px', width: '32px', padding: 0 }} onClick={() => handleDuplicateProgram(p.id)} title="Duplicar (Deep Clone)">
-                    📋
-                  </button>
-                  <button className="el__btn el__btn--ghost" style={{ height: '32px', width: '32px', padding: 0, color: '#e53e3e', borderColor: '#fbc2c2' }} onClick={() => handleDeleteProgram(p.id, p.name)} title="Eliminar definitivamente">
-                    ✕
-                  </button>
-                </div>
-              </article>
-            );
-          })}
+                return (
+                  <tr key={p.id} className="wk__row" onClick={() => handleOpenEdit(p)}>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{p.name}</div>
+                      {p.description && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--gray-400)', marginTop: '2px' }}>{p.description}</div>
+                      )}
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {p.durationWeeks} semanas · {activeCount} atleta{activeCount === 1 ? '' : 's'} activo{activeCount === 1 ? '' : 's'}
+                    </td>
+                    <td onClick={e => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button
+                          className="el__btn el__btn--primary"
+                          style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }}
+                          onClick={() => {
+                            setAssignProgramId(p.id);
+                            setAssignDurationWeeks(p.durationWeeks);
+                          }}
+                        >
+                          Asignar
+                        </button>
+                        <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0 }} onClick={() => handleDuplicateProgram(p.id)} title="Duplicar programa">
+                          📋
+                        </button>
+                        <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0, color: '#e53e3e', borderColor: '#fbc2c2' }} onClick={() => handleDeleteProgram(p.id, p.name)} title="Eliminar definitivamente">
+                          ✕
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -239,7 +247,6 @@ export default function ProgramManager() {
                   <th style={{ padding: '12px 16px', fontWeight: '700', color: 'var(--gray-700)' }}>Procedencia</th>
                   <th style={{ padding: '12px 16px', fontWeight: '700', color: 'var(--gray-700)' }}>Vigencia</th>
                   <th style={{ padding: '12px 16px', fontWeight: '700', color: 'var(--gray-700)' }}>Progreso del Plan</th>
-                  <th style={{ padding: '12px 16px', fontWeight: '700', color: 'var(--gray-700)' }}>Estado</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center' }}>Acciones</th>
                 </tr>
               </thead>
@@ -272,11 +279,6 @@ export default function ProgramManager() {
                             <div className="pm__progress-bar-fill" style={{ width: `${progressVal}%` }} />
                           </div>
                         </div>
-                      </td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <span className={`cm__card-status-badge cm__card-status-badge--${a.status === 'active' ? 'active' : a.status === 'completed' ? 'inactive' : 'archived'}`}>
-                          {a.status === 'active' ? 'En curso' : a.status === 'completed' ? 'Completado' : 'Cancelado'}
-                        </span>
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                         <button className="el__card-admin-btn el__card-admin-btn--delete" onClick={() => handleDeleteAssignment(a.id)} title="Cancelar planificación">

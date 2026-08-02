@@ -1,6 +1,19 @@
 // Utilidades para formatear fechas de manera segura en FitCoachPro
 
 /**
+ * Convierte un Date a la clave local "AAAA-MM-DD" que usa el calendario.
+ * No sirve toISOString(): pasa a UTC y en España adelanta la fecha un día
+ * (el 31 a las 00:00 locales son las 22:00 UTC del 30), así que el último
+ * día del mes se quedaba fuera del rango consultado.
+ */
+export function toDateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * Formatea un valor de fecha a formato español "DD/MM/AAAA".
  * Soporta nulos, indefinidos, cadenas vacías y valores inválidos de manera segura.
  */

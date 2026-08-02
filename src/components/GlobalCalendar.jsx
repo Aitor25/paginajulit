@@ -6,6 +6,7 @@ import { RescheduleModal } from './RescheduleModal';
 import WorkoutAssignmentModal from './WorkoutAssignmentModal';
 import AssignmentDetailModal from './AssignmentDetailModal';
 import { useAuth } from '../contexts/AuthProvider';
+import { toDateKey } from '../utils/dateUtils';
 
 export default function GlobalCalendar() {
   const { userProfile } = useAuth();
@@ -13,10 +14,14 @@ export default function GlobalCalendar() {
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month'); // 'month' | 'week'
-  const [selectedClientId, setSelectedClientId] = useState('all');
+  // Cadena vacía = "todos". Debe coincidir con el value de la opción del
+  // desplegable: con 'all' se filtraba por un cliente llamado literalmente
+  // "all" y el calendario salía vacío hasta tocar el filtro.
+  const [selectedClientId, setSelectedClientId] = useState('');
   const [clients, setClients] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [selectedCoachId, setSelectedCoachId] = useState('all');
+  const [colorError, setColorError] = useState('');
   
   const [detailEvent, setDetailEvent] = useState(null);
   const [rescheduleEvent, setRescheduleEvent] = useState(null);
@@ -27,16 +32,17 @@ export default function GlobalCalendar() {
   // Nuevo estado para la creación rápida
   const [quickAssignDate, setQuickAssignDate] = useState(null);
   
-  // Filtros
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  // Filtros. Mismo criterio: '' = "todos los estados". Con 'all' se pedían
+  // solo las asignaciones cuyo status fuese 'all', que no existe ninguna.
+  const [selectedStatus, setSelectedStatus] = useState('');
 
   const loadData = async () => {
     setLoading(true);
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
-      const firstDay = new Date(year, month, 1).toISOString().split('T')[0];
-      const lastDay = new Date(year, month + 1, 0).toISOString().split('T')[0];
+      const firstDay = toDateKey(new Date(year, month, 1));
+      const lastDay = toDateKey(new Date(year, month + 1, 0));
 
       const allClients = await storage.getClients();
       setClients(allClients);
@@ -50,7 +56,14 @@ export default function GlobalCalendar() {
         statuses = [selectedStatus];
       }
 
-      await storage.syncMissedAssignments();
+      // Marcar como perdidas las sesiones vencidas es un extra: si falla, el
+      // calendario debe pintarse igualmente en vez de quedarse en blanco.
+      try {
+        await storage.syncMissedAssignments();
+      } catch (err) {
+        console.error('No se pudieron actualizar las sesiones vencidas:', err);
+      }
+
       const evs = await storage.getCalendarEvents({
         startDate: firstDay,
         endDate: lastDay,
@@ -70,11 +83,24 @@ export default function GlobalCalendar() {
     loadData();
   }, [currentDate, selectedClientId, selectedStatus, isOwner]);
 
-  // Color estable por entrenador (solo lo usa la vista del owner)
-  const coachColors = useMemo(
-    () => buildCoachColorMap(coaches.map(c => c.uid || c.id)),
-    [coaches]
-  );
+  // Color por entrenador: el que haya elegido el owner y, si no, uno estable
+  // de la paleta. Se pasan los usuarios enteros para que buildCoachColorMap
+  // vea su calendarColor.
+  const coachColors = useMemo(() => buildCoachColorMap(coaches), [coaches]);
+
+  // Guarda el color elegido. Se actualiza la lista en memoria para que el
+  // calendario se repinte al momento, sin esperar a releer la organización.
+  const handleCoachColorChange = async (coachId, color) => {
+    setCoaches(prev => prev.map(c => (
+      String(c.uid || c.id) === String(coachId) ? { ...c, calendarColor: color } : c
+    )));
+    try {
+      await storage.setCoachColor(coachId, color);
+    } catch (err) {
+      console.error('No se pudo guardar el color del entrenador:', err);
+      setColorError('No se pudo guardar el color. Inténtalo de nuevo.');
+    }
+  };
 
   // Filtro por entrenador, aplicado en cliente sobre los eventos ya cargados
   const visibleEvents = useMemo(() => {
@@ -83,20 +109,21 @@ export default function GlobalCalendar() {
     return events.filter(ev => String(ev.coachId) === String(selectedCoachId));
   }, [events, isOwner, selectedCoachId]);
 
-  // Entrenadores que realmente aparecen este mes, para la leyenda
+  // Leyenda: todos los entrenadores de la organización, no solo los que tienen
+  // sesiones este mes, para que el owner pueda dejar elegido el color de
+  // cualquiera aunque ese mes no le toque trabajar.
   const coachesEnLeyenda = useMemo(() => {
     if (!isOwner) return [];
-    const presentes = new Map();
-    let haySinAsignar = false;
-    for (const ev of events) {
-      if (ev.coachId) presentes.set(String(ev.coachId), ev.coachName || 'Entrenador');
-      else haySinAsignar = true;
-    }
-    const list = [...presentes.entries()].map(([id, name]) => ({ id, name, color: coachColors[id] || SIN_ENTRENADOR_COLOR }));
+    const list = coaches.map(c => {
+      const id = String(c.uid || c.id);
+      return { id, name: c.fullName || c.email || 'Entrenador', color: coachColors[id] || SIN_ENTRENADOR_COLOR };
+    });
     list.sort((a, b) => a.name.localeCompare(b.name));
-    if (haySinAsignar) list.push({ id: 'none', name: 'Sin entrenador', color: SIN_ENTRENADOR_COLOR });
+    if (events.some(ev => !ev.coachId)) {
+      list.push({ id: 'none', name: 'Sin entrenador', color: SIN_ENTRENADOR_COLOR });
+    }
     return list;
-  }, [events, isOwner, coachColors]);
+  }, [events, isOwner, coaches, coachColors]);
 
   const handlePrevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -206,16 +233,29 @@ export default function GlobalCalendar() {
           </div>
         </div>
 
-        {/* Leyenda de colores por entrenador */}
+        {/* Leyenda de colores por entrenador. El owner puede cambiar el color
+            de cada uno pulsando sobre su muestra. */}
         {isOwner && coachesEnLeyenda.length > 0 && (
           <div className="cal__legend">
             <span className="cal__legend-label">Entrenador:</span>
             {coachesEnLeyenda.map(c => (
               <span key={c.id} className="cal__legend-item">
-                <span className="cal__legend-dot" style={{ backgroundColor: c.color }} />
+                {c.id === 'none' ? (
+                  <span className="cal__legend-dot" style={{ backgroundColor: c.color }} />
+                ) : (
+                  <input
+                    type="color"
+                    className="cal__legend-color"
+                    value={c.color}
+                    onChange={(e) => handleCoachColorChange(c.id, e.target.value)}
+                    title={`Cambiar el color de ${c.name}`}
+                    aria-label={`Color de ${c.name} en el calendario`}
+                  />
+                )}
                 {c.name}
               </span>
             ))}
+            {colorError && <span className="cal__legend-error">{colorError}</span>}
           </div>
         )}
 
@@ -232,10 +272,11 @@ export default function GlobalCalendar() {
               colorBy={isOwner ? 'coach' : 'status'}
               coachColors={coachColors}
               showCoachName={isOwner}
+              fitRowsToHeight
             />
           ) : (
             <CalendarWeek
-              currentDateStr={currentDate.toISOString().split('T')[0]}
+              currentDateStr={toDateKey(currentDate)}
               events={visibleEvents}
               onDateClick={handleDateClick}
               onEventClick={handleEventClick}
@@ -268,7 +309,7 @@ export default function GlobalCalendar() {
       {quickAssignDate && (
         <WorkoutAssignmentModal
           initialDate={quickAssignDate}
-          clientId={selectedClientId !== 'all' ? selectedClientId : null}
+          clientId={selectedClientId || null}
           onClose={() => setQuickAssignDate(null)}
           onSave={async () => {
             setQuickAssignDate(null);

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { SIN_ENTRENADOR_COLOR } from './CalendarGrid';
+import { toDateKey } from '../utils/dateUtils';
 import './CalendarGrid.css'; // Reutilizamos estilos base donde aplique
 
 const DAYS_OF_WEEK = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -40,7 +41,9 @@ export const CalendarWeek = ({
   readOnly = false,
   colorBy = 'status',
   coachColors = {},
-  showCoachName = false
+  showCoachName = false,
+  // En la agenda de un solo deportista todas las sesiones son suyas.
+  showClientName = true
 }) => {
   const getEventColor = (ev) =>
     colorBy === 'coach'
@@ -69,7 +72,7 @@ export const CalendarWeek = ({
       days.push({
         dateStr: `${y}-${m}-${d}`,
         dayNumber: current.getDate(),
-        isToday: `${y}-${m}-${d}` === new Date().toISOString().split('T')[0]
+        isToday: `${y}-${m}-${d}` === toDateKey(new Date())
       });
     }
     return days;
@@ -160,7 +163,7 @@ export const CalendarWeek = ({
                     <span className="cal__event-icon">{getStatusIcon(ev.status, ev.type)}</span>
                     <div className="cal__event-content-week">
                       <span className="cal__event-title">{ev.title}</span>
-                      {ev.clientName && <span className="cal__event-client">{ev.clientName}</span>}
+                      {showClientName && ev.clientName && <span className="cal__event-client">{ev.clientName}</span>}
                       {showCoachName && ev.coachName && (
                         <span className="cal__event-coach">{ev.coachName}</span>
                       )}

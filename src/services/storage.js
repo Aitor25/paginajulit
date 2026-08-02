@@ -1,7 +1,7 @@
 import { sessionService } from './session.js';
 import { firestoreService } from './firestoreService.js';
 import { functionsService } from './functionsService.js';
-import { isFuture, isPastGracePeriod, isWithinPeriod } from '../utils/dateUtils.js';
+import { isFuture, isPastGracePeriod, isWithinPeriod, toDateKey } from '../utils/dateUtils.js';
 export const KEYS = {
   EXERCISES: 'fitcoach_exercises',
   CATEGORIES: 'fitcoach_categories', // Legacy - se migra a fitcoach_exercise_categories
@@ -174,6 +174,16 @@ export const storage = {
       .sort((a, b) => (a.fullName || a.email || '').localeCompare(b.fullName || b.email || ''));
   },
 
+  // Color con el que el owner quiere ver a este entrenador en el calendario.
+  // Se guarda en su ficha de usuario; solo el owner puede escribir en /users.
+  setCoachColor: async (uid, color) => {
+    if (sessionService.getRole() !== 'owner') {
+      throw new Error('Solo un owner puede cambiar el color de un entrenador.');
+    }
+    await firestoreService.updateDocument('users', String(uid), { calendarColor: color });
+    return color;
+  },
+
   // Vincula una cuenta de usuario con una ficha de cliente.
   // Escribe los DOS lados: users.clientId y clients.linkedUserId. El segundo
   // es imprescindible: la regla de Firestore que deja a un cliente leer su
@@ -283,8 +293,15 @@ export const storage = {
     // memoria: las reglas de Firestore rechazan una query que no puedan
     // demostrar que cumple la restricción.
     const filters = [{ field: 'orgId', op: '==', value: orgId }];
-    if (sessionService.getRole() === 'coach') {
+    const role = sessionService.getRole();
+    if (role === 'coach') {
       filters.push({ field: 'coachId', op: '==', value: sessionService.getUserId() || '__none__' });
+    } else if (role === 'client') {
+      // Mismo motivo que el coach: la regla deja al cliente leer solo la
+      // ficha cuyo linkedUserId es su uid, así que la restricción tiene que
+      // ir en la query. Sin esto Firestore rechazaba el listado entero y el
+      // cliente se quedaba sin ficha (y por tanto sin calendario).
+      filters.push({ field: 'linkedUserId', op: '==', value: sessionService.getUserId() || '__none__' });
     }
     return firestoreService.getDocumentsByQuery('clients', filters);
   },
@@ -533,13 +550,13 @@ export const storage = {
           capturedAt: new Date().toISOString(),
           name: template.name,
           estimatedDurationMinutes: template.estimatedDurationMinutes || 60,
+          // El bloque solo tiene nombre y series. Firestore rechaza undefined,
+          // así que los campos retirados no se copian si la plantilla es antigua.
           blocks: (template.blocks || []).map(b => ({
             id: b.id,
             name: b.name,
-            type: b.type,
             order: b.order,
-            rounds: b.rounds,
-            restBetweenRoundsSeconds: b.restBetweenRoundsSeconds,
+            rounds: Number(b.rounds) || 1,
             exercises: (b.exercises || []).map(e => {
               const exName = exercises.find(ex => String(ex.id) === String(e.exerciseId))?.name || 'Ejercicio';
               return {
@@ -590,25 +607,14 @@ export const storage = {
     return await getCollection('programs');
   },
 
+  // Las semanas y días viven anidados en el propio documento del programa
+  // (así los escribe saveProgram). Antes esta función los reconstruía desde
+  // program_weeks/program_days, dos colecciones que nunca llegaron a
+  // escribirse y que además no están en firestore.rules: cualquier intento
+  // de leerlas devolvía "permission-denied" y el editor nunca abría.
   getProgramById: async (id) => {
     const programs = await getCollection('programs');
-    const p = programs.find(item => String(item.id) === String(id));
-    if (!p) return null;
-
-    const weeks = (await getCollection('program_weeks')).filter(w => w.programId === p.id);
-    weeks.sort((a, b) => a.weekNumber - b.weekNumber);
-
-    const allDays = await getCollection('program_days');
-    const weeksWithDays = weeks.map(w => {
-      const days = allDays.filter(d => d.programWeekId === w.id);
-      days.sort((a, b) => a.dayOffset - b.dayOffset);
-      return { ...w, days };
-    });
-
-    return {
-      ...p,
-      weeks: weeksWithDays
-    };
+    return programs.find(item => String(item.id) === String(id)) || null;
   },
 
   saveProgram: async (program) => {
@@ -661,11 +667,16 @@ export const storage = {
 
   // ASIGNACIONES DE PROGRAMAS Y GENERACIÓN DE SESIONES
   getProgramAssignments: async (clientId = null) => {
-    const list = await getCollection('program_assignments');
+    const orgId = sessionService.getOrgId();
+    if (!orgId) return [];
+
+    // El filtro por cliente va en la query, no en memoria: si no, un cliente
+    // pide el listado completo de la organización y Firestore lo deniega.
+    const filters = [{ field: 'orgId', op: '==', value: orgId }];
     if (clientId) {
-      return list.filter(a => String(a.clientId) === String(clientId));
+      filters.push({ field: 'clientId', op: '==', value: String(clientId) });
     }
-    return list;
+    return firestoreService.getDocumentsByQuery('program_assignments', filters);
   },
 
   saveProgramAssignment: async (assign) => {
@@ -733,8 +744,13 @@ export const storage = {
     }
   },
   syncMissedAssignments: async () => {
+    // Solo entrenadores: un cliente no puede leer las asignaciones de toda la
+    // organización ni escribir en workout_assignments (ver firestore.rules).
+    const role = sessionService.getRole();
+    if (role !== 'owner' && role !== 'coach') return;
+
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = toDateKey(now);
     const waList = await getCollection('workout_assignments');
     for (const a of waList) {
       if (a.status === 'pending' || a.status === 'in_progress') {
@@ -1216,6 +1232,24 @@ export const storage = {
     const allowedIds = new Set(visibles.map(c => String(c.id)));
     const isAllowed = (cId) => allowedIds.has(String(cId));
 
+    // Cuando la agenda es la de un único deportista (su propio portal, o la
+    // pestaña de calendario de una ficha) el clientId tiene que viajar en la
+    // query, no aplicarse en memoria: las reglas de Firestore rechazan que un
+    // cliente liste las asignaciones de toda la organización, y esa negación
+    // tumbaba la carga entera dejando el calendario vacío.
+    const scopedIds = [...allowedIds];
+    const fetchScoped = async (coll) => {
+      if (scopedIds.length === 0) return [];
+      if (scopedIds.length > 1) return getCollection(coll);
+
+      const orgId = sessionService.getOrgId();
+      if (!orgId) return [];
+      return firestoreService.getDocumentsByQuery(coll, [
+        { field: 'orgId', op: '==', value: orgId },
+        { field: 'clientId', op: '==', value: scopedIds[0] }
+      ]);
+    };
+
     // Datos del entrenador de cada cliente, para pintar y agrupar en la vista
     // del owner. Solo el owner puede listar /users (ver firestore.rules), así
     // que para el resto de roles nos limitamos al id, sin resolver el nombre.
@@ -1240,13 +1274,15 @@ export const storage = {
     };
 
     // 1. Extraer Workout Assignments
-    let workoutAssignments = await getCollection('workout_assignments');
+    let workoutAssignments = await fetchScoped('workout_assignments');
     workoutAssignments = workoutAssignments.filter(wa => isAllowed(wa.clientId));
     if (statuses && statuses.length > 0) {
       workoutAssignments = workoutAssignments.filter(wa => statuses.includes(wa.status));
     }
 
     workoutAssignments.forEach(wa => {
+      // Una asignación sin fecha no debe reventar la carga del calendario.
+      if (!wa.scheduledAt) return;
       const scheduledDate = wa.scheduledAt.split('T')[0];
       if (isDateInRange(scheduledDate)) {
         events.push({
@@ -1264,7 +1300,7 @@ export const storage = {
     });
 
     // 2. Extraer Free Sessions (Desde WorkoutResults)
-    let workoutResults = await getCollection('workout_results');
+    let workoutResults = await fetchScoped('workout_results');
     workoutResults = workoutResults.filter(wr => isAllowed(wr.clientId));
     const freeSessions = workoutResults.filter(wr => wr.workoutAssignmentId === null);
     freeSessions.forEach(fs => {
@@ -1286,10 +1322,11 @@ export const storage = {
 
     // 3. Extraer Hitos de Programas (Si se solicita)
     if (includeProgramMilestones) {
-      let programAssignments = await getCollection('program_assignments');
+      let programAssignments = await fetchScoped('program_assignments');
       programAssignments = programAssignments.filter(pa => isAllowed(pa.clientId));
 
       for (const pa of programAssignments) {
+        if (!pa.scheduledAt) continue;
         const startDate = pa.scheduledAt.split('T')[0];
 
         // Inferir End Date

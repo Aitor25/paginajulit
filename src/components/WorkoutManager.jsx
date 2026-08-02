@@ -232,7 +232,7 @@ export default function WorkoutManager() {
                       });
 
                       return (
-                        <tr key={w.id}>
+                        <tr key={w.id} className="wk__row" onClick={() => handleOpenEdit(w)}>
                           <td>
                             <div style={{ fontWeight: 600 }}>{w.name}</div>
                             {w.description && (
@@ -242,13 +242,10 @@ export default function WorkoutManager() {
                           <td style={{ whiteSpace: 'nowrap' }}>
                             {w.estimatedDurationMinutes} min · {blockCount} bloques ({exerciseCount} ej.)
                           </td>
-                          <td>
+                          <td onClick={e => e.stopPropagation()}>
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
                               <button className="el__btn el__btn--primary" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => setAssignWorkoutId(w.id)}>
                                 Asignar
-                              </button>
-                              <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0 }} onClick={() => handleOpenEdit(w)} title="Editar rutina">
-                                ✎
                               </button>
                               <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0, color: '#e53e3e', borderColor: '#fbc2c2' }} onClick={() => handleDeleteWorkout(w.id, w.name)} title="Eliminar definitivamente">
                                 ✕

@@ -5,7 +5,6 @@ import './GlobalCatalogModal.css';
 const ALL_CATALOGS = [
   { key: KEYS.EX_CATEGORIES, label: 'Categorías de Ejercicios' },
   { key: KEYS.EX_SUBCATEGORIES, label: 'Subcategorías de Ejercicios' },
-  { key: KEYS.EX_TYPES, label: 'Tipos de Ejercicios' },
   { key: KEYS.GROUPS, label: 'Grupos de Entrenamiento' },
   { key: KEYS.SPORTS, label: 'Deportes' },
   { key: KEYS.TEAMS, label: 'Equipos / Clubes' },
@@ -76,11 +75,6 @@ export default function GlobalCatalogModal({
         }
       }
 
-      // Si es tipo de ejercicio
-      if (activeKey === KEYS.EX_TYPES) {
-        setExtraField('strength');
-      }
-
       // Si es definiciones de test, cargar categorías de test
       if (activeKey === KEYS.TEST_DEFINITIONS) {
         const testCats = await storage.getEntities(KEYS.TEST_CATEGORIES);
@@ -120,9 +114,7 @@ export default function GlobalCatalogModal({
       payload.categoryId = String(extraField);
     } else if (activeKey === KEYS.GROUPS) {
       payload.description = extraField.trim();
-    } else if (activeKey === KEYS.EX_TYPES) {
-      payload.code = extraField.trim() || 'strength';
-    } else if (activeKey === KEYS.TEST_DEFINITIONS) {
+        } else if (activeKey === KEYS.TEST_DEFINITIONS) {
       if (!newDefinitionCategory) {
         setErrorMsg('Debes seleccionar una categoría de test.');
         return;
@@ -160,9 +152,7 @@ export default function GlobalCatalogModal({
       payload.categoryId = String(editingExtra);
     } else if (activeKey === KEYS.GROUPS) {
       payload.description = editingExtra.trim();
-    } else if (activeKey === KEYS.EX_TYPES) {
-      payload.code = editingExtra.trim();
-    } else if (activeKey === KEYS.TEST_DEFINITIONS) {
+        } else if (activeKey === KEYS.TEST_DEFINITIONS) {
       payload.categoryId = String(editingDefinitionCategory);
       payload.type = editingDefinitionType;
       payload.unit = editingDefinitionUnit.trim() || null;
@@ -258,9 +248,7 @@ export default function GlobalCatalogModal({
                     subDetail = `Categoría: ${catName}`;
                   } else if (activeKey === KEYS.GROUPS && item.description) {
                     subDetail = item.description;
-                  } else if (activeKey === KEYS.EX_TYPES && item.code) {
-                    subDetail = `Código: ${item.code}`;
-                  } else if (activeKey === KEYS.TEST_DEFINITIONS) {
+                                    } else if (activeKey === KEYS.TEST_DEFINITIONS) {
                     const catName = testCategories.find(c => c.id === item.categoryId)?.name || 'Sin categoría';
                     subDetail = `Categoría: ${catName} | Tipo: ${item.type} ${item.unit ? `(${item.unit})` : ''} | ${item.allowClientEntry ? '🔓 Auto-registro' : '🔒 Coach only'}`;
                   }
@@ -311,19 +299,6 @@ export default function GlobalCatalogModal({
                               value={editingExtra}
                               onChange={e => setEditingExtra(e.target.value)}
                             />
-                          )}
-
-                          {activeKey === KEYS.EX_TYPES && (
-                            <select
-                              className="el__input el__input--select"
-                              value={editingExtra}
-                              onChange={e => setEditingExtra(e.target.value)}
-                            >
-                              <option value="strength">Fuerza (strength)</option>
-                              <option value="cardio">Cardio (cardio)</option>
-                              <option value="mobility">Movilidad (mobility)</option>
-                              <option value="plyometrics">Pliometría (plyometrics)</option>
-                            </select>
                           )}
 
                           {activeKey === KEYS.TEST_DEFINITIONS && (
@@ -395,8 +370,6 @@ export default function GlobalCatalogModal({
                                     ? String(item.categoryId)
                                     : activeKey === KEYS.GROUPS
                                     ? item.description || ''
-                                    : activeKey === KEYS.EX_TYPES
-                                    ? item.code || ''
                                     : ''
                                 );
                                 if (activeKey === KEYS.TEST_DEFINITIONS) {
@@ -465,22 +438,6 @@ export default function GlobalCatalogModal({
                     value={extraField}
                     onChange={e => setExtraField(e.target.value)}
                   />
-                </div>
-              )}
-
-              {activeKey === KEYS.EX_TYPES && (
-                <div className="el__field">
-                  <label className="el__label">Tipo / Clasificación *</label>
-                  <select
-                    className="el__input el__input--select"
-                    value={extraField}
-                    onChange={e => setExtraField(e.target.value)}
-                  >
-                    <option value="strength">Fuerza (strength)</option>
-                    <option value="cardio">Cardio (cardio)</option>
-                    <option value="mobility">Movilidad (mobility)</option>
-                    <option value="plyometrics">Pliometría (plyometrics)</option>
-                  </select>
                 </div>
               )}
 

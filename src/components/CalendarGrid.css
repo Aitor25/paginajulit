@@ -1,6 +1,14 @@
 /* src/components/CalendarGrid.css */
 
 .cal__wrapper {
+  /* Medidas de la vista mensual. CalendarGrid.jsx las lee para calcular
+     cuántos eventos caben en una celda cuando la rejilla no puede crecer a lo
+     alto, así que el cálculo se ajusta solo si se tocan aquí.
+     --cal-cell-chrome = padding sup. + nº de día + hueco + padding inf. */
+  --cal-event-h: 20px;
+  --cal-event-gap: 3px;
+  --cal-cell-chrome: 39px;
+
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -36,16 +44,16 @@
 .cal__grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-auto-rows: minmax(130px, auto);
+  grid-auto-rows: minmax(100px, auto);
 }
 
 .cal__cell {
   border-right: 1px dashed var(--border-color);
   border-bottom: 1px dashed var(--border-color);
-  padding: 10px;
+  padding: 6px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--cal-event-gap);
   background-color: transparent;
   transition: all 0.2s ease;
 }
@@ -71,15 +79,14 @@
 .cal__cell-header {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 4px;
 }
 
 .cal__date-num {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-color);
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,17 +104,25 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--cal-event-gap);
   flex: 1;
+  /* Sin esto el contenedor crece hasta el ancho del texto (los eventos van en
+     nowrap) y las tarjetas se salían por los lados de la celda. */
+  min-width: 0;
 }
 
+/* Rectángulo bajo y compacto: así entran varias sesiones en un día sin
+   estirar la celda ni recortar las de abajo. */
 .cal__event {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 0.75rem;
+  gap: 4px;
+  height: var(--cal-event-h);
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
   color: #fff;
   cursor: pointer;
   white-space: nowrap;
@@ -129,6 +144,7 @@
 
 .cal__event-title {
   font-weight: 600;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -136,17 +152,24 @@
 .cal__event-client {
   font-weight: 500;
   opacity: 0.85;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .cal__event-overflow {
-  font-size: 0.75rem;
-  color: var(--gray-400);
-  font-weight: 600;
-  padding: 2px 4px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--cal-event-h);
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: var(--gray-500);
+  font-weight: 700;
+  padding: 0 4px;
   cursor: pointer;
+  border: 1px dashed var(--border-color);
+  background: transparent;
   border-radius: 4px;
   transition: background 0.2s ease;
 }
@@ -155,18 +178,32 @@
   background-color: rgba(255, 255, 255, 0.05);
 }
 
+/* Fijo respecto a la ventana: tanto la celda como la rejilla recortan su
+   contenido, y anclado dentro se veía cortado igual que los eventos. */
+.cal__popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
 .cal__events-popup {
-  position: absolute;
+  position: fixed;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
   z-index: 100;
   min-width: 220px;
-  max-width: 280px;
+  max-width: 260px;
   padding: 12px;
-  transform: translateY(15px);
   backdrop-filter: blur(8px);
+}
+
+/* Dentro del desplegable sí hay sitio: el evento recupera altura cómoda. */
+.cal__events-popup .cal__event {
+  height: auto;
+  padding: 5px 8px;
+  font-size: 0.75rem;
 }
 
 .cal__events-popup-header {
@@ -194,7 +231,7 @@
   color: #ef4444;
 }
 
-.cal__mobile-indicator {
+.cal__mini-list {
   display: none;
 }
 
@@ -277,6 +314,7 @@
 
 .cal__event--week {
   align-items: flex-start;
+  height: auto;
   padding: 8px 10px;
   flex-wrap: wrap;
   border: none;
@@ -313,18 +351,24 @@
     padding: 8px 2px;
   }
 
+  /* Con los eventos resumidos en rectángulos la celda no necesita 100px:
+     así el mes entero cabe en mucho menos alto. */
+  .cal__grid {
+    grid-auto-rows: minmax(62px, auto);
+  }
+
   .cal__cell {
     padding: 4px;
     gap: 2px;
     align-items: center;
   }
-  
+
   .cal__date-num {
-    width: 22px;
-    height: 22px;
-    font-size: 0.8rem;
+    width: 20px;
+    height: 20px;
+    font-size: 0.75rem;
   }
-  
+
   .cal__cell-header {
     justify-content: center;
     width: 100%;
@@ -333,19 +377,54 @@
   .cal__events-container {
     display: none;
   }
-  
-  .cal__mobile-indicator {
+
+  /* Un rectángulo por sesión, con el color de su estado (o de su entrenador).
+     Antes era un contador numérico en color de acento, idéntico al círculo del
+     día actual, y se confundía con el propio número del día. */
+  .cal__mini-list {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: var(--accent);
-    color: #fff;
-    font-size: 0.7rem;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+    min-height: 9px;
+  }
+
+  .cal__mini-event {
+    position: relative;
+    width: 18px;
+    height: 9px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  /* Zona de pulsación de ~26x24 px sin agrandar el rectángulo ni separar unos
+     de otros: en el móvil el dibujo es pequeño pero el dedo acierta. */
+  .cal__mini-event::before,
+  .cal__mini-more::before {
+    content: '';
+    position: absolute;
+    inset: -8px -4px;
+  }
+
+  .cal__mini-event:active {
+    filter: brightness(0.85);
+  }
+
+  .cal__mini-more {
+    position: relative;
+    font-size: 0.65rem;
     font-weight: 700;
-    border-radius: 12px;
-    padding: 2px 8px;
-    margin-top: 6px;
-    min-width: 20px;
+    line-height: 1;
+    color: var(--gray-500);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
   /* ─── VISTA SEMANAL EN MÓVIL ─── */
@@ -479,10 +558,52 @@
   flex-shrink: 0;
 }
 
+/* Muestra de color editable: un input de color disfrazado del mismo punto de
+   la leyenda, para que el owner cambie el color del entrenador desde donde lo
+   está viendo. */
+.cal__legend-color {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: none;
+  appearance: none;
+  -webkit-appearance: none;
+  overflow: hidden;
+}
+
+.cal__legend-color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.cal__legend-color::-webkit-color-swatch,
+.cal__legend-color::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+.cal__legend-color:hover {
+  transform: scale(1.15);
+}
+
+.cal__legend-color:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cal__legend-error {
+  color: var(--red, #ef4444);
+  font-weight: 600;
+}
+
 /* Nombre del entrenador dentro del evento */
 .cal__event-coach {
   opacity: 0.85;
   font-size: 0.9em;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -515,11 +636,6 @@
   .cal__page .view-header {
     flex-shrink: 0;
     margin-bottom: 0.5rem;
-  }
-
-  .cal__page .view-title {
-    font-size: 1.15rem;
-    margin: 0;
   }
 
   .cal__page .card {

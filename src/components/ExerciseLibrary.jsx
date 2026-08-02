@@ -110,7 +110,6 @@ export default function ExerciseLibrary() {
   const [search, setSearch] = useState('');
   const [selectedCatFilter, setSelectedCatFilter] = useState('Todas');
   const [selectedSubcatFilter, setSelectedSubcatFilter] = useState('Todas');
-  const [selectedMuscleFilter, setSelectedMuscleFilter] = useState('Todos');
   const [sortOrder, setSortOrder] = useState('name-asc');
 
   // Modales
@@ -145,23 +144,11 @@ export default function ExerciseLibrary() {
     loadLibraryData();
   }, []);
 
-  // Extraer músculos únicos reactivamente
-  const uniqueMuscles = useMemo(() => {
-    const muscles = [];
-    exercises.forEach(ex => {
-      if (Array.isArray(ex.musculos)) {
-        muscles.push(...ex.musculos);
-      }
-    });
-    return ['Todos', ...new Set(muscles.filter(Boolean))];
-  }, [exercises]);
-
   // Limpiar filtros
   const handleClearFilters = () => {
     setSearch('');
     setSelectedCatFilter('Todas');
     setSelectedSubcatFilter('Todas');
-    setSelectedMuscleFilter('Todos');
     setSortOrder('name-asc');
   };
 
@@ -219,13 +206,6 @@ export default function ExerciseLibrary() {
       result = result.filter(ex => String(ex.subcategoryId) === String(selectedSubcatFilter));
     }
 
-    // 4. Filtro Músculos
-    if (selectedMuscleFilter !== 'Todos') {
-      result = result.filter(ex => 
-        Array.isArray(ex.musculos) && ex.musculos.includes(selectedMuscleFilter)
-      );
-    }
-
     // 7. Buscador
     if (search.trim()) {
       const query = stripAccents(search);
@@ -239,9 +219,7 @@ export default function ExerciseLibrary() {
         const subName = subcategories.find(s => s.id === ex.subcategoryId)?.name || '';
         const subcatMatch = stripAccents(subName).includes(query);
 
-        const musclesMatch = Array.isArray(ex.musculos) && ex.musculos.some(m => stripAccents(m).includes(query));
-
-        return nameMatch || catMatch || subcatMatch || musclesMatch;
+        return nameMatch || catMatch || subcatMatch;
       });
     }
 
@@ -256,7 +234,7 @@ export default function ExerciseLibrary() {
     }
 
     return sorted;
-  }, [exercises, onlyFavorites, selectedCatFilter, selectedSubcatFilter, selectedMuscleFilter, search, sortOrder, categories, subcategories]);
+  }, [exercises, onlyFavorites, selectedCatFilter, selectedSubcatFilter, search, sortOrder, categories, subcategories]);
 
   if (loading) {
     return <div className="el__placeholder"><p>Cargando biblioteca de ejercicios...</p></div>;
@@ -376,17 +354,7 @@ export default function ExerciseLibrary() {
               </select>
             </div>
 
-            {/* Músculo */}
-            <div className="el__select-wrap">
-              <select className="el__select" value={selectedMuscleFilter} onChange={(e) => setSelectedMuscleFilter(e.target.value)}>
-                <option value="Todos">Músculo: Todos</option>
-                {uniqueMuscles.filter(m => m !== 'Todos').map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
-
-            {(selectedCatFilter !== 'Todas' || selectedSubcatFilter !== 'Todas' || selectedMuscleFilter !== 'Todos') && (
+            {(selectedCatFilter !== 'Todas' || selectedSubcatFilter !== 'Todas') && (
               <button className="el__btn-clear-filters" onClick={handleClearFilters}>
                 Limpiar
               </button>
@@ -519,7 +487,7 @@ export default function ExerciseLibrary() {
       {showCatalogModal && (
         <GlobalCatalogModal
           mode="contextual"
-          contextKeys={[KEYS.EX_CATEGORIES, KEYS.EX_SUBCATEGORIES, KEYS.EX_TYPES]}
+          contextKeys={[KEYS.EX_CATEGORIES, KEYS.EX_SUBCATEGORIES]}
           initialActiveKey={KEYS.EX_CATEGORIES}
           onClose={() => setShowCatalogModal(false)}
           onRefresh={loadLibraryData}

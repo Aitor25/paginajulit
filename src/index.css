@@ -398,14 +398,16 @@ textarea.el__input {
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 14px;
 }
 
+/* Mismo tamaño que .cm__title / .el__title: cabecera de página pequeña y
+   uniforme en toda la app, para que el contenido tenga el protagonismo. */
 .view-title {
-  font-size: 1.75rem;
-  font-weight: 800;
+  font-size: 1.375rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
-  margin: 0 0 0.25rem 0;
+  margin: 0;
   color: var(--text-color);
 }
 
@@ -459,10 +461,6 @@ textarea.el__input {
 @media (max-width: 640px) {
   .view-container {
     padding: 1rem;
-  }
-
-  .view-title {
-    font-size: 1.4rem;
   }
 
   .card-header,

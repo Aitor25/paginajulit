@@ -7,13 +7,16 @@
   font-family: 'Inter', system-ui, sans-serif;
 }
 
+/* Cabecera de página: mismo tamaño en todas las secciones (Clientes,
+   Calendario, Librería, Entrenamientos, Programas...), pequeña y sin
+   protagonismo — el contenido de la página es lo que debe verse. */
 .el__header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 2.5rem;
+  margin-bottom: 14px;
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .el__title-group {
@@ -21,20 +24,19 @@
 }
 
 .el__title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin: 0 0 0.5rem 0;
-  background: linear-gradient(135deg, var(--text-color) 0%, var(--gray-400) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--gray-900);
   letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .el__subtitle {
-  font-size: 1.1rem;
+  font-size: 0.8125rem;
   color: var(--gray-400);
-  margin: 0;
-  line-height: 1.5;
+  margin: 2px 0 0;
+  line-height: 1.4;
 }
 
 .el__header-actions {
@@ -459,26 +461,14 @@
     padding: 1.5rem;
   }
 
-  .el__title {
-    font-size: 2rem;
-  }
-
   .el__header {
-    margin-bottom: 1.5rem;
+    margin-bottom: 12px;
   }
 }
 
 @media (max-width: 640px) {
   .el {
     padding: 1rem;
-  }
-
-  .el__title {
-    font-size: 1.6rem;
-  }
-
-  .el__subtitle {
-    font-size: 0.95rem;
   }
 
   .el__header {

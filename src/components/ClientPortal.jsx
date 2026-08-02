@@ -86,7 +86,9 @@ function WorkoutLoggerModal({
           exercises: (b.exercises || []).map(e => ({
             exerciseId: String(e.exerciseId),
             exerciseName: e.exerciseName || 'Ejercicio',
-            sets: Array.from({ length: Number(e.plannedSets) || 1 }, (_, setIdx) => ({
+            // Las series son del bloque. Las rutinas antiguas las guardaban en
+            // cada ejercicio (plannedSets), así que se respetan como respaldo.
+            sets: Array.from({ length: Number(b.rounds) || Number(e.plannedSets) || 1 }, (_, setIdx) => ({
               setId: `${b.id}-${e.exerciseId}-${setIdx + 1}`,
               setNumber: setIdx + 1,
               completed: false,
@@ -206,13 +208,20 @@ function WorkoutLoggerModal({
               <div key={b.blockId} className="cp__logger-block-card">
                 <div className="cp__logger-block-title">
                   <span>Bloque {bIdx + 1}: {snapBlock?.name || 'Ejercicios'}</span>
-                  <span>{snapBlock?.rounds} Rondas · Descanso: {snapBlock?.restBetweenRoundsSeconds}s</span>
+                  <span>{snapBlock?.rounds || 1} serie{(snapBlock?.rounds || 1) === 1 ? '' : 's'}</span>
                 </div>
 
-                {b.exercises.map(ex => (
+                {b.exercises.map(ex => {
+                  const snapEx = snapBlock?.exercises?.find(se => String(se.exerciseId) === String(ex.exerciseId));
+                  return (
                   <div key={ex.exerciseId} className="cp__logger-exercise-box">
                     <h4 className="cp__logger-exercise-name">{ex.exerciseName}</h4>
-                    
+
+                    {/* Indicaciones que le dejó el entrenador para este ejercicio */}
+                    {snapEx?.instructions && (
+                      <p className="cp__logger-instructions">{snapEx.instructions}</p>
+                    )}
+
                     <div style={{ overflowX: 'auto' }}>
                       <table className="cp__logger-sets-table">
                         <thead>
@@ -324,7 +333,8 @@ function WorkoutLoggerModal({
                       </table>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })}

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createFocusTrap } from '../utils/focusTrap';
+import { getStatusColor, getStatusIcon, getStatusLabel } from './CalendarGrid';
+import { formatDate } from '../utils/dateUtils';
 
 export default function AssignmentDetailModal({
   event,
@@ -54,20 +56,36 @@ export default function AssignmentDetailModal({
                 Fecha
               </span>
               <div style={{ marginTop: '4px' }}>
-                {event.date}
+                {formatDate(event.date)}
               </div>
             </div>
-            
-            <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>
-                Estado
-              </span>
-              <div style={{ marginTop: '4px', textTransform: 'capitalize' }}>
-                <span className={`cm__card-status-badge cm__card-status-badge--${event.status === 'completed' ? 'active' : event.status === 'missed' ? 'archived' : 'pending'}`}>
-                  {event.status}
+
+            {/* Los hitos de programa no tienen estado propio, así que ahí no se
+                enseña el bloque en vez de una etiqueta vacía. */}
+            {event.status && (
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>
+                  Estado
                 </span>
+                <div style={{ marginTop: '4px' }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 12px',
+                      borderRadius: '999px',
+                      backgroundColor: getStatusColor(event.status),
+                      color: '#fff',
+                      fontSize: '0.8rem',
+                      fontWeight: 700
+                    }}
+                  >
+                    {getStatusIcon(event.status)} {getStatusLabel(event.status)}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {event.clientName && (

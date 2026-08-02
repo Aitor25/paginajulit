@@ -309,6 +309,20 @@
   margin-bottom: 8px;
 }
 
+/* Indicaciones del entrenador para el ejercicio: es lo primero que debe leer
+   el cliente, antes de ponerse a registrar series. */
+.cp__logger-instructions {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--gray-700, #374151);
+  background: rgba(99, 102, 241, 0.07);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  white-space: pre-wrap;
+}
+
 .cp__logger-sets-table {
   width: 100%;
   border-collapse: collapse;

@@ -6,43 +6,47 @@ function stripAccents(str) {
   return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-const DAY_NAMES = [
-  'Día 1 (Lunes)',
-  'Día 2 (Martes)',
-  'Día 3 (Miércoles)',
-  'Día 4 (Jueves)',
-  'Día 5 (Viernes)',
-  'Día 6 (Sábado)',
-  'Día 7 (Domingo)'
-];
+const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+const DAY_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+function diaVacio(dayOffset) {
+  return { dayOffset, restDay: true, workoutId: null, workoutVersion: 1, notes: '' };
+}
+
+function semanaVacia(numero) {
+  return {
+    weekNumber: numero,
+    name: `Semana ${numero}`,
+    phase: '',
+    objectives: '',
+    notes: '',
+    days: Array.from({ length: 7 }, (_, i) => diaVacio(i))
+  };
+}
 
 export default function ProgramBuilderView({
   editingProgram = null,
   onClose,
   onSave
 }) {
-  // Ejercicios y Catálogos de la biblioteca
   const [workouts, setWorkouts] = useState([]);
-
-  // Estados de la biblioteca lateral (Filtros de rutinas)
   const [search, setSearch] = useState('');
 
   // Formulario del Programa
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [durationWeeks, setDurationWeeks] = useState(4);
   const [weeks, setWeeks] = useState([]);
 
-  // Control SPA de navegación del constructor
-  const [activeWeekIdx, setActiveWeekIdx] = useState(0); // Acordeón de semana abierta
-  const [selectedDayTarget, setSelectedDayTarget] = useState({ weekIdx: 0, dayOffset: 0 }); // Día activo para insertar rutinas
+  const [activeWeekIdx, setActiveWeekIdx] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Cargar datos iniciales
-  async function loadData() {
-    const dbWorkouts = await storage.getWorkouts();
+  // Arrastrar un entrenamiento desde la biblioteca hasta un día
+  const [dropDayOffset, setDropDayOffset] = useState(null);
+  // Selector de día que abre el botón "+" de cada rutina de la biblioteca
+  const [dayPickerFor, setDayPickerFor] = useState(null);
 
-    setWorkouts(dbWorkouts);
+  async function loadData() {
+    setWorkouts(await storage.getWorkouts());
   }
 
   useEffect(() => {
@@ -51,215 +55,135 @@ export default function ProgramBuilderView({
     if (editingProgram) {
       setName(editingProgram.name || '');
       setDescription(editingProgram.description || '');
-      setDurationWeeks(editingProgram.durationWeeks || 1);
 
-      // Mapear semanas y días estructurados desde el relacional completo
       const mappedWeeks = (editingProgram.weeks || []).map(w => {
-        // Rellenar los 7 días (dayOffset 0-6)
         const days = Array.from({ length: 7 }, (_, i) => {
-          const existingDay = (w.days || []).find(d => Number(d.dayOffset) === i);
-          return existingDay ? {
+          const existing = (w.days || []).find(d => Number(d.dayOffset) === i);
+          return existing ? {
             dayOffset: i,
-            restDay: !!existingDay.restDay,
-            workoutId: existingDay.workoutId,
-            workoutVersion: existingDay.workoutVersion || 1,
-            notes: existingDay.notes || ''
-          } : {
-            dayOffset: i,
-            restDay: true,
-            workoutId: null,
-            workoutVersion: 1,
-            notes: ''
-          };
+            restDay: !!existing.restDay,
+            workoutId: existing.workoutId,
+            workoutVersion: existing.workoutVersion || 1,
+            notes: existing.notes || ''
+          } : diaVacio(i);
         });
         return {
           weekNumber: w.weekNumber,
-          name: w.name || '',
+          name: w.name || `Semana ${w.weekNumber}`,
           phase: w.phase || '',
           objectives: w.objectives || '',
           notes: w.notes || '',
           days
         };
       });
-      setWeeks(mappedWeeks);
+      setWeeks(mappedWeeks.length > 0 ? mappedWeeks : [semanaVacia(1)]);
+      setActiveWeekIdx(0);
     } else {
       setName('');
       setDescription('');
-      setDurationWeeks(4);
-      rebuildWeeks(4);
+      setWeeks([semanaVacia(1)]);
+      setActiveWeekIdx(0);
     }
   }, [editingProgram]);
 
-  // Genera el listado de semanas y días vacíos según la duración
-  const rebuildWeeks = (numWeeks) => {
-    const nextWeeks = Array.from({ length: numWeeks }, (_, wIdx) => {
-      const existing = weeks[wIdx];
-      if (existing) return existing;
-
-      // Crear semana por defecto con sus 7 días de descanso
-      const days = Array.from({ length: 7 }, (_, dIdx) => ({
-        dayOffset: dIdx,
-        restDay: true,
-        workoutId: null,
-        workoutVersion: 1,
-        notes: ''
-      }));
-
-      return {
-        weekNumber: wIdx + 1,
-        name: `Semana ${wIdx + 1}`,
-        phase: '',
-        objectives: '',
-        notes: '',
-        days
-      };
+  // --- Sumar / restar semanas ---
+  const handleAddWeek = () => {
+    setWeeks(prev => {
+      const next = [...prev, semanaVacia(prev.length + 1)];
+      setActiveWeekIdx(next.length - 1);
+      return next;
     });
-    setWeeks(nextWeeks.slice(0, numWeeks));
   };
 
-  // Re-calcular si el entrenador cambia la duración del macrociclo
-  const handleDurationChange = (val) => {
-    const num = Math.max(1, Number(val) || 1);
-    setDurationWeeks(num);
-    rebuildWeeks(num);
+  const handleRemoveWeek = (idx) => {
+    setWeeks(prev => {
+      if (prev.length <= 1) return prev;
+      const next = prev
+        .filter((_, i) => i !== idx)
+        .map((w, i) => ({ ...w, weekNumber: i + 1, name: w.name === `Semana ${w.weekNumber}` ? `Semana ${i + 1}` : w.name }));
+      return next;
+    });
+    setActiveWeekIdx(idx0 => Math.max(0, Math.min(idx0, idx - 1)));
   };
 
-  // --- Operaciones en el Calendario de la Columna Izquierda ---
+  // --- Campos de semana y día ---
   const handleUpdateWeekField = (weekIdx, field, value) => {
     setWeeks(prev => prev.map((w, idx) => idx === weekIdx ? { ...w, [field]: value } : w));
   };
 
   const handleUpdateDayField = (weekIdx, dayOffset, field, value) => {
     setWeeks(prev => prev.map((w, wIdx) => {
-      if (wIdx === weekIdx) {
-        const updatedDays = w.days.map(d => {
-          if (d.dayOffset === dayOffset) {
-            let nextVal = { ...d, [field]: value };
-            // Coherencia Descanso/Entrenamiento:
-            if (field === 'restDay' && value === true) {
-              nextVal.workoutId = null;
-            } else if (field === 'restDay' && value === false) {
-              nextVal.restDay = false;
-            }
-            return nextVal;
-          }
-          return d;
-        });
-        return { ...w, days: updatedDays };
-      }
-      return w;
+      if (wIdx !== weekIdx) return w;
+      return { ...w, days: w.days.map(d => d.dayOffset === dayOffset ? { ...d, [field]: value } : d) };
     }));
   };
 
   const handleAddWorkoutToDay = (weekIdx, dayOffset, workoutId) => {
     setWeeks(prev => prev.map((w, wIdx) => {
-      if (wIdx === weekIdx) {
-        const updatedDays = w.days.map(d => {
-          if (d.dayOffset === dayOffset) {
-            return {
-              ...d,
-              restDay: false,
-              workoutId: String(workoutId),
-              workoutVersion: 1
-            };
-          }
-          return d;
-        });
-        return { ...w, days: updatedDays };
-      }
-      return w;
+      if (wIdx !== weekIdx) return w;
+      return {
+        ...w,
+        days: w.days.map(d => d.dayOffset === dayOffset
+          ? { ...d, restDay: false, workoutId: String(workoutId), workoutVersion: 1 }
+          : d)
+      };
     }));
   };
 
   const handleClearDay = (weekIdx, dayOffset) => {
     setWeeks(prev => prev.map((w, wIdx) => {
-      if (wIdx === weekIdx) {
-        const updatedDays = w.days.map(d => {
-          if (d.dayOffset === dayOffset) {
-            return {
-              ...d,
-              restDay: true,
-              workoutId: null,
-              workoutVersion: 1
-            };
-          }
-          return d;
-        });
-        return { ...w, days: updatedDays };
-      }
-      return w;
+      if (wIdx !== weekIdx) return w;
+      return { ...w, days: w.days.map(d => d.dayOffset === dayOffset ? diaVacio(dayOffset) : d) };
     }));
   };
 
   const handleDuplicateWeek = (srcWeekIdx) => {
     const targetStr = window.prompt(
-      `Introduce el número de semana de destino (1 a ${durationWeeks}) para duplicar la estructura de la Semana ${srcWeekIdx + 1}:`
+      `Introduce el número de semana de destino (1 a ${weeks.length}) para duplicar la estructura de la Semana ${srcWeekIdx + 1}:`
     );
     if (!targetStr) return;
     const targetIdx = Number(targetStr) - 1;
 
-    if (isNaN(targetIdx) || targetIdx < 0 || targetIdx >= durationWeeks) {
+    if (isNaN(targetIdx) || targetIdx < 0 || targetIdx >= weeks.length) {
       alert("Número de semana de destino inválido.");
       return;
     }
-
     if (srcWeekIdx === targetIdx) {
       alert("No puedes duplicar una semana sobre sí misma.");
       return;
     }
 
     const srcWeek = weeks[srcWeekIdx];
-    // Clonar días
     const clonedDays = srcWeek.days.map(d => ({ ...d }));
-
-    setWeeks(prev => prev.map((w, idx) => {
-      if (idx === targetIdx) {
-        return {
-          ...w,
-          phase: srcWeek.phase,
-          name: `${srcWeek.name} (Copia)`,
-          objectives: srcWeek.objectives,
-          notes: srcWeek.notes,
-          days: clonedDays
-        };
-      }
-      return w;
-    }));
+    setWeeks(prev => prev.map((w, idx) => idx === targetIdx
+      ? { ...w, phase: srcWeek.phase, objectives: srcWeek.objectives, notes: srcWeek.notes, days: clonedDays }
+      : w));
   };
 
-  const handleDuplicateDay = (weekIdx, dayOffset) => {
-    const targetStr = window.prompt(
-      `¿A qué día deseas duplicar este entrenamiento? Introduce el número de día offset (1 a 7):`
-    );
-    if (!targetStr) return;
-    const targetOffset = Number(targetStr) - 1;
+  // --- Arrastrar rutina desde la biblioteca hasta un día ---
+  const handleDragStartLibrary = (e, workout) => {
+    e.dataTransfer.setData('text/plain', String(workout.id));
+    e.dataTransfer.effectAllowed = 'copy';
+  };
 
-    if (isNaN(targetOffset) || targetOffset < 0 || targetOffset > 6) {
-      alert("Día de destino inválido.");
-      return;
-    }
+  const handleDragOverDay = (e, dayOffset) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (dropDayOffset !== dayOffset) setDropDayOffset(dayOffset);
+  };
 
-    const srcDay = weeks[weekIdx].days.find(d => d.dayOffset === dayOffset);
-    if (!srcDay) return;
+  const handleDropOnDay = (e, dayOffset) => {
+    e.preventDefault();
+    setDropDayOffset(null);
+    const workoutId = e.dataTransfer.getData('text/plain');
+    if (workoutId) handleAddWorkoutToDay(activeWeekIdx, dayOffset, workoutId);
+  };
 
-    setWeeks(prev => prev.map((w, wIdx) => {
-      if (wIdx === weekIdx) {
-        const updatedDays = w.days.map(d => {
-          if (d.dayOffset === targetOffset) {
-            return {
-              ...d,
-              restDay: srcDay.restDay,
-              workoutId: srcDay.workoutId,
-              workoutVersion: srcDay.workoutVersion,
-              notes: srcDay.notes
-            };
-          }
-          return d;
-        });
-        return { ...w, days: updatedDays };
-      }
-      return w;
-    }));
+  // --- Botón "+" de la biblioteca: elegir a qué día de la semana va ---
+  const handlePickDay = (dayOffset) => {
+    if (dayPickerFor === null) return;
+    handleAddWorkoutToDay(activeWeekIdx, dayOffset, dayPickerFor);
+    setDayPickerFor(null);
   };
 
   // --- Guardar el Programa ---
@@ -273,12 +197,10 @@ export default function ProgramBuilderView({
       return;
     }
 
-    // Filtrar los días del programa para enviar solo los días que tienen programación (para no guardar días de descanso vacíos innecesariamente)
-    // Pero la validación de almacenamiento exige que la estructura sea completa y que no haya duplicidad
     const payload = {
       name: trimmedName,
       description: description.trim(),
-      durationWeeks: Number(durationWeeks),
+      durationWeeks: weeks.length,
       weeks: weeks.map(w => ({
         weekNumber: w.weekNumber,
         name: w.name,
@@ -295,18 +217,14 @@ export default function ProgramBuilderView({
       }))
     };
 
-    // Si estamos editando y hay asignaciones activas, debemos decidir si propagar
     let propagate = false;
     if (editingProgram) {
       payload.id = editingProgram.id;
       payload.createdAt = editingProgram.createdAt;
 
-      // Buscar si hay asignaciones en curso
       const allAssigns = await storage.getProgramAssignments();
       const hasActive = allAssigns.some(a => a.programId === editingProgram.id && a.status === 'active');
       if (hasActive) {
-        // Es un cambio estructural si se cambiaron entrenamientos o días
-        // Preguntar al entrenador
         propagate = window.confirm(
           "Este programa cuenta con asignaciones activas. ¿Deseas propagar los cambios estructurales a las sesiones futuras no completadas de los deportistas?"
         );
@@ -316,30 +234,24 @@ export default function ProgramBuilderView({
     try {
       const saved = await storage.saveProgram(payload);
 
-      // Si propagamos cambios structurales, actualizamos el calendario del deportista
       if (editingProgram && propagate) {
         const allAssignments = await storage.getProgramAssignments();
         const activeAssignments = allAssignments.filter(a => a.programId === saved.id && a.status === 'active');
-        
         const workoutAssigns = await storage.getEntities(KEYS.WORKOUT_ASSIGNMENTS);
 
         for (const assign of activeAssignments) {
-          // Borrar entrenamientos pendientes
-          let updatedAssigns = workoutAssigns.filter(wa => 
+          let updatedAssigns = workoutAssigns.filter(wa =>
             !(wa.programAssignmentId === assign.id && wa.status === 'pending')
           );
-
           let assignIdCounter = updatedAssigns.reduce((max, a) => a.id > max ? a.id : max, 0);
           const start = new Date(assign.startDate);
 
-          // Regenerar
           payload.weeks.forEach(week => {
             week.days.forEach(day => {
               if (!day.restDay && day.workoutId) {
                 assignIdCounter++;
                 const sessionDate = new Date(start);
                 sessionDate.setDate(start.getDate() + (week.weekNumber - 1) * 7 + day.dayOffset);
-                
                 updatedAssigns.push({
                   id: assignIdCounter,
                   workoutId: day.workoutId,
@@ -356,8 +268,6 @@ export default function ProgramBuilderView({
             });
           });
 
-          // TODO: Implementar guardado en lote de asignaciones modificadas en Firebase
-          console.log("Se han recalculado", updatedAssigns.length, "asignaciones, pero la actualización masiva está pendiente de implementar en Firebase.");
           await storage.updateAssignmentProgress(assign.id);
         }
       }
@@ -365,11 +275,10 @@ export default function ProgramBuilderView({
       if (onSave) onSave(saved);
       onClose();
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.message || 'No se pudo guardar el programa.');
     }
   };
 
-  // --- Biblioteca lateral de rutinas (Filtros) ---
   const filteredWorkouts = useMemo(() => {
     let result = workouts;
     if (search.trim()) {
@@ -379,271 +288,230 @@ export default function ProgramBuilderView({
     return result;
   }, [workouts, search]);
 
+  const activeWeek = weeks[activeWeekIdx];
+  const totalSesiones = weeks.reduce((n, w) => n + w.days.filter(d => !d.restDay && d.workoutId).length, 0);
+
   return (
     <div className="wb__container">
-      
-      {/* Barra superior */}
       <div className="wb__top-bar">
         <button className="el__btn el__btn--ghost" onClick={onClose}>
           ✕ Salir del editor
         </button>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="el__btn el__btn--primary" onClick={handleSave}>
-            Guardar Programa
-          </button>
-        </div>
+        <span className="wb__top-summary">
+          {weeks.length} semana{weeks.length === 1 ? '' : 's'} · {totalSesiones} sesión{totalSesiones === 1 ? '' : 'es'}
+        </span>
+        <button className="el__btn el__btn--primary" onClick={handleSave}>
+          Guardar Programa
+        </button>
       </div>
 
       <div className="wb__grid">
-        
-        {/* ══ COLUMNA IZQUIERDA: CONFIGURADOR SEMANAL ════════════ */}
+
+        {/* ══ COLUMNA IZQUIERDA: CABECERA Y CALENDARIO SEMANAL ══ */}
         <div className="wb__col wb__col--left">
-          <form className="el__modal-form" onSubmit={e => e.preventDefault()}>
-            <h2 className="wb__section-title">Estructura del Programa</h2>
 
-            {errorMsg && (
-              <div className="gc__alert" style={{ background: '#fff5f5', borderColor: '#fca5a5', color: '#c53030', marginBottom: '16px' }}>
-                <strong>Error de Integridad:</strong> {errorMsg}
-              </div>
-            )}
+          {/* Cabecera compacta: lo importante es ver el macrociclo, no este formulario */}
+          <div className="wb__meta wb__meta--program">
+            <div className="wb__meta-field wb__meta-field--name">
+              <label className="wb__meta-label" htmlFor="pb-name">Nombre *</label>
+              <input
+                id="pb-name"
+                type="text"
+                className="wb__meta-input"
+                placeholder="ej. Macrociclo Fuerza 12 Semanas"
+                value={name}
+                onChange={e => { setName(e.target.value); setErrorMsg(''); }}
+                required
+              />
+            </div>
 
-            {/* Cabecera y Parámetros */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
-              <div className="el__field">
-                <label className="el__label">Nombre del Programa *</label>
-                <input
-                  type="text"
-                  className="el__input"
-                  placeholder="ej. Macrociclo Fuerza e Hipertrofia 12 Semanas"
-                  value={name}
-                  onChange={e => { setName(e.target.value); setErrorMsg(''); }}
-                  required
-                />
-              </div>
-              <div className="el__field">
-                <label className="el__label">Duración (Semanas)</label>
-                <input
-                  type="number"
-                  min="1"
-                  className="el__input"
-                  value={durationWeeks}
-                  onChange={e => handleDurationChange(e.target.value)}
-                />
+            <div className="wb__meta-field wb__meta-field--weeks">
+              <label className="wb__meta-label">Semanas</label>
+              <div className="wb__stepper">
+                <button type="button" className="wb__stepper-btn" onClick={() => handleRemoveWeek(weeks.length - 1)} disabled={weeks.length <= 1} title="Quitar la última semana">−</button>
+                <span className="wb__stepper-value">{weeks.length}</span>
+                <button type="button" className="wb__stepper-btn" onClick={handleAddWeek} title="Añadir una semana">+</button>
               </div>
             </div>
 
-            <div className="el__field">
-              <label className="el__label">Descripción / Objetivos del Macrociclo</label>
-              <textarea
-                className="el__input el__input--textarea"
-                placeholder="Indica el enfoque fisiológico del programa, rango de volumen y pautas recomendadas..."
-                rows="2"
+            <div className="wb__meta-field wb__meta-field--goal">
+              <label className="wb__meta-label" htmlFor="pb-goal">Objetivo</label>
+              <input
+                id="pb-goal"
+                type="text"
+                className="wb__meta-input"
+                placeholder="Enfoque fisiológico, volumen, pautas..."
                 value={description}
                 onChange={e => setDescription(e.target.value)}
               />
             </div>
+          </div>
 
-            {/* ══ CRONOGRAMA DE SEMANAS (ACORDEONES) ══ */}
-            <div style={{ marginTop: '24px', borderTop: '1px solid var(--gray-200)', paddingTop: '16px' }}>
-              <h3 className="wb__section-title">Calendario Semanal</h3>
-              
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
-                {weeks.map((_, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className={`el__btn ${activeWeekIdx === idx ? 'el__btn--primary' : 'el__btn--ghost'}`}
-                    style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                    onClick={() => {
-                      setActiveWeekIdx(idx);
-                      setSelectedDayTarget({ weekIdx: idx, dayOffset: 0 });
-                    }}
-                  >
-                    Semana {idx + 1}
-                  </button>
-                ))}
+          {errorMsg && <p className="wb__error">{errorMsg}</p>}
+
+          {/* ══ PESTAÑAS DE SEMANA ══ */}
+          <div className="wb__week-tabs">
+            {weeks.map((w, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className={`wb__week-tab ${activeWeekIdx === idx ? 'wb__week-tab--active' : ''}`}
+                onClick={() => setActiveWeekIdx(idx)}
+              >
+                S{idx + 1}
+                {w.days.some(d => !d.restDay && d.workoutId) && <span className="wb__week-tab-dot" />}
+              </button>
+            ))}
+          </div>
+
+          {/* ══ SEMANA ACTIVA ══ */}
+          {activeWeek && (
+            <div className="wb__block-card wb__block-card--active">
+              <div className="wb__block-header">
+                <span className="wb__block-order">S{activeWeek.weekNumber}</span>
+                <input
+                  type="text"
+                  className="wb__block-title-input"
+                  value={activeWeek.name}
+                  onChange={e => handleUpdateWeekField(activeWeekIdx, 'name', e.target.value)}
+                  placeholder="Nombre de la semana..."
+                />
+                <div className="wb__block-header-actions">
+                  <button type="button" className="wb__icon-btn" onClick={() => handleDuplicateWeek(activeWeekIdx)} title="Duplicar esta estructura en otra semana">⧉</button>
+                  <button type="button" className="wb__icon-btn wb__icon-btn--danger" onClick={() => handleRemoveWeek(activeWeekIdx)} disabled={weeks.length <= 1} title="Eliminar esta semana">✕</button>
+                </div>
               </div>
 
-              {weeks.map((week, wIdx) => {
-                if (wIdx !== activeWeekIdx) return null;
+              <div className="wb__week-fields">
+                <input
+                  type="text"
+                  className="wb__field-input"
+                  placeholder="Fase (ej. Preparación general)"
+                  value={activeWeek.phase}
+                  onChange={e => handleUpdateWeekField(activeWeekIdx, 'phase', e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="wb__field-input"
+                  placeholder="Objetivo de la semana"
+                  value={activeWeek.objectives}
+                  onChange={e => handleUpdateWeekField(activeWeekIdx, 'objectives', e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="wb__field-input"
+                  placeholder="Notas"
+                  value={activeWeek.notes}
+                  onChange={e => handleUpdateWeekField(activeWeekIdx, 'notes', e.target.value)}
+                />
+              </div>
 
-                return (
-                  <div key={wIdx} className="wb__block-card" style={{ cursor: 'default' }}>
-                    <div className="wb__block-header">
-                      <span className="wb__block-order">W{week.weekNumber}</span>
+              <div className="wb__block-exercises-list">
+                {activeWeek.days.map(day => {
+                  const workoutObj = workouts.find(wo => wo.id === day.workoutId);
+                  return (
+                    <div
+                      key={day.dayOffset}
+                      className={'wb__day-row' + (dropDayOffset === day.dayOffset ? ' wb__day-row--drop' : '')}
+                      onDragOver={e => handleDragOverDay(e, day.dayOffset)}
+                      onDragLeave={() => setDropDayOffset(null)}
+                      onDrop={e => handleDropOnDay(e, day.dayOffset)}
+                    >
+                      <span className="wb__day-name">{DAY_SHORT[day.dayOffset]}</span>
+
+                      {day.restDay ? (
+                        <span className="wb__day-rest">Descanso · arrastra una rutina o pulsa + en la biblioteca</span>
+                      ) : (
+                        <span className="wb__day-workout">🏋️ {workoutObj ? workoutObj.name : `Rutina no encontrada`}</span>
+                      )}
+
                       <input
                         type="text"
-                        className="wb__block-title-input"
-                        value={week.name}
-                        onChange={e => handleUpdateWeekField(wIdx, 'name', e.target.value)}
-                        placeholder="Nombre descriptivo de la semana..."
+                        className="wb__day-notes"
+                        placeholder="Notas del día..."
+                        value={day.notes}
+                        onChange={e => handleUpdateDayField(activeWeekIdx, day.dayOffset, 'notes', e.target.value)}
                       />
-                      <div className="wb__block-header-actions">
-                        <button type="button" className="el__card-admin-btn" style={{ padding: '2px 8px', fontSize: '0.75rem' }} onClick={() => handleDuplicateWeek(wIdx)}>
-                          Duplicar Estructura Semana
-                        </button>
-                      </div>
+
+                      {!day.restDay && (
+                        <button type="button" className="wb__icon-btn wb__icon-btn--danger" onClick={() => handleClearDay(activeWeekIdx, day.dayOffset)} title="Quitar rutina de este día">✕</button>
+                      )}
                     </div>
-
-                    {/* Campos de objetivos/notas de semana */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', padding: '14px', borderBottom: '1px solid var(--gray-100)', background: 'var(--off-white)' }}>
-                      <div className="el__field" style={{ margin: 0 }}>
-                        <label className="el__label" style={{ fontSize: '0.7rem' }}>Bloque / Fase macrociclo</label>
-                        <input
-                          type="text"
-                          className="el__input"
-                          style={{ height: '32px', fontSize: '0.75rem' }}
-                          placeholder="ej. Preparación General"
-                          value={week.phase}
-                          onChange={e => handleUpdateWeekField(wIdx, 'phase', e.target.value)}
-                        />
-                      </div>
-                      <div className="el__field" style={{ margin: 0 }}>
-                        <label className="el__label" style={{ fontSize: '0.7rem' }}>Objetivos de la semana</label>
-                        <input
-                          type="text"
-                          className="el__input"
-                          style={{ height: '32px', fontSize: '0.75rem' }}
-                          placeholder="Foco en carga excéntrica..."
-                          value={week.objectives}
-                          onChange={e => handleUpdateWeekField(wIdx, 'objectives', e.target.value)}
-                        />
-                      </div>
-                      <div className="el__field" style={{ margin: 0 }}>
-                        <label className="el__label" style={{ fontSize: '0.7rem' }}>Notas adicionales</label>
-                        <input
-                          type="text"
-                          className="el__input"
-                          style={{ height: '32px', fontSize: '0.75rem' }}
-                          placeholder="Volumen medio-bajo..."
-                          value={week.notes}
-                          onChange={e => handleUpdateWeekField(wIdx, 'notes', e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Días del programa */}
-                    <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {week.days.map(day => {
-                        const isTarget = selectedDayTarget.weekIdx === wIdx && selectedDayTarget.dayOffset === day.dayOffset;
-                        const workoutObj = workouts.find(wo => wo.id === day.workoutId);
-
-                        return (
-                          <div
-                            key={day.dayOffset}
-                            className="wb__exercise-row"
-                            style={{
-                              borderColor: isTarget ? 'var(--accent)' : 'var(--gray-200)',
-                              boxShadow: isTarget ? '0 0 0 2px rgba(99, 102, 241, 0.1)' : 'none',
-                              cursor: 'pointer'
-                            }}
-                            onClick={() => setSelectedDayTarget({ weekIdx: wIdx, dayOffset: day.dayOffset })}
-                          >
-                            <div className="wb__exercise-row-header" style={{ border: 'none', padding: 0 }}>
-                              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                <span className="wb__exercise-order" style={{ background: isTarget ? 'var(--accent)' : 'rgba(99, 102, 241, 0.08)', color: isTarget ? 'var(--white)' : 'var(--accent)' }}>
-                                  {DAY_NAMES[day.dayOffset]}
-                                </span>
-                                
-                                {day.restDay ? (
-                                  <span style={{ fontSize: '0.8125rem', color: 'var(--gray-400)', fontStyle: 'italic' }}>
-                                    💤 Día de Descanso
-                                  </span>
-                                ) : (
-                                  <strong style={{ fontSize: '0.8125rem', color: 'var(--gray-800)' }}>
-                                    🏋️ {workoutObj ? workoutObj.name : `Rutina ID #${day.workoutId}`}
-                                  </strong>
-                                )}
-                              </div>
-
-                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', cursor: 'pointer', margin: 0 }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={!day.restDay}
-                                    onChange={e => handleUpdateDayField(wIdx, day.dayOffset, 'restDay', !e.target.checked)}
-                                  />
-                                  Sesión activa
-                                </label>
-
-                                {!day.restDay && (
-                                  <button type="button" className="el__card-admin-btn" style={{ padding: '2px 4px', fontSize: '0.65rem' }} onClick={() => handleDuplicateDay(wIdx, day.dayOffset)}>
-                                    Clonar a día...
-                                  </button>
-                                )}
-
-                                <button type="button" className="el__card-admin-btn el__card-admin-btn--delete" style={{ padding: '2px 6px', fontSize: '0.65rem' }} onClick={() => handleClearDay(wIdx, day.dayOffset)}>
-                                  Borrar
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Campo de notas para este día */}
-                            <div style={{ marginTop: '6px' }}>
-                              <input
-                                type="text"
-                                className="el__input"
-                                style={{ height: '26px', fontSize: '0.75rem', padding: '0 8px' }}
-                                placeholder="Notas opcionales para este día (ej: sesión de running en ayunas)..."
-                                value={day.notes}
-                                onChange={e => handleUpdateDayField(wIdx, day.dayOffset, 'notes', e.target.value)}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-
-          </form>
+          )}
         </div>
 
-        {/* ══ COLUMNA DERECHA: BIBLIOTECA DE RUTINAS ════════════ */}
+        {/* ══ COLUMNA DERECHA: BIBLIOTECA DE RUTINAS ═════════ */}
         <div className="wb__col wb__col--right">
-          <h2 className="wb__section-title" style={{ marginBottom: '8px' }}>Asociar Rutina</h2>
-          
-          <div style={{ padding: '10px', background: 'var(--white)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--gray-600)' }}>
-            Día seleccionado:<br />
-            <strong>Semana {selectedDayTarget.weekIdx + 1} - {DAY_NAMES[selectedDayTarget.dayOffset]}</strong>
-          </div>
+          <h2 className="wb__section-title">Rutinas</h2>
 
           <input
             type="text"
-            className="el__search-input"
-            style={{ height: '36px', marginTop: '6px' }}
-            placeholder="Buscar plantilla de rutina..."
+            className="wb__field-input"
+            placeholder="Buscar rutina..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
 
-          <div className="wb__library-list" style={{ marginTop: '8px' }}>
+          <div className="wb__library-list">
+            {filteredWorkouts.length === 0 && (
+              <p className="wb__empty-hint">No hay rutinas que encajen con la búsqueda.</p>
+            )}
+
             {filteredWorkouts.map(w => (
-              <div key={w.id} className="wb__library-item">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
-                  <span style={{ fontSize: '0.8125rem', fontWeight: '700' }}>{w.name}</span>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--gray-400)' }}>
+              <div
+                key={w.id}
+                className="wb__library-item"
+                draggable
+                onDragStart={e => handleDragStartLibrary(e, w)}
+                title="Arrástrala a un día de la semana activa, o pulsa +"
+              >
+                <div className="wb__library-item-info">
+                  <span className="wb__library-item-name">{w.name}</span>
+                  <span className="wb__library-item-cat">
                     {w.estimatedDurationMinutes} min · {w.blocks?.length || 0} bloques
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className="el__btn el__btn--primary"
-                  style={{ width: '28px', height: '28px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold' }}
-                  onClick={() => handleAddWorkoutToDay(selectedDayTarget.weekIdx, selectedDayTarget.dayOffset, w.id)}
-                  title="Vincular esta rutina al día seleccionado"
-                >
-                  +
-                </button>
+
+                <div className="wb__library-item-actions" style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    className="wb__add-btn"
+                    onClick={() => setDayPickerFor(dayPickerFor === w.id ? null : w.id)}
+                    title="Elegir día de la semana activa"
+                  >
+                    +
+                  </button>
+
+                  {dayPickerFor === w.id && (
+                    <div className="wb__day-picker" onMouseLeave={() => setDayPickerFor(null)}>
+                      <span className="wb__day-picker-title">Semana {activeWeekIdx + 1} — elige el día</span>
+                      {DAY_NAMES.map((label, i) => {
+                        const ocupado = !activeWeek?.days[i]?.restDay;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            className="wb__day-picker-option"
+                            onClick={() => handlePickDay(i)}
+                          >
+                            {label}
+                            {ocupado && <span className="wb__day-picker-flag">ocupa día</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </div>
 
       </div>
-
     </div>
   );
 }

@@ -8,6 +8,47 @@ function stripAccents(str) {
   return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+// Las rutinas antiguas guardaban por separado el tempo y las notas del
+// entrenador. Ahora hay un único texto de instrucciones, que es lo que lee el
+// cliente, así que al abrirlas se juntan en vez de perderse.
+function migrarInstrucciones(ex) {
+  if (ex.instructions !== undefined && ex.instructions !== null) return ex.instructions;
+  return [ex.tempo ? `Tempo ${ex.tempo}` : '', ex.notes || '']
+    .filter(Boolean)
+    .join('. ');
+}
+
+function normalizarBloque(b) {
+  return {
+    id: b.id || generateUUID(),
+    name: b.name || 'Bloque',
+    order: b.order || 1,
+    rounds: Number(b.rounds) || 1,
+    exercises: (b.exercises || []).map((e, i) => ({
+      id: e.id || generateUUID(),
+      exerciseId: e.exerciseId,
+      order: e.order || i + 1,
+      plannedReps: e.plannedReps ?? '10',
+      loadValue: e.loadValue ?? null,
+      loadUnit: e.loadUnit || 'kg',
+      rpe: e.rpe ?? null,
+      rir: e.rir ?? null,
+      restSeconds: e.restSeconds ?? 90,
+      instructions: migrarInstrucciones(e)
+    }))
+  };
+}
+
+function bloqueVacio(orden) {
+  return {
+    id: generateUUID(),
+    name: orden === 1 ? 'Calentamiento' : `Bloque ${orden}`,
+    order: orden,
+    rounds: 1,
+    exercises: []
+  };
+}
+
 export default function WorkoutBuilderView({
   editingWorkout = null,
   onClose,
@@ -25,7 +66,6 @@ export default function WorkoutBuilderView({
 
   // Modales embebidos
   const [showFormModal, setShowFormModal] = useState(false);
-  const [editingEx, setEditingEx] = useState(null);
   const [previewEx, setPreviewEx] = useState(null);
   const [showCatalogModal, setShowCatalogModal] = useState(false);
 
@@ -37,19 +77,11 @@ export default function WorkoutBuilderView({
     blocks: []
   });
 
-  const [activeBlockId, setActiveBlockId] = useState(''); // Bloque destino al hacer clic en "+" en biblioteca
+  const [activeBlockId, setActiveBlockId] = useState(''); // Bloque destino al pulsar "+"
+  const [dropBlockId, setDropBlockId] = useState('');     // Bloque resaltado al arrastrar
+  const [dropExId, setDropExId] = useState('');           // Ejercicio resaltado al arrastrar
+  const [arrastre, setArrastre] = useState(null);         // Qué se está arrastrando
   const [formError, setFormError] = useState('');
-
-  const handleOpenCreate = () => {
-    setEditingEx(null);
-    setShowFormModal(true);
-  };
-
-  const handleOpenEdit = (e, ex) => {
-    e.stopPropagation();
-    setEditingEx(ex);
-    setShowFormModal(true);
-  };
 
   // Carga inicial de datos
   async function loadLibraryData() {
@@ -66,65 +98,33 @@ export default function WorkoutBuilderView({
     loadLibraryData();
 
     if (editingWorkout) {
+      const blocks = Array.isArray(editingWorkout.blocks)
+        ? editingWorkout.blocks.map(normalizarBloque)
+        : [];
       setWorkoutForm({
         name: editingWorkout.name || '',
         description: editingWorkout.description || '',
         estimatedDurationMinutes: editingWorkout.estimatedDurationMinutes || 45,
-        blocks: Array.isArray(editingWorkout.blocks) ? JSON.parse(JSON.stringify(editingWorkout.blocks)) : []
+        blocks
       });
-      if (editingWorkout.blocks?.length > 0) {
-        setActiveBlockId(editingWorkout.blocks[0].id);
-      }
+      if (blocks.length > 0) setActiveBlockId(blocks[0].id);
     } else {
-      // Iniciar con un bloque vacío por defecto
-      const defaultBlockId = generateUUID();
+      const primero = bloqueVacio(1);
       setWorkoutForm({
         name: '',
         description: '',
         estimatedDurationMinutes: 45,
-        blocks: [
-          {
-            id: defaultBlockId,
-            name: 'Calentamiento',
-            type: 'individual',
-            order: 1,
-            rounds: 1,
-            restBetweenRoundsSeconds: 60,
-            exercises: []
-          }
-        ]
+        blocks: [primero]
       });
-      setActiveBlockId(defaultBlockId);
+      setActiveBlockId(primero.id);
     }
   }, [editingWorkout]);
 
-  // --- CRUD Bloques de Entrenamiento ---
-  const handleAddBlock = (type = 'individual') => {
-    const newId = generateUUID();
-    const newOrder = workoutForm.blocks.length + 1;
-    
-    const names = {
-      individual: 'Bloque de Fuerza',
-      superset: 'Super-Serie',
-      triset: 'Tri-Serie',
-      circuit: 'Circuito'
-    };
-
-    const newBlock = {
-      id: newId,
-      name: names[type] || 'Nuevo Bloque',
-      type: type,
-      order: newOrder,
-      rounds: 1,
-      restBetweenRoundsSeconds: 60,
-      exercises: []
-    };
-
-    setWorkoutForm(prev => ({
-      ...prev,
-      blocks: [...prev.blocks, newBlock]
-    }));
-    setActiveBlockId(newId);
+  // --- CRUD Bloques ---
+  const handleAddBlock = () => {
+    const nuevo = bloqueVacio(workoutForm.blocks.length + 1);
+    setWorkoutForm(prev => ({ ...prev, blocks: [...prev.blocks, nuevo] }));
+    setActiveBlockId(nuevo.id);
   };
 
   const handleUpdateBlockField = (blockId, field, value) => {
@@ -136,33 +136,25 @@ export default function WorkoutBuilderView({
 
   const handleDeleteBlock = (blockId) => {
     setWorkoutForm(prev => {
-      const filtered = prev.blocks.filter(b => b.id !== blockId);
-      // Reordenar
-      const reordered = filtered.map((b, idx) => ({ ...b, order: idx + 1 }));
+      const reordered = prev.blocks
+        .filter(b => b.id !== blockId)
+        .map((b, idx) => ({ ...b, order: idx + 1 }));
       return { ...prev, blocks: reordered };
     });
     if (activeBlockId === blockId) {
-      setActiveBlockId(workoutForm.blocks[0]?.id || '');
+      setActiveBlockId(workoutForm.blocks.find(b => b.id !== blockId)?.id || '');
     }
   };
 
   const handleDuplicateBlock = (block) => {
-    const newBlockId = generateUUID();
-    const duplicatedBlock = {
+    const copia = {
       ...JSON.parse(JSON.stringify(block)),
-      id: newBlockId,
+      id: generateUUID(),
+      name: `${block.name} (copia)`,
       order: workoutForm.blocks.length + 1,
-      exercises: block.exercises.map((ex, idx) => ({
-        ...ex,
-        id: generateUUID(),
-        order: idx + 1
-      }))
+      exercises: block.exercises.map((ex, idx) => ({ ...ex, id: generateUUID(), order: idx + 1 }))
     };
-
-    setWorkoutForm(prev => ({
-      ...prev,
-      blocks: [...prev.blocks, duplicatedBlock]
-    }));
+    setWorkoutForm(prev => ({ ...prev, blocks: [...prev.blocks, copia] }));
   };
 
   const handleMoveBlock = (index, direction) => {
@@ -170,131 +162,177 @@ export default function WorkoutBuilderView({
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= newBlocks.length) return;
 
-    // Intercambiar
-    const temp = newBlocks[index];
-    newBlocks[index] = newBlocks[targetIndex];
-    newBlocks[targetIndex] = temp;
-
-    // Actualizar orden
-    const updated = newBlocks.map((b, idx) => ({ ...b, order: idx + 1 }));
-    setWorkoutForm(prev => ({ ...prev, blocks: updated }));
+    [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
+    setWorkoutForm(prev => ({
+      ...prev,
+      blocks: newBlocks.map((b, idx) => ({ ...b, order: idx + 1 }))
+    }));
   };
 
-  // --- CRUD Ejercicios del Constructor ---
-  const handleAddExerciseToBlock = (exercise) => {
-    if (!activeBlockId) {
-      alert("Crea o selecciona un bloque en la columna izquierda primero.");
+  // --- CRUD Ejercicios del bloque ---
+  const anadirEjercicio = (exercise, blockId) => {
+    const destino = blockId || activeBlockId;
+    if (!destino) {
+      setFormError('Añade un bloque antes de meter ejercicios.');
       return;
     }
 
-    const block = workoutForm.blocks.find(b => b.id === activeBlockId);
+    const block = workoutForm.blocks.find(b => b.id === destino);
     if (!block) return;
 
-    // Detección de duplicado accidental
-    const alreadyExists = block.exercises.some(e => e.exerciseId === exercise.id);
-    if (alreadyExists) {
-      if (!window.confirm(`El ejercicio "${exercise.name}" ya está en este bloque. ¿Deseas añadirlo de nuevo?`)) {
-        return;
-      }
-    }
-
-    const newEx = {
+    const nuevo = {
       id: generateUUID(),
       exerciseId: exercise.id,
       order: block.exercises.length + 1,
-      plannedSets: 4,
       plannedReps: '10',
       loadValue: null,
       loadUnit: 'kg',
       rpe: null,
       rir: null,
-      tempo: '',
       restSeconds: 90,
-      notes: '',
-      cardioParams: null
+      instructions: ''
     };
 
+    setFormError('');
+    setActiveBlockId(destino);
+    setWorkoutForm(prev => ({
+      ...prev,
+      blocks: prev.blocks.map(b => (
+        b.id === destino ? { ...b, exercises: [...b.exercises, nuevo] } : b
+      ))
+    }));
+  };
+
+  // --- Arrastrar y soltar ---
+  // Tres gestos distintos comparten el mismo mecanismo, distinguidos por el
+  // tipo de arrastre guardado en `arrastre`: traer un ejercicio de la
+  // biblioteca, reordenar bloques y reordenar ejercicios dentro de un bloque.
+  const handleDragStartLibrary = (e, exercise) => {
+    setArrastre({ tipo: 'biblioteca', exerciseId: String(exercise.id) });
+    e.dataTransfer.setData('text/plain', String(exercise.id));
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
+  const handleDragStartBlock = (e, blockId) => {
+    setArrastre({ tipo: 'bloque', blockId });
+    e.dataTransfer.setData('text/plain', blockId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragStartExercise = (e, blockId, exId) => {
+    e.stopPropagation();
+    setArrastre({ tipo: 'ejercicio', blockId, exId });
+    e.dataTransfer.setData('text/plain', exId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setArrastre(null);
+    setDropBlockId('');
+    setDropExId('');
+  };
+
+  const handleDragOverBlock = (e, blockId) => {
+    if (!arrastre) return;
+    e.preventDefault();
+
+    if (arrastre.tipo === 'bloque') {
+      e.dataTransfer.dropEffect = 'move';
+      if (arrastre.blockId !== blockId) reordenarBloques(arrastre.blockId, blockId);
+      return;
+    }
+    // Un ejercicio solo se puede soltar en un bloque; la biblioteca, también.
+    e.dataTransfer.dropEffect = arrastre.tipo === 'biblioteca' ? 'copy' : 'move';
+    if (dropBlockId !== blockId) setDropBlockId(blockId);
+  };
+
+  const handleDropOnBlock = (e, blockId) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (arrastre?.tipo === 'biblioteca') {
+      const exercise = exercises.find(x => String(x.id) === String(arrastre.exerciseId));
+      if (exercise) anadirEjercicio(exercise, blockId);
+    } else if (arrastre?.tipo === 'ejercicio' && arrastre.blockId !== blockId) {
+      // Soltar sobre otro bloque mueve el ejercicio al final de ese bloque.
+      moverEjercicioAOtroBloque(arrastre.blockId, arrastre.exId, blockId);
+    }
+    handleDragEnd();
+  };
+
+  // Reordena en vivo mientras se arrastra, para ver dónde va a caer.
+  const reordenarBloques = (origenId, destinoId) => {
+    setWorkoutForm(prev => {
+      const desde = prev.blocks.findIndex(b => b.id === origenId);
+      const hasta = prev.blocks.findIndex(b => b.id === destinoId);
+      if (desde < 0 || hasta < 0 || desde === hasta) return prev;
+
+      const blocks = [...prev.blocks];
+      const [movido] = blocks.splice(desde, 1);
+      blocks.splice(hasta, 0, movido);
+      return { ...prev, blocks: blocks.map((b, i) => ({ ...b, order: i + 1 })) };
+    });
+  };
+
+  const reordenarEjercicios = (blockId, origenExId, destinoExId) => {
     setWorkoutForm(prev => ({
       ...prev,
       blocks: prev.blocks.map(b => {
-        if (b.id === activeBlockId) {
-          return { ...b, exercises: [...b.exercises, newEx] };
-        }
-        return b;
+        if (b.id !== blockId) return b;
+        const desde = b.exercises.findIndex(e => e.id === origenExId);
+        const hasta = b.exercises.findIndex(e => e.id === destinoExId);
+        if (desde < 0 || hasta < 0 || desde === hasta) return b;
+
+        const exercises = [...b.exercises];
+        const [movido] = exercises.splice(desde, 1);
+        exercises.splice(hasta, 0, movido);
+        return { ...b, exercises: exercises.map((e, i) => ({ ...e, order: i + 1 })) };
       })
     }));
+  };
+
+  const moverEjercicioAOtroBloque = (origenBlockId, exId, destinoBlockId) => {
+    setWorkoutForm(prev => {
+      const origen = prev.blocks.find(b => b.id === origenBlockId);
+      const movido = origen?.exercises.find(e => e.id === exId);
+      if (!movido) return prev;
+
+      return {
+        ...prev,
+        blocks: prev.blocks.map(b => {
+          if (b.id === origenBlockId) {
+            return { ...b, exercises: b.exercises.filter(e => e.id !== exId).map((e, i) => ({ ...e, order: i + 1 })) };
+          }
+          if (b.id === destinoBlockId) {
+            return { ...b, exercises: [...b.exercises, { ...movido, order: b.exercises.length + 1 }] };
+          }
+          return b;
+        })
+      };
+    });
+  };
+
+  const handleDragOverExercise = (e, blockId, exId) => {
+    if (arrastre?.tipo !== 'ejercicio') return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (arrastre.blockId === blockId && arrastre.exId !== exId) {
+      reordenarEjercicios(blockId, arrastre.exId, exId);
+    } else if (arrastre.blockId !== blockId && dropExId !== exId) {
+      setDropExId(exId);
+    }
   };
 
   const handleUpdateExerciseField = (blockId, exId, field, value) => {
     setWorkoutForm(prev => ({
       ...prev,
-      blocks: prev.blocks.map(b => {
-        if (b.id === blockId) {
-          return {
-            ...b,
-            exercises: b.exercises.map(e => e.id === exId ? { ...e, [field]: value } : e)
-          };
-        }
-        return b;
-      })
-    }));
-  };
-
-  const handleUpdateCardioField = (blockId, exId, field, value) => {
-    setWorkoutForm(prev => ({
-      ...prev,
-      blocks: prev.blocks.map(b => {
-        if (b.id === blockId) {
-          return {
-            ...b,
-            exercises: b.exercises.map(e => {
-              if (e.id === exId) {
-                const params = e.cardioParams || {
-                  durationSeconds: null,
-                  distanceValue: null,
-                  distanceUnit: 'km',
-                  pace: null,
-                  targetHeartRateMin: null,
-                  targetHeartRateMax: null
-                };
-                return { ...e, cardioParams: { ...params, [field]: value } };
-              }
-              return e;
-            })
-          };
-        }
-        return b;
-      })
-    }));
-  };
-
-  const handleToggleCardioMode = (blockId, exId, enabled) => {
-    setWorkoutForm(prev => ({
-      ...prev,
-      blocks: prev.blocks.map(b => {
-        if (b.id === blockId) {
-          return {
-            ...b,
-            exercises: b.exercises.map(e => {
-              if (e.id === exId) {
-                return {
-                  ...e,
-                  cardioParams: enabled ? {
-                    durationSeconds: null,
-                    distanceValue: null,
-                    distanceUnit: 'km',
-                    pace: null,
-                    targetHeartRateMin: null,
-                    targetHeartRateMax: null
-                  } : null
-                };
-              }
-              return e;
-            })
-          };
-        }
-        return b;
-      })
+      blocks: prev.blocks.map(b => (
+        b.id === blockId
+          ? { ...b, exercises: b.exercises.map(e => e.id === exId ? { ...e, [field]: value } : e) }
+          : b
+      ))
     }));
   };
 
@@ -302,12 +340,11 @@ export default function WorkoutBuilderView({
     setWorkoutForm(prev => ({
       ...prev,
       blocks: prev.blocks.map(b => {
-        if (b.id === blockId) {
-          const filtered = b.exercises.filter(e => e.id !== exId);
-          const reordered = filtered.map((e, idx) => ({ ...e, order: idx + 1 }));
-          return { ...b, exercises: reordered };
-        }
-        return b;
+        if (b.id !== blockId) return b;
+        const reordered = b.exercises
+          .filter(e => e.id !== exId)
+          .map((e, idx) => ({ ...e, order: idx + 1 }));
+        return { ...b, exercises: reordered };
       })
     }));
   };
@@ -316,20 +353,10 @@ export default function WorkoutBuilderView({
     const block = workoutForm.blocks.find(b => b.id === blockId);
     if (!block) return;
 
-    const duplicated = {
-      ...JSON.parse(JSON.stringify(ex)),
-      id: generateUUID(),
-      order: block.exercises.length + 1
-    };
-
+    const copia = { ...JSON.parse(JSON.stringify(ex)), id: generateUUID(), order: block.exercises.length + 1 };
     setWorkoutForm(prev => ({
       ...prev,
-      blocks: prev.blocks.map(b => {
-        if (b.id === blockId) {
-          return { ...b, exercises: [...b.exercises, duplicated] };
-        }
-        return b;
-      })
+      blocks: prev.blocks.map(b => b.id === blockId ? { ...b, exercises: [...b.exercises, copia] } : b)
     }));
   };
 
@@ -337,21 +364,13 @@ export default function WorkoutBuilderView({
     setWorkoutForm(prev => ({
       ...prev,
       blocks: prev.blocks.map(b => {
-        if (b.id === blockId) {
-          const newExs = [...b.exercises];
-          const targetIndex = index + direction;
-          if (targetIndex < 0 || targetIndex >= newExs.length) return b;
+        if (b.id !== blockId) return b;
+        const newExs = [...b.exercises];
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= newExs.length) return b;
 
-          // Intercambiar
-          const temp = newExs[index];
-          newExs[index] = newExs[targetIndex];
-          newExs[targetIndex] = temp;
-
-          // Re-ordenar
-          const updated = newExs.map((e, idx) => ({ ...e, order: idx + 1 }));
-          return { ...b, exercises: updated };
-        }
-        return b;
+        [newExs[index], newExs[targetIndex]] = [newExs[targetIndex], newExs[index]];
+        return { ...b, exercises: newExs.map((e, idx) => ({ ...e, order: idx + 1 })) };
       })
     }));
   };
@@ -366,24 +385,21 @@ export default function WorkoutBuilderView({
       setFormError('El nombre de la rutina es obligatorio.');
       return;
     }
-
     if (workoutForm.blocks.length === 0) {
       setFormError('Debes añadir al menos un bloque a la sesión.');
       return;
     }
 
-    // Validar bloques y ejercicios
     for (const b of workoutForm.blocks) {
       if (b.exercises.length === 0) {
         setFormError(`El bloque "${b.name}" debe contener al menos un ejercicio.`);
         return;
       }
-
+      if (Number(b.rounds) < 1) {
+        setFormError(`El bloque "${b.name}" debe tener al menos una serie.`);
+        return;
+      }
       for (const ex of b.exercises) {
-        if (ex.plannedSets < 0) {
-          setFormError('El número de series planificadas no puede ser negativo.');
-          return;
-        }
         if (ex.rpe !== null && (ex.rpe < 1 || ex.rpe > 10)) {
           setFormError('El RPE debe estar comprendido entre 1 y 10.');
           return;
@@ -395,24 +411,6 @@ export default function WorkoutBuilderView({
         if (ex.restSeconds < 0) {
           setFormError('El descanso entre series no puede ser negativo.');
           return;
-        }
-
-        if (ex.cardioParams) {
-          const c = ex.cardioParams;
-          if (c.durationSeconds !== null && c.durationSeconds < 0) {
-            setFormError('La duración de cardio no puede ser negativa.');
-            return;
-          }
-          if (c.distanceValue !== null && c.distanceValue < 0) {
-            setFormError('La distancia de cardio no puede ser negativa.');
-            return;
-          }
-          if (c.targetHeartRateMin !== null && c.targetHeartRateMax !== null) {
-            if (Number(c.targetHeartRateMin) > Number(c.targetHeartRateMax)) {
-              setFormError('La frecuencia cardíaca mínima no puede superar a la máxima.');
-              return;
-            }
-          }
         }
       }
     }
@@ -434,7 +432,7 @@ export default function WorkoutBuilderView({
       if (onSave) onSave(saved);
       onClose();
     } catch (err) {
-      alert(err.message);
+      setFormError(err.message || 'No se pudo guardar la rutina.');
     }
   }
 
@@ -448,18 +446,15 @@ export default function WorkoutBuilderView({
     if (selectedSubcatFilter !== 'Todas') {
       result = result.filter(ex => String(ex.subcategoryId) === String(selectedSubcatFilter));
     }
-
     if (search.trim()) {
       const query = stripAccents(search);
-      result = result.filter(ex => {
-        const nameMatch = stripAccents(ex.name).includes(query);
-        const musclesMatch = Array.isArray(ex.musculos) && ex.musculos.some(m => stripAccents(m).includes(query));
-        return nameMatch || musclesMatch;
-      });
+      result = result.filter(ex => stripAccents(ex.name).includes(query));
     }
 
     return result;
   }, [exercises, selectedCatFilter, selectedSubcatFilter, search]);
+
+  const totalEjercicios = workoutForm.blocks.reduce((n, b) => n + b.exercises.length, 0);
 
   return (
     <div className="wb__container">
@@ -468,395 +463,288 @@ export default function WorkoutBuilderView({
         <button className="el__btn el__btn--ghost" onClick={onClose}>
           ✕ Salir del constructor
         </button>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="el__btn el__btn--primary" onClick={handleSaveWorkout}>
-            Guardar Rutina
-          </button>
-        </div>
+        <span className="wb__top-summary">
+          {workoutForm.blocks.length} bloque{workoutForm.blocks.length === 1 ? '' : 's'} · {totalEjercicios} ejercicio{totalEjercicios === 1 ? '' : 's'}
+        </span>
+        <button className="el__btn el__btn--primary" onClick={handleSaveWorkout}>
+          Guardar Rutina
+        </button>
       </div>
 
       <div className="wb__grid">
-        
-        {/* ══ COLUMNA IZQUIERDA: FORMULARIO Y BLOQUES ════════════ */}
+
+        {/* ══ COLUMNA IZQUIERDA: CABECERA Y BLOQUES ════════════ */}
         <div className="wb__col wb__col--left">
-          <form className="el__modal-form" onSubmit={e => e.preventDefault()}>
-            <h2 className="wb__section-title">Parámetros de la Sesión</h2>
-            
-            {/* Título y Duración */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
-              <div className="el__field">
-                <label className="el__label">Nombre del Entrenamiento *</label>
-                <input
-                  type="text"
-                  className="el__input"
-                  placeholder="ej. Fuerza - Pliometría Tren Inferior"
-                  value={workoutForm.name}
-                  onChange={e => { setWorkoutForm(w => ({ ...w, name: e.target.value })); setFormError(''); }}
-                  required
-                />
-              </div>
-              <div className="el__field">
-                <label className="el__label">Duración Est. (min)</label>
-                <input
-                  type="number"
-                  min="5"
-                  className="el__input"
-                  value={workoutForm.estimatedDurationMinutes}
-                  onChange={e => setWorkoutForm(w => ({ ...w, estimatedDurationMinutes: e.target.value }))}
-                />
-              </div>
+
+          {/* Cabecera compacta: lo importante son los bloques, no este formulario */}
+          <div className="wb__meta">
+            <div className="wb__meta-field wb__meta-field--name">
+              <label className="wb__meta-label" htmlFor="wb-name">Nombre *</label>
+              <input
+                id="wb-name"
+                type="text"
+                className="wb__meta-input"
+                placeholder="ej. Fuerza - Tren inferior"
+                value={workoutForm.name}
+                onChange={e => { setWorkoutForm(w => ({ ...w, name: e.target.value })); setFormError(''); }}
+                required
+              />
             </div>
 
-            {formError && <p className="el__field-error" style={{ marginBottom: '12px' }}>{formError}</p>}
+            <div className="wb__meta-field wb__meta-field--duration">
+              <label className="wb__meta-label" htmlFor="wb-duration">Min.</label>
+              <input
+                id="wb-duration"
+                type="number"
+                min="5"
+                className="wb__meta-input"
+                value={workoutForm.estimatedDurationMinutes}
+                onChange={e => setWorkoutForm(w => ({ ...w, estimatedDurationMinutes: e.target.value }))}
+              />
+            </div>
 
-            {/* Descripción */}
-            <div className="el__field">
-              <label className="el__label">Objetivo y Descripción de la Sesión</label>
-              <textarea
-                className="el__input el__input--textarea"
-                placeholder="Anota el enfoque táctico, fatiga previa buscada o indicaciones generales de la rutina..."
-                rows="2"
+            <div className="wb__meta-field wb__meta-field--goal">
+              <label className="wb__meta-label" htmlFor="wb-goal">Objetivo</label>
+              <input
+                id="wb-goal"
+                type="text"
+                className="wb__meta-input"
+                placeholder="Enfoque o indicaciones generales..."
                 value={workoutForm.description}
                 onChange={e => setWorkoutForm(w => ({ ...w, description: e.target.value }))}
               />
             </div>
+          </div>
 
-            {/* ══ CONSTRUCTOR DE BLOQUES SECUENCIALES ══ */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', borderTop: '1px solid var(--gray-200)', paddingTop: '16px' }}>
-              <h3 className="wb__section-title" style={{ margin: 0 }}>Estructura de Bloques</h3>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button type="button" className="el__btn el__btn--ghost" style={{ padding: '6px 10px', fontSize: '0.75rem' }} onClick={() => handleAddBlock('individual')}>
-                  + Fuerza
-                </button>
-                <button type="button" className="el__btn el__btn--ghost" style={{ padding: '6px 10px', fontSize: '0.75rem' }} onClick={() => handleAddBlock('superset')}>
-                  + Super-Serie
-                </button>
-                <button type="button" className="el__btn el__btn--ghost" style={{ padding: '6px 10px', fontSize: '0.75rem' }} onClick={() => handleAddBlock('circuit')}>
-                  + Circuito
-                </button>
-              </div>
-            </div>
+          {formError && <p className="wb__error">{formError}</p>}
 
-            <div className="wb__blocks-container">
-              {workoutForm.blocks.map((block, bIdx) => (
-                <div
-                  key={block.id}
-                  className={`wb__block-card ${activeBlockId === block.id ? 'wb__block-card--active' : ''}`}
-                  onClick={() => setActiveBlockId(block.id)}
-                >
-                  {/* Cabecera del bloque */}
-                  <div className="wb__block-header">
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1 }}>
-                      <span className="wb__block-order">#{block.order}</span>
-                      <input
-                        type="text"
-                        className="wb__block-title-input"
-                        value={block.name}
-                        onChange={e => handleUpdateBlockField(block.id, 'name', e.target.value)}
-                        placeholder="Nombre del Bloque..."
-                      />
-                    </div>
+          {/* ══ BLOQUES ══ */}
+          <div className="wb__blocks-head">
+            <h3 className="wb__section-title">Bloques</h3>
+            <button type="button" className="el__btn el__btn--ghost wb__add-block-btn" onClick={handleAddBlock}>
+              + Añadir bloque
+            </button>
+          </div>
 
-                    <div className="wb__block-header-actions">
-                      <button type="button" className="el__card-admin-btn" style={{ padding: '2px 6px' }} onClick={() => handleMoveBlock(bIdx, -1)} disabled={bIdx === 0} title="Subir bloque">▲</button>
-                      <button type="button" className="el__card-admin-btn" style={{ padding: '2px 6px' }} onClick={() => handleMoveBlock(bIdx, 1)} disabled={bIdx === workoutForm.blocks.length - 1} title="Bajar bloque">▼</button>
-                      <button type="button" className="el__card-admin-btn" style={{ padding: '2px 6px' }} onClick={() => handleDuplicateBlock(block)} title="Duplicar bloque">Clonar</button>
-                      <button type="button" className="el__card-admin-btn el__card-admin-btn--delete" style={{ padding: '2px 6px' }} onClick={() => handleDeleteBlock(block.id)} title="Eliminar bloque">✕</button>
-                    </div>
-                  </div>
+          <div className="wb__blocks-container">
+            {workoutForm.blocks.map((block, bIdx) => (
+              <div
+                key={block.id}
+                className={
+                  'wb__block-card' +
+                  (activeBlockId === block.id ? ' wb__block-card--active' : '') +
+                  (dropBlockId === block.id ? ' wb__block-card--drop' : '') +
+                  (arrastre?.tipo === 'bloque' && arrastre.blockId === block.id ? ' wb__block-card--dragging' : '')
+                }
+                onClick={() => setActiveBlockId(block.id)}
+                onDragOver={e => handleDragOverBlock(e, block.id)}
+                onDragLeave={() => setDropBlockId('')}
+                onDrop={e => handleDropOnBlock(e, block.id)}
+              >
+                {/* Cabecera del bloque: nombre y series */}
+                <div className="wb__block-header">
+                  {/* El asa es lo único arrastrable: así los campos de dentro
+                      se siguen pudiendo seleccionar con el ratón. */}
+                  <span
+                    className="wb__drag-handle"
+                    draggable
+                    onDragStart={e => handleDragStartBlock(e, block.id)}
+                    onDragEnd={handleDragEnd}
+                    title="Arrastra para reordenar el bloque"
+                    aria-label="Reordenar bloque"
+                  >
+                    ⠿
+                  </span>
+                  <span className="wb__block-order">#{block.order}</span>
+                  <input
+                    type="text"
+                    className="wb__block-title-input"
+                    value={block.name}
+                    onChange={e => handleUpdateBlockField(block.id, 'name', e.target.value)}
+                    placeholder="Nombre del bloque..."
+                  />
 
-                  {/* Variables globales de bloque */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', padding: '12px 14px', background: 'var(--off-white)', borderBottom: '1px solid var(--gray-100)' }}>
-                    <div className="el__field" style={{ margin: 0 }}>
-                      <label className="el__label" style={{ fontSize: '0.7rem' }}>Tipo de Bloque</label>
-                      <select
-                        className="el__input el__input--select"
-                        style={{ height: '32px', fontSize: '0.75rem' }}
-                        value={block.type}
-                        onChange={e => handleUpdateBlockField(block.id, 'type', e.target.value)}
-                      >
-                        <option value="individual">Fuerza Individual</option>
-                        <option value="superset">Super-Serie (A1-A2)</option>
-                        <option value="triset">Tri-Serie (A1-A2-A3)</option>
-                        <option value="circuit">Circuito (A1-A2-A3...)</option>
-                      </select>
-                    </div>
+                  <label className="wb__block-rounds">
+                    <span>Series</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={block.rounds}
+                      onChange={e => handleUpdateBlockField(block.id, 'rounds', Number(e.target.value) || 1)}
+                    />
+                  </label>
 
-                    <div className="el__field" style={{ margin: 0 }}>
-                      <label className="el__label" style={{ fontSize: '0.7rem' }}>Series / Rondas</label>
-                      <input
-                        type="number"
-                        min="1"
-                        className="el__input"
-                        style={{ height: '32px', fontSize: '0.75rem' }}
-                        value={block.rounds}
-                        onChange={e => handleUpdateBlockField(block.id, 'rounds', Number(e.target.value) || 1)}
-                      />
-                    </div>
-
-                    <div className="el__field" style={{ margin: 0 }}>
-                      <label className="el__label" style={{ fontSize: '0.7rem' }}>Descanso ronda (s)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="el__input"
-                        style={{ height: '32px', fontSize: '0.75rem' }}
-                        value={block.restBetweenRoundsSeconds}
-                        onChange={e => handleUpdateBlockField(block.id, 'restBetweenRoundsSeconds', Number(e.target.value) || 0)}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Ejercicios dentro del bloque */}
-                  <div className="wb__block-exercises-list">
-                    {block.exercises.length === 0 ? (
-                      <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)', textAlign: 'center', padding: '16px 0', margin: 0 }}>
-                        Haz clic en el botón "+" en la biblioteca de la derecha para añadir ejercicios.
-                      </p>
-                    ) : (
-                      block.exercises.map((ex, exIdx) => {
-                        const original = exercises.find(e => e.id === ex.exerciseId);
-                        if (!original) return null;
-
-                        return (
-                          <div key={ex.id} className="wb__exercise-row" onClick={e => e.stopPropagation()}>
-                            <div className="wb__exercise-row-header">
-                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                <span className="wb__exercise-order">{block.type === 'individual' ? `${ex.order}` : `A${ex.order}`}</span>
-                                <strong style={{ fontSize: '0.8125rem' }}>{original.name}</strong>
-                              </div>
-
-                              <div style={{ display: 'flex', gap: '4px' }}>
-                                <button type="button" className="el__card-admin-btn" style={{ padding: '0px 4px', fontSize: '0.65rem' }} onClick={() => handleMoveExercise(block.id, exIdx, -1)} disabled={exIdx === 0}>▲</button>
-                                <button type="button" className="el__card-admin-btn" style={{ padding: '0px 4px', fontSize: '0.65rem' }} onClick={() => handleMoveExercise(block.id, exIdx, 1)} disabled={exIdx === block.exercises.length - 1}>▼</button>
-                                <button type="button" className="el__card-admin-btn" style={{ padding: '0px 4px', fontSize: '0.65rem' }} onClick={() => handleDuplicateExercise(block.id, ex)}>Clonar</button>
-                                <button type="button" className="el__card-admin-btn el__card-admin-btn--delete" style={{ padding: '0px 4px', fontSize: '0.65rem' }} onClick={() => handleDeleteExerciseFromBlock(block.id, ex.id)}>✕</button>
-                              </div>
-                            </div>
-
-                            {/* Variables Fuerza */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px', marginTop: '8px' }}>
-                              <div className="el__field" style={{ margin: 0 }}>
-                                <label className="el__label" style={{ fontSize: '0.6rem' }}>Series</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  className="el__input"
-                                  style={{ height: '28px', padding: '2px 6px', fontSize: '0.75rem' }}
-                                  value={ex.plannedSets}
-                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'plannedSets', Number(e.target.value) || 0)}
-                                />
-                              </div>
-                              <div className="el__field" style={{ margin: 0 }}>
-                                <label className="el__label" style={{ fontSize: '0.6rem' }}>Repeticiones</label>
-                                <input
-                                  type="text"
-                                  className="el__input"
-                                  style={{ height: '28px', padding: '2px 6px', fontSize: '0.75rem' }}
-                                  value={ex.plannedReps}
-                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'plannedReps', e.target.value)}
-                                />
-                              </div>
-                              <div className="el__field" style={{ margin: 0 }}>
-                                <label className="el__label" style={{ fontSize: '0.6rem' }}>Carga / Unidad</label>
-                                <div style={{ display: 'flex', gap: '2px' }}>
-                                  <input
-                                    type="number"
-                                    className="el__input"
-                                    style={{ height: '28px', padding: '2px 4px', fontSize: '0.75rem', flex: 1 }}
-                                    value={ex.loadValue || ''}
-                                    placeholder="N/A"
-                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadValue', e.target.value ? Number(e.target.value) : null)}
-                                  />
-                                  <input
-                                    type="text"
-                                    className="el__input"
-                                    style={{ height: '28px', padding: '2px 4px', fontSize: '0.75rem', width: '28px' }}
-                                    value={ex.loadUnit}
-                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadUnit', e.target.value)}
-                                  />
-                                </div>
-                              </div>
-                              <div className="el__field" style={{ margin: 0 }}>
-                                <label className="el__label" style={{ fontSize: '0.6rem' }}>RPE (1-10) / RIR</label>
-                                <div style={{ display: 'flex', gap: '2px' }}>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="10"
-                                    className="el__input"
-                                    style={{ height: '28px', padding: '2px 4px', fontSize: '0.75rem', flex: 1 }}
-                                    placeholder="RPE"
-                                    value={ex.rpe || ''}
-                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'rpe', e.target.value ? Number(e.target.value) : null)}
-                                  />
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="el__input"
-                                    style={{ height: '28px', padding: '2px 4px', fontSize: '0.75rem', flex: 1 }}
-                                    placeholder="RIR"
-                                    value={ex.rir || ''}
-                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'rir', e.target.value ? Number(e.target.value) : null)}
-                                  />
-                                </div>
-                              </div>
-                              <div className="el__field" style={{ margin: 0 }}>
-                                <label className="el__label" style={{ fontSize: '0.6rem' }}>Descanso (s)</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  className="el__input"
-                                  style={{ height: '28px', padding: '2px 6px', fontSize: '0.75rem' }}
-                                  value={ex.restSeconds}
-                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'restSeconds', Number(e.target.value) || 0)}
-                                />
-                              </div>
-                            </div>
-
-                            {/* Fila extra: Tempo, Notas y Switch Cardio */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: '6px', marginTop: '6px' }}>
-                              <input
-                                type="text"
-                                className="el__input"
-                                style={{ height: '28px', fontSize: '0.75rem' }}
-                                placeholder="Tempo (ej. 3-0-1-0)..."
-                                value={ex.tempo}
-                                onChange={e => handleUpdateExerciseField(block.id, ex.id, 'tempo', e.target.value)}
-                              />
-                              <input
-                                type="text"
-                                className="el__input"
-                                style={{ height: '28px', fontSize: '0.75rem' }}
-                                placeholder="Notas específicas..."
-                                value={ex.notes}
-                                onChange={e => handleUpdateExerciseField(block.id, ex.id, 'notes', e.target.value)}
-                              />
-                              <button
-                                type="button"
-                                className={`el__btn ${ex.cardioParams ? 'el__btn--fav-active' : 'el__btn--ghost'}`}
-                                style={{ height: '28px', padding: 0, fontSize: '0.7rem' }}
-                                onClick={() => handleToggleCardioMode(block.id, ex.id, !ex.cardioParams)}
-                              >
-                                {ex.cardioParams ? '✔ Cardio Activo' : '+ Cardio'}
-                              </button>
-                            </div>
-
-                            {/* Variables estructuradas de Cardio */}
-                            {ex.cardioParams && (
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginTop: '6px', padding: '6px 8px', background: '#f1f5f9', borderRadius: 'var(--radius-sm)' }}>
-                                <div className="el__field" style={{ margin: 0 }}>
-                                  <label className="el__label" style={{ fontSize: '0.55rem' }}>Duración (s)</label>
-                                  <input
-                                    type="number"
-                                    className="el__input"
-                                    style={{ height: '24px', fontSize: '0.7rem' }}
-                                    value={ex.cardioParams.durationSeconds || ''}
-                                    onChange={e => handleUpdateCardioField(block.id, ex.id, 'durationSeconds', e.target.value ? Number(e.target.value) : null)}
-                                  />
-                                </div>
-                                <div className="el__field" style={{ margin: 0 }}>
-                                  <label className="el__label" style={{ fontSize: '0.55rem' }}>Distancia / Unidad</label>
-                                  <div style={{ display: 'flex', gap: '2px' }}>
-                                    <input
-                                      type="number"
-                                      className="el__input"
-                                      style={{ height: '24px', fontSize: '0.7rem', flex: 1 }}
-                                      value={ex.cardioParams.distanceValue || ''}
-                                      onChange={e => handleUpdateCardioField(block.id, ex.id, 'distanceValue', e.target.value ? Number(e.target.value) : null)}
-                                    />
-                                    <select
-                                      className="el__input el__input--select"
-                                      style={{ height: '24px', fontSize: '0.7rem', padding: '0 2px', width: '38px' }}
-                                      value={ex.cardioParams.distanceUnit || 'km'}
-                                      onChange={e => handleUpdateCardioField(block.id, ex.id, 'distanceUnit', e.target.value)}
-                                    >
-                                      <option value="km">km</option>
-                                      <option value="m">m</option>
-                                    </select>
-                                  </div>
-                                </div>
-                                <div className="el__field" style={{ margin: 0 }}>
-                                  <label className="el__label" style={{ fontSize: '0.55rem' }}>Ritmo</label>
-                                  <input
-                                    type="text"
-                                    className="el__input"
-                                    style={{ height: '24px', fontSize: '0.7rem' }}
-                                    placeholder="ej. 4:30 min/km"
-                                    value={ex.cardioParams.pace || ''}
-                                    onChange={e => handleUpdateCardioField(block.id, ex.id, 'pace', e.target.value)}
-                                  />
-                                </div>
-                                <div className="el__field" style={{ margin: 0 }}>
-                                  <label className="el__label" style={{ fontSize: '0.55rem' }}>FC Rango (Min-Max)</label>
-                                  <div style={{ display: 'flex', gap: '2px' }}>
-                                    <input
-                                      type="number"
-                                      className="el__input"
-                                      style={{ height: '24px', fontSize: '0.7rem', flex: 1 }}
-                                      placeholder="Min"
-                                      value={ex.cardioParams.targetHeartRateMin || ''}
-                                      onChange={e => handleUpdateCardioField(block.id, ex.id, 'targetHeartRateMin', e.target.value ? Number(e.target.value) : null)}
-                                    />
-                                    <input
-                                      type="number"
-                                      className="el__input"
-                                      style={{ height: '24px', fontSize: '0.7rem', flex: 1 }}
-                                      placeholder="Max"
-                                      value={ex.cardioParams.targetHeartRateMax || ''}
-                                      onChange={e => handleUpdateCardioField(block.id, ex.id, 'targetHeartRateMax', e.target.value ? Number(e.target.value) : null)}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })
-                    )}
+                  <div className="wb__block-header-actions">
+                    <button type="button" className="wb__icon-btn" onClick={() => handleMoveBlock(bIdx, -1)} disabled={bIdx === 0} title="Subir bloque">▲</button>
+                    <button type="button" className="wb__icon-btn" onClick={() => handleMoveBlock(bIdx, 1)} disabled={bIdx === workoutForm.blocks.length - 1} title="Bajar bloque">▼</button>
+                    <button type="button" className="wb__icon-btn" onClick={() => handleDuplicateBlock(block)} title="Duplicar bloque">⧉</button>
+                    <button type="button" className="wb__icon-btn wb__icon-btn--danger" onClick={() => handleDeleteBlock(block.id)} title="Eliminar bloque">✕</button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </form>
+
+                {/* Ejercicios dentro del bloque */}
+                <div className="wb__block-exercises-list">
+                  {block.exercises.length === 0 ? (
+                    <p className="wb__empty-hint">
+                      Arrastra un ejercicio aquí, o pulsa el <strong>+</strong> de la biblioteca.
+                    </p>
+                  ) : (
+                    block.exercises.map((ex, exIdx) => {
+                      const original = exercises.find(e => e.id === ex.exerciseId);
+                      if (!original) return null;
+
+                      return (
+                        <div
+                          key={ex.id}
+                          className={
+                            'wb__exercise-row' +
+                            (arrastre?.tipo === 'ejercicio' && arrastre.exId === ex.id ? ' wb__exercise-row--dragging' : '') +
+                            (dropExId === ex.id ? ' wb__exercise-row--drop' : '')
+                          }
+                          onClick={e => e.stopPropagation()}
+                          onDragOver={e => handleDragOverExercise(e, block.id, ex.id)}
+                        >
+                          <div className="wb__exercise-row-header">
+                            <span
+                              className="wb__drag-handle"
+                              draggable
+                              onDragStart={e => handleDragStartExercise(e, block.id, ex.id)}
+                              onDragEnd={handleDragEnd}
+                              title="Arrastra para reordenar el ejercicio"
+                              aria-label="Reordenar ejercicio"
+                            >
+                              ⠿
+                            </span>
+                            <span className="wb__exercise-order">{ex.order}</span>
+                            <strong className="wb__exercise-name">{original.name}</strong>
+
+                            <div className="wb__block-header-actions">
+                              <button type="button" className="wb__icon-btn" onClick={() => handleMoveExercise(block.id, exIdx, -1)} disabled={exIdx === 0} title="Subir">▲</button>
+                              <button type="button" className="wb__icon-btn" onClick={() => handleMoveExercise(block.id, exIdx, 1)} disabled={exIdx === block.exercises.length - 1} title="Bajar">▼</button>
+                              <button type="button" className="wb__icon-btn" onClick={() => handleDuplicateExercise(block.id, ex)} title="Duplicar">⧉</button>
+                              <button type="button" className="wb__icon-btn wb__icon-btn--danger" onClick={() => handleDeleteExerciseFromBlock(block.id, ex.id)} title="Quitar">✕</button>
+                            </div>
+                          </div>
+
+                          <div className="wb__exercise-fields">
+                            <div className="wb__field">
+                              <label className="wb__field-label">Repeticiones</label>
+                              <input
+                                type="text"
+                                className="wb__field-input"
+                                value={ex.plannedReps}
+                                onChange={e => handleUpdateExerciseField(block.id, ex.id, 'plannedReps', e.target.value)}
+                              />
+                            </div>
+
+                            <div className="wb__field">
+                              <label className="wb__field-label">Carga</label>
+                              <div className="wb__field-pair">
+                                <input
+                                  type="number"
+                                  className="wb__field-input"
+                                  placeholder="—"
+                                  value={ex.loadValue ?? ''}
+                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadValue', e.target.value ? Number(e.target.value) : null)}
+                                />
+                                <input
+                                  type="text"
+                                  className="wb__field-input wb__field-input--unit"
+                                  value={ex.loadUnit}
+                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadUnit', e.target.value)}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="wb__field">
+                              <label className="wb__field-label">RPE / RIR</label>
+                              <div className="wb__field-pair">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  className="wb__field-input"
+                                  placeholder="RPE"
+                                  value={ex.rpe ?? ''}
+                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'rpe', e.target.value ? Number(e.target.value) : null)}
+                                />
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="wb__field-input"
+                                  placeholder="RIR"
+                                  value={ex.rir ?? ''}
+                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'rir', e.target.value ? Number(e.target.value) : null)}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="wb__field">
+                              <label className="wb__field-label">Descanso (s)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                className="wb__field-input"
+                                value={ex.restSeconds}
+                                onChange={e => handleUpdateExerciseField(block.id, ex.id, 'restSeconds', Number(e.target.value) || 0)}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Lo que leerá el cliente al abrir el entrenamiento */}
+                          <div className="wb__field wb__instructions">
+                            <label className="wb__field-label">Instrucciones</label>
+                            <textarea
+                              className="wb__field-input wb__field-input--area"
+                              rows="2"
+                              placeholder="Lo que verá el cliente: técnica, tempo, sensaciones, avisos..."
+                              value={ex.instructions}
+                              onChange={e => handleUpdateExerciseField(block.id, ex.id, 'instructions', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ══ COLUMNA DERECHA: BIBLIOTECA DE EJERCICIOS ═════════ */}
         <div className="wb__col wb__col--right">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <h2 className="wb__section-title" style={{ margin: 0 }}>Biblioteca de Ejercicios</h2>
-            
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button className="el__btn el__btn--ghost" style={{ padding: '6px 8px', fontSize: '0.75rem' }} onClick={() => setShowCatalogModal(true)}>
+          <div className="wb__library-head">
+            <h2 className="wb__section-title">Biblioteca</h2>
+            <div className="wb__library-head-actions">
+              <button className="el__btn el__btn--ghost wb__small-btn" onClick={() => setShowCatalogModal(true)}>
                 Catálogos
               </button>
-              <button className="el__btn el__btn--primary" style={{ padding: '6px 8px', fontSize: '0.75rem' }} onClick={handleOpenCreate}>
-                + Crear Ejercicio
+              <button className="el__btn el__btn--primary wb__small-btn" onClick={() => setShowFormModal(true)}>
+                + Crear
               </button>
             </div>
           </div>
 
-          {/* Filtros rápidos de biblioteca */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+          <div className="wb__library-filters">
             <input
               type="text"
-              className="el__search-input"
-              style={{ height: '36px' }}
+              className="wb__field-input"
               placeholder="Buscar ejercicio..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <select className="el__select" style={{ height: '32px', fontSize: '0.75rem' }} value={selectedCatFilter} onChange={e => setSelectedCatFilter(e.target.value)}>
-                <option value="Todas">Categoría: Todas</option>
+
+            <div className="wb__field-pair">
+              <select className="wb__field-input" value={selectedCatFilter} onChange={e => setSelectedCatFilter(e.target.value)}>
+                <option value="Todas">Categoría: todas</option>
                 {categories.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
 
-              <select className="el__select" style={{ height: '32px', fontSize: '0.75rem' }} value={selectedSubcatFilter} onChange={e => setSelectedSubcatFilter(e.target.value)}>
-                <option value="Todas">Subcategoría: Todas</option>
+              <select className="wb__field-input" value={selectedSubcatFilter} onChange={e => setSelectedSubcatFilter(e.target.value)}>
+                <option value="Todas">Subcat.: todas</option>
                 {subcategories
                   .filter(s => selectedCatFilter === 'Todas' || String(s.categoryId) === String(selectedCatFilter))
                   .map(s => (
@@ -867,24 +755,33 @@ export default function WorkoutBuilderView({
             </div>
           </div>
 
-          {/* Listado de tarjetas de ejercicios en catálogo lateral */}
           <div className="wb__library-list">
+            {filteredLibrary.length === 0 && (
+              <p className="wb__empty-hint">No hay ejercicios que encajen con el filtro.</p>
+            )}
+
             {filteredLibrary.map(ex => (
-              <div key={ex.id} className="wb__library-item">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: '700' }}>{ex.name}</span>
-                    {ex.favorite && <span style={{ color: 'var(--accent)', fontSize: '0.75rem' }}>★</span>}
-                  </div>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--gray-400)' }}>
+              <div
+                key={ex.id}
+                className="wb__library-item"
+                draggable
+                onDragStart={e => handleDragStartLibrary(e, ex)}
+                onDragEnd={handleDragEnd}
+                title="Arrástralo a un bloque o pulsa +"
+              >
+                <div className="wb__library-item-info">
+                  <span className="wb__library-item-name">
+                    {ex.name}
+                    {ex.favorite && <span className="wb__library-item-fav">★</span>}
+                  </span>
+                  <span className="wb__library-item-cat">
                     {categories.find(c => c.id === ex.categoryId)?.name || 'Sin categoría'}
                   </span>
                 </div>
 
                 <div className="wb__library-item-actions">
-                  <button type="button" className="el__cat-action-btn el__cat-action-btn--cancel" style={{ width: '24px', height: '24px', borderWidth: '1px' }} onClick={() => setPreviewEx(ex)} title="Ver detalles y protocolo">i</button>
-                  <button type="button" className="el__card-admin-btn" style={{ padding: '2px 4px', fontSize: '0.65rem' }} onClick={(e) => handleOpenEdit(e, ex)} title="Editar ejercicio">✎</button>
-                  <button type="button" className="el__btn el__btn--primary" style={{ width: '28px', height: '28px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold' }} onClick={() => handleAddExerciseToBlock(ex)} title="Añadir a bloque en curso">+</button>
+                  <button type="button" className="wb__icon-btn" onClick={() => setPreviewEx(ex)} title="Ver ficha del ejercicio">i</button>
+                  <button type="button" className="wb__add-btn" onClick={() => anadirEjercicio(ex)} title="Añadir al bloque activo">+</button>
                 </div>
               </div>
             ))}
@@ -902,9 +799,16 @@ export default function WorkoutBuilderView({
               <button className="el__modal-close" onClick={() => setPreviewEx(null)}>✕</button>
             </div>
             <div style={{ padding: '0 24px 24px', fontSize: '0.8125rem', color: 'var(--gray-600)', lineHeight: '1.5' }}>
+              {previewEx.image && (
+                <img src={previewEx.image} alt={previewEx.name} className="wb__preview-img" />
+              )}
               <p><strong>Descripción:</strong> {previewEx.description || 'Sin descripción.'}</p>
               {previewEx.technicalInstructions && <p style={{ marginTop: '8px' }}><strong>Instrucciones Técnicas:</strong> {previewEx.technicalInstructions}</p>}
-              {previewEx.musculos?.length > 0 && <p style={{ marginTop: '8px' }}><strong>Músculos Implicados:</strong> {previewEx.musculos.join(', ')}</p>}
+              {previewEx.videoUrl && (
+                <p style={{ marginTop: '8px' }}>
+                  <a href={previewEx.videoUrl} target="_blank" rel="noopener noreferrer">Ver vídeo</a>
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -913,11 +817,8 @@ export default function WorkoutBuilderView({
       {/* ══ MODAL DE FORMULARIO DE EJERCICIO ══════════════════ */}
       {showFormModal && (
         <ExerciseFormModal
-          editingEx={editingEx}
-          onClose={() => {
-            setShowFormModal(false);
-            setEditingEx(null);
-          }}
+          editingEx={null}
+          onClose={() => setShowFormModal(false)}
           onSave={loadLibraryData}
         />
       )}
@@ -926,7 +827,7 @@ export default function WorkoutBuilderView({
       {showCatalogModal && (
         <GlobalCatalogModal
           mode="contextual"
-          contextKeys={[KEYS.EX_CATEGORIES, KEYS.EX_SUBCATEGORIES, KEYS.EX_TYPES]}
+          contextKeys={[KEYS.EX_CATEGORIES, KEYS.EX_SUBCATEGORIES]}
           initialActiveKey={KEYS.EX_CATEGORIES}
           onClose={() => setShowCatalogModal(false)}
           onRefresh={loadLibraryData}

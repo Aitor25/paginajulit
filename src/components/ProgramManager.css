@@ -16,11 +16,3 @@
   transition: width 0.3s ease;
 }
 
-.wk__card-meta-program {
-  font-size: 0.75rem;
-  color: var(--gray-400);
-  display: flex;
-  justify-content: space-between;
-  border-top: 1px solid var(--gray-100);
-  padding-top: 8px;
-}

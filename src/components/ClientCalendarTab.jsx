@@ -5,6 +5,7 @@ import { CalendarWeek } from './CalendarWeek';
 import { RescheduleModal } from './RescheduleModal';
 import WorkoutAssignmentModal from './WorkoutAssignmentModal';
 import AssignmentDetailModal from './AssignmentDetailModal';
+import { toDateKey } from '../utils/dateUtils';
 
 export const ClientCalendarTab = ({ clientId, readOnly = false, onReadOnlyEventClick = null }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -28,10 +29,18 @@ export const ClientCalendarTab = ({ clientId, readOnly = false, onReadOnlyEventC
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
-      const firstDay = new Date(year, month, 1).toISOString().split('T')[0];
-      const lastDay = new Date(year, month + 1, 0).toISOString().split('T')[0];
+      const firstDay = toDateKey(new Date(year, month, 1));
+      const lastDay = toDateKey(new Date(year, month + 1, 0));
 
-      await storage.syncMissedAssignments();
+      // Extra opcional: un fallo marcando las vencidas no puede impedir que
+      // se pinten los entrenamientos (al cliente, además, las reglas de
+      // Firestore no le dejan escribir en workout_assignments).
+      try {
+        await storage.syncMissedAssignments();
+      } catch (err) {
+        console.error('No se pudieron actualizar las sesiones vencidas:', err);
+      }
+
       const evs = await storage.getCalendarEvents({
         startDate: firstDay,
         endDate: lastDay,
@@ -106,9 +115,10 @@ export const ClientCalendarTab = ({ clientId, readOnly = false, onReadOnlyEventC
       {loading ? (
         <div className="cm__placeholder">Cargando calendario...</div>
       ) : viewMode === 'month' ? (
-        <CalendarGrid 
-          currentDate={currentDate} 
-          events={events} 
+        <CalendarGrid
+          currentDate={currentDate}
+          events={events}
+          showClientName={false}
           onDateClick={dateStr => !readOnly && setQuickAssignDate(dateStr)}
           onEventClick={ev => {
             if (readOnly) {
@@ -125,8 +135,9 @@ export const ClientCalendarTab = ({ clientId, readOnly = false, onReadOnlyEventC
         />
       ) : (
         <CalendarWeek
-          currentDateStr={currentDate.toISOString().split('T')[0]}
+          currentDateStr={toDateKey(currentDate)}
           events={events}
+          showClientName={false}
           onDateClick={dateStr => !readOnly && setQuickAssignDate(dateStr)}
           onEventClick={ev => {
             if (readOnly) {
