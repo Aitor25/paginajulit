@@ -120,8 +120,13 @@ export default function ProgramManager() {
   }
 
   return (
-    <section className="cm" aria-label="Programas de Entrenamiento">
-      
+    // Sin la clase "cm": este componente siempre vive dentro del <section
+    // className="cm"> de WorkoutManager, que ya pone el padding de página. Con
+    // "cm" aquí también, el hueco se sumaba dos veces y el título quedaba
+    // metido hacia dentro en vez de pegado al borde, a diferencia de
+    // "Biblioteca de Entrenamientos".
+    <section aria-label="Programas de Entrenamiento">
+
       {/* Cabecera */}
       <header className="cm__header">
         <div className="el__title-group">

@@ -664,7 +664,7 @@ export default function AssessmentTab({ clientId }) {
       {/* ══ MODAL DE REGISTRO / EDICIÓN DE TEST ══════════════ */}
       {showModal && (
         <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="el__modal" style={{ maxHeight: '90vh', overflowY: 'auto', maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
+          <div className="el__modal" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
             <div className="el__modal-header">
               <h2 className="el__modal-title">{editingResult ? 'Editar Resultado del Test' : 'Registrar Nuevo Test'}</h2>
               <button className="el__modal-close" onClick={() => setShowModal(false)}>✕</button>
@@ -926,7 +926,7 @@ export default function AssessmentTab({ clientId }) {
             <div className="el__modal-header" style={{ borderBottom: 'none', paddingBottom: '10px' }}>
               <h2 className="el__modal-title">¿Eliminar resultado?</h2>
             </div>
-            <div style={{ padding: '0 24px 20px', fontSize: '0.8125rem', color: 'var(--gray-600)', lineHeight: '1.5' }}>
+            <div className="el__modal-body" style={{ padding: '0 24px 20px', fontSize: '0.8125rem', color: 'var(--gray-600)', lineHeight: '1.5' }}>
               <p>¿Estás seguro de que deseas eliminar este resultado de test?</p>
             </div>
             <div className="el__modal-actions" style={{ padding: '0 24px 24px', borderTop: 'none' }}>

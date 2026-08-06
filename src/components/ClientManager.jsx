@@ -1233,7 +1233,7 @@ export default function ClientManager() {
       {/* ══ MODAL ÚNICO: CREAR / EDITAR CLIENTE ═══════════════ */}
       {showModal && (
         <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && handleCloseModal()}>
-          <div className="el__modal" style={{ maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+          <div className="el__modal" onClick={e => e.stopPropagation()}>
             <div className="el__modal-header">
               <h2 className="el__modal-title">{editingClient ? 'Editar Perfil del Cliente' : 'Registrar Nuevo Cliente'}</h2>
               <button className="el__modal-close" onClick={handleCloseModal} aria-label="Cerrar modal">
@@ -1507,9 +1507,9 @@ export default function ClientManager() {
               <h2 className="el__modal-title" style={{ color: '#e53e3e' }}>¿Eliminar definitivamente?</h2>
             </div>
             
-            <div style={{ padding: '0 24px 16px', fontSize: '0.8125rem', color: 'var(--gray-600)', lineHeight: '1.5' }}>
+            <div className="el__modal-body" style={{ padding: '0 24px 16px', fontSize: '0.8125rem', color: 'var(--gray-600)', lineHeight: '1.5' }}>
               <p>
-                Estás a punto de borrar definitivamente la ficha de <strong>"{deletingClient.firstName} {deletingClient.lastName}"</strong>. 
+                Estás a punto de borrar definitivamente la ficha de <strong>"{deletingClient.firstName} {deletingClient.lastName}"</strong>.
                 Esta acción es **irreversible** y destruirá todas sus notas privadas.
               </p>
               

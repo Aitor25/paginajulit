@@ -7,7 +7,12 @@
   max-width: 1000px;
   margin: 0 auto;
   padding: 16px;
-  animation: cpFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* "backwards" en vez de "both": con "both" esta caja se queda con un
+     transform activo para siempre, y cualquier modal con position:fixed
+     que se abra dentro (registro de sesión, sesión libre...) se centra
+     respecto a ella en vez de respecto a la ventana; si el portal es más
+     alto que la pantalla, el modal aparecía fuera de la vista. */
+  animation: cpFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 @keyframes cpFadeUp {
@@ -224,6 +229,7 @@
   justify-content: center;
   z-index: 1000;
   padding: 16px;
+  overflow-y: auto;
   animation: cpFadeIn 0.2s ease;
 }
 
@@ -232,13 +238,18 @@
   100% { opacity: 1; }
 }
 
+/* "max-height: 100%" (antes 90vh, que no descontaba el padding del overlay)
+   más "overflow: hidden" en la caja entera: el scroll pasa a estar solo en
+   ".cp__logger-body", que es lo largo (bloques y series de una sesión de
+   entrenamiento), mientras la cabecera y el pie con el botón de guardar se
+   quedan siempre visibles como hermanos flex que no encogen. */
 .cp__logger-modal {
   background: var(--white);
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 720px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: 100%;
+  overflow: hidden;
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
@@ -256,6 +267,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .cp__logger-body {
@@ -264,12 +276,15 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  flex: 1;
+  min-height: 0;
 }
 
 .cp__logger-footer {
   padding: 16px 24px;
   border-top: 1px solid var(--gray-100);
   background: var(--off-white);
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;

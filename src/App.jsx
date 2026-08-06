@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import Navbar from './components/Navbar';
-import TabPlaceholder from './components/TabPlaceholder';
 import ExerciseLibrary from './components/ExerciseLibrary';
 import ClientManager from './components/ClientManager';
 import WorkoutManager from './components/WorkoutManager';
@@ -10,16 +8,7 @@ import UserManager from './components/UserManager';
 import { sessionService } from './services/session';
 import './App.css';
 
-/* ─── Tab content config ─────────────────────────────────── */
-const TABS = {
-  clients: { id: 'clients', icon: '👥', label: 'Clientes' },
-  library: { id: 'library', icon: '📚', label: 'Librería de Ejercicios' },
-  workouts: { id: 'workouts', icon: '🏋️', label: 'Entrenamientos' },
-  schedule: { id: 'schedule', icon: '📅', label: 'Agenda' },
-  users: { id: 'users', icon: '⚙️', label: 'Usuarios' },
-};
-
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthProvider';
 import { ProtectedRoute, CoachRoute, ClientRoute } from './components/RoleRoute';
 import Login from './pages/Login';
@@ -38,30 +27,45 @@ function ClientPortalLayout() {
   );
 }
 
-/* ─── CoachAppLayout ───────────────────────────────────────────────────*/
+/* ─── CoachAppLayout ───────────────────────────────────────────────────
+   Cada pestaña vive en su propia URL (/coach/clients, /coach/workouts...)
+   en vez de en un estado local: antes cambiar de pestaña no dejaba rastro
+   en el historial del navegador, así que el botón "atrás" se saltaba toda
+   la app entera y sacaba directamente a lo que hubiera antes de entrar
+   (Google, el login...). Con rutas de verdad, cada clic en una pestaña
+   añade una entrada al historial y "atrás" va deshaciendo la navegación
+   dentro de la app, como en cualquier web normal. */
 function CoachAppLayout() {
   const { userProfile, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('clients');
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const currentTab = TABS[activeTab];
+  // "/coach/workouts" -> "workouts"; "/coach" (sin sufijo) -> ''
+  const activeTab = location.pathname.split('/')[2] || '';
+
+  const handleTabChange = (tabId) => {
+    navigate(`/coach/${tabId}`);
+  };
 
   return (
     <div className="app">
       <Navbar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         role={userProfile?.role || 'coach'}
         onLogout={logout}
       />
 
       <main className="app__main">
-        {activeTab === 'library' ? <ExerciseLibrary key="library" /> :
-         activeTab === 'clients' ? <ClientManager key="clients" /> :
-         activeTab === 'workouts' ? <WorkoutManager key="workouts" /> :
-         activeTab === 'schedule' ? <GlobalCalendar key="schedule" /> :
-         activeTab === 'users' ? <UserManager key="users" /> :
-         <TabPlaceholder id={currentTab.id} icon={currentTab.icon} label={currentTab.label} />
-        }
+        <Routes>
+          <Route index element={<Navigate to="clients" replace />} />
+          <Route path="clients" element={<ClientManager key="clients" />} />
+          <Route path="library" element={<ExerciseLibrary key="library" />} />
+          <Route path="workouts" element={<WorkoutManager key="workouts" />} />
+          <Route path="schedule" element={<GlobalCalendar key="schedule" />} />
+          <Route path="users" element={<UserManager key="users" />} />
+          <Route path="*" element={<Navigate to="clients" replace />} />
+        </Routes>
       </main>
     </div>
   );

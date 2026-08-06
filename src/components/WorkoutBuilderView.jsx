@@ -798,7 +798,7 @@ export default function WorkoutBuilderView({
               <h2 className="el__modal-title">{previewEx.name}</h2>
               <button className="el__modal-close" onClick={() => setPreviewEx(null)}>✕</button>
             </div>
-            <div style={{ padding: '0 24px 24px', fontSize: '0.8125rem', color: 'var(--gray-600)', lineHeight: '1.5' }}>
+            <div className="el__modal-body" style={{ padding: '0 24px 24px', fontSize: '0.8125rem', color: 'var(--gray-600)', lineHeight: '1.5' }}>
               {previewEx.image && (
                 <img src={previewEx.image} alt={previewEx.name} className="wb__preview-img" />
               )}

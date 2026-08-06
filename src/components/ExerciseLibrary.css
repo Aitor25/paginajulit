@@ -393,7 +393,12 @@
   width: 100%;
   max-width: 900px;
   border-radius: 16px;
-  overflow: hidden;
+  /* Red de seguridad: en una pantalla ancha pero muy baja (móvil en
+     horizontal), la caja de vídeo de proporción 16:9 puede ser más alta que
+     el hueco disponible. Con scroll propio del modal en vez del "overflow:
+     hidden" heredado, en ese caso extremo aparece una barra dentro del propio
+     reproductor en vez de recortar el vídeo sin forma de verlo entero. */
+  overflow-y: auto;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 

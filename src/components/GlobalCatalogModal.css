@@ -12,6 +12,7 @@
   justify-content: center;
   align-items: center;
   z-index: 1200; /* Prioridad superior */
+  overflow-y: auto;
   animation: gc-fade 0.2s ease both;
 }
 

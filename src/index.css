@@ -108,14 +108,26 @@ img, svg, video, canvas {
   justify-content: center;
   z-index: 1000;
   padding: 1.5rem;
+  /* Red de seguridad: si algún modal, por lo que sea, no cupiese ni
+     encogiéndose, que se desplace el overlay (con el fondo fijo) y no la
+     página entera detrás de él. */
+  overflow-y: auto;
   animation: fadeIn 0.2s ease-out forwards;
 }
 
-/* Modal Container */
+/* Modal Container. "max-height: 100%" es el límite real de todo el sistema
+   de modales: al ser un hijo flex del overlay (que ocupa toda la ventana),
+   el 100% se calcula sobre el hueco que deja el padding del overlay, así
+   que el modal nunca puede ser más alto que la pantalla. Antes solo el
+   formulario interior tenía un tope (70vh) que no contaba ese padding, y
+   los modales sin ese tope (detalles, confirmaciones, vídeo...) no tenían
+   ningún límite: con contenido largo se salían de la ventana y para verlos
+   enteros había que hacer scroll de la página, no del modal. */
 .el__modal {
   background: var(--bg-surface);
   width: 100%;
   max-width: 550px;
+  max-height: 100%;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   display: flex;
@@ -133,6 +145,7 @@ img, svg, video, canvas {
   justify-content: space-between;
   align-items: center;
   background: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
 }
 
 .el__modal-title {
@@ -162,19 +175,25 @@ img, svg, video, canvas {
   color: var(--gray-800);
 }
 
-/* Form Layout */
+/* Form Layout. "flex: 1; min-height: 0" (en vez de un "max-height" fijo en
+   vh) es lo que hace que esta zona intermedia sea la única que se encoge y
+   scrollea: la cabecera y los botones de abajo, al ser hermanos flex sin
+   encoger (flex-shrink: 0 más abajo), se quedan siempre visibles. */
 .el__modal-form {
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   overflow-y: auto;
-  max-height: 70vh;
+  flex: 1;
+  min-height: 0;
 }
 
 .el__modal-body {
   padding: 1.5rem;
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Fields & Inputs */
@@ -229,7 +248,12 @@ textarea.el__input {
   padding-right: 2.5rem;
 }
 
-/* Actions Footer */
+/* Actions Footer. En casi todos los formularios estos botones van DENTRO del
+   ".el__modal-form" que se desplaza (para no tocar la estructura de cada
+   formulario uno a uno): con "position: sticky; bottom: 0" se quedan pegados
+   abajo del todo mientras el resto del formulario se mueve por detrás, así
+   que "Guardar"/"Cancelar" están siempre a la vista sin haber scrolleado
+   hasta el final. */
 .el__modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -237,6 +261,9 @@ textarea.el__input {
   padding: 1.5rem;
   border-top: 1px solid var(--border-color);
   background: var(--bg-color);
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0;
 }
 
 .el__modal-footer {
@@ -245,6 +272,10 @@ textarea.el__input {
   gap: 1rem;
   padding: 1.5rem;
   border-top: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0;
 }
 
 /* Buttons */
@@ -731,10 +762,6 @@ textarea.el__input {
   .el__modal-actions,
   .el__modal-footer {
     padding: 1rem;
-  }
-
-  .el__modal-form {
-    max-height: none;
   }
 
   .el__modal-title {

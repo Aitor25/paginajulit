@@ -4,7 +4,12 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
-  animation: as-fade-up 0.25s ease both;
+  /* "backwards" en vez de "both": ver el comentario en ".cm" de
+     ClientManager.css. Con "both" esta caja se quedaba con un transform
+     activo para siempre y los modales de esta pestaña (Registrar Test,
+     confirmación de borrado) se centraban respecto a ella en vez de
+     respecto a la ventana. */
+  animation: as-fade-up 0.25s ease backwards;
 }
 
 @keyframes as-fade-up {
@@ -187,7 +192,8 @@
   border-radius: var(--radius-sm);
   padding: 18px;
   margin-top: 8px;
-  animation: as-fade-up 0.2s ease both;
+  /* "backwards": mismo motivo que en ".as__container" más arriba. */
+  animation: as-fade-up 0.2s ease backwards;
 }
 
 .as__history-title {

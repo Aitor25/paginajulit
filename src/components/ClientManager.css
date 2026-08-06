@@ -5,7 +5,16 @@
   max-width: 1600px;
   margin: 0 auto;
   width: 100%;
-  animation: cm-fade-up 0.3s ease both;
+  /* "backwards" en vez de "both": con "both" el "transform: translateY(0)"
+     final de la animación se quedaba puesto para siempre (aunque no se
+     note, es un transform "de verdad"), y cualquier elemento con un
+     transform activo se convierte en el marco de referencia de sus hijos
+     position:fixed. Los modales que se abrían desde una página con esta
+     clase como raíz (Clientes, Entrenamientos, Programas...) se centraban
+     respecto a esta caja en vez de respecto a la ventana, y si la página de
+     fondo era más alta que la pantalla, el modal aparecía por debajo, fuera
+     de la vista, obligando a hacer scroll de toda la página para encontrarlo. */
+  animation: cm-fade-up 0.3s ease backwards;
 }
 
 @keyframes cm-fade-up {
@@ -268,7 +277,8 @@
   border-radius: var(--radius-lg);
   padding: 32px;
   box-shadow: var(--shadow-sm);
-  animation: cm-fade-up 0.25s ease both;
+  /* "backwards": ver el comentario en ".cm" más arriba, mismo motivo. */
+  animation: cm-fade-up 0.25s ease backwards;
 }
 
 .cm__detail-header-row {
@@ -378,7 +388,8 @@
 
 /* Contenido de la Ficha */
 .cm__detail-tab-content {
-  animation: cm-fade-up 0.2s ease both;
+  /* "backwards": ver el comentario en ".cm" más arriba, mismo motivo. */
+  animation: cm-fade-up 0.2s ease backwards;
 }
 
 /* Pestaña: Información (Doble Columna) */
