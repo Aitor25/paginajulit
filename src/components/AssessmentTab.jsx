@@ -946,7 +946,6 @@ export default function AssessmentTab({ clientId }) {
       {/* ══ MODAL DE CATEGORÍAS CONTEXTUAL ══════════════ */}
       {showCatModal && (
         <GlobalCatalogModal
-          mode="contextual"
           contextKeys={[KEYS.TEST_CATEGORIES, KEYS.TEST_DEFINITIONS]}
           initialActiveKey={KEYS.TEST_CATEGORIES}
           onClose={() => {

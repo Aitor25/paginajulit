@@ -47,12 +47,147 @@ function RestTimer() {
   );
 }
 
+// Selector de nota tocando un número (RPE 1-10, RIR 0-5) en vez de un campo
+// numérico diminuto: en el gimnasio, con el móvil, es más fácil tocar un
+// botón grande que acertar en un input pequeño.
+function RatingPicker({ value, onChange, min, max }) {
+  const options = [];
+  for (let n = min; n <= max; n++) options.push(n);
+  return (
+    <div className="cp__rating-picker">
+      {options.map(n => (
+        <button
+          key={n}
+          type="button"
+          className={`cp__rating-btn ${value !== '' && Number(value) === n ? 'cp__rating-btn--active' : ''}`}
+          onClick={() => onChange(String(n))}
+        >
+          {n}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Una tarjeta grande por serie, en vez de una fila de una tabla de 10
+// columnas: en el móvil, dentro del gimnasio, se necesita marcar "hecho" y
+// meter reps/carga con el pulgar, no acertar en celdas diminutas. Tiempo,
+// distancia, RPE y RIR de la serie quedan plegados por defecto (el toggle
+// vive en la ficha del ejercicio, no aquí) porque no todas las sesiones los
+// usan y sobrecargaban la vista principal.
+function SetCard({ set: s, readOnly, expanded, onChange }) {
+  const val = (v, unit = '') => (v !== null && v !== undefined && v !== '' ? `${v}${unit}` : '—');
+
+  return (
+    <div className={`cp__set-card ${s.completed ? 'cp__set-card--done' : ''}`}>
+      <div className="cp__set-card-top">
+        <label className="cp__set-check">
+          <input
+            type="checkbox"
+            checked={s.completed}
+            disabled={readOnly}
+            onChange={e => onChange('completed', e.target.checked)}
+          />
+          <span>Serie {s.setNumber}</span>
+        </label>
+        <span className="cp__set-target">
+          Objetivo: {s.repsPlanned || '—'} reps{s.loadPlanned !== null ? ` @ ${s.loadPlanned}${s.loadUnit}` : ''}
+        </span>
+      </div>
+
+      <div className="cp__set-card-main">
+        <div className="cp__set-field cp__set-field--big">
+          <label>Reps</label>
+          {readOnly ? (
+            <strong>{val(s.repsLogged)}</strong>
+          ) : (
+            <input
+              type="number"
+              inputMode="numeric"
+              className="cp__set-input cp__set-input--big"
+              min="0"
+              placeholder={s.repsPlanned || '0'}
+              value={s.repsLogged !== null ? s.repsLogged : ''}
+              onChange={e => onChange('repsLogged', e.target.value !== '' ? Number(e.target.value) : null)}
+            />
+          )}
+        </div>
+        <div className="cp__set-field cp__set-field--big">
+          <label>Carga ({s.loadUnit})</label>
+          {readOnly ? (
+            <strong>{val(s.loadLogged)}</strong>
+          ) : (
+            <input
+              type="number"
+              inputMode="decimal"
+              className="cp__set-input cp__set-input--big"
+              min="0"
+              placeholder={s.loadPlanned !== null ? String(s.loadPlanned) : '0'}
+              value={s.loadLogged !== null ? s.loadLogged : ''}
+              onChange={e => onChange('loadLogged', e.target.value !== '' ? Number(e.target.value) : null)}
+            />
+          )}
+        </div>
+      </div>
+
+      {(expanded || readOnly) && (
+        <div className="cp__set-card-extra">
+          <div className="cp__set-field">
+            <label>Tiempo (s)</label>
+            {readOnly ? <span>{val(s.timeLoggedSeconds)}</span> : (
+              <input type="number" inputMode="numeric" className="cp__set-input" min="0" placeholder="opcional" value={s.timeLoggedSeconds !== null ? s.timeLoggedSeconds : ''} onChange={e => onChange('timeLoggedSeconds', e.target.value !== '' ? Number(e.target.value) : null)} />
+            )}
+          </div>
+          <div className="cp__set-field">
+            <label>Distancia (m)</label>
+            {readOnly ? <span>{val(s.distanceLoggedMeters)}</span> : (
+              <input type="number" inputMode="numeric" className="cp__set-input" min="0" placeholder="opcional" value={s.distanceLoggedMeters !== null ? s.distanceLoggedMeters : ''} onChange={e => onChange('distanceLoggedMeters', e.target.value !== '' ? Number(e.target.value) : null)} />
+            )}
+          </div>
+          <div className="cp__set-field">
+            <label>RPE</label>
+            {readOnly ? <span>{val(s.rpeLogged)}</span> : (
+              <input type="number" inputMode="numeric" className="cp__set-input" min="1" max="10" placeholder="1-10" value={s.rpeLogged !== null ? s.rpeLogged : ''} onChange={e => onChange('rpeLogged', e.target.value !== '' ? Number(e.target.value) : null)} />
+            )}
+          </div>
+          <div className="cp__set-field">
+            <label>RIR</label>
+            {readOnly ? <span>{val(s.rirLogged)}</span> : (
+              <input type="number" inputMode="numeric" className="cp__set-input" min="0" max="5" placeholder="0-5" value={s.rirLogged !== null ? s.rirLogged : ''} onChange={e => onChange('rirLogged', e.target.value !== '' ? Number(e.target.value) : null)} />
+            )}
+          </div>
+          <div className="cp__set-field cp__set-field--full">
+            <label>Notas</label>
+            {readOnly ? <span>{s.notes || '—'}</span> : (
+              <input type="text" className="cp__set-input" placeholder="dolor, sensaciones..." value={s.notes || ''} onChange={e => onChange('notes', e.target.value)} />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Workout Execution Logger Modal
 function WorkoutLoggerModal({
   assignment,
   onClose,
   onSave
 }) {
+  // Un entrenamiento completado se abre en modo consulta: se ve lo que se
+  // registró, no se puede volver a tocar por accidente. Antes reabría el
+  // mismo formulario editable de siempre, sin distinguir "revisar" de
+  // "registrar".
+  const readOnly = assignment.status === 'completed';
+  // Dos pantallas en vez de una sola con todo mezclado: mientras se entrena
+  // solo se ve el entrenamiento (lo pidió el usuario expresamente: "que se
+  // enseñe todo lo posible el entrenamiento"), y el RPE/RIR/comentarios solo
+  // aparecen al pulsar "Finalizar", como paso final aparte.
+  const [phase, setPhase] = useState('log'); // 'log' | 'feedback'
+  // Qué ejercicios tienen desplegados sus campos secundarios (tiempo,
+  // distancia, RPE, RIR, notas por serie). Por defecto plegado: la mayoría
+  // de sesiones de fuerza solo necesitan reps y carga.
+  const [expandedExercises, setExpandedExercises] = useState({});
   const [resultId, setResultId] = useState(null);
   const [startedAt, setStartedAt] = useState('');
   const [feedbackRpe, setFeedbackRpe] = useState('');
@@ -63,9 +198,22 @@ function WorkoutLoggerModal({
 
   useEffect(() => {
     async function loadOrCreateResult() {
+      setErrorMsg('');
+      try {
+        await loadOrCreateResultInner();
+      } catch (err) {
+        // Antes, un fallo aquí (p. ej. de permisos) dejaba el modal abierto
+        // pero con el cuerpo completamente vacío, sin ningún aviso: parecía
+        // que el entrenamiento no existiera.
+        console.error('Error cargando la sesión de entrenamiento:', err);
+        setErrorMsg('No se ha podido cargar este entrenamiento. Inténtalo de nuevo.');
+      }
+    }
+
+    async function loadOrCreateResultInner() {
       // Intentar cargar resultado existente
-      const existing = await storage.getWorkoutResultByAssignmentId(assignment.id);
-      
+      const existing = await storage.getWorkoutResultByAssignmentId(assignment.id, assignment.clientId);
+
       if (existing) {
         setResultId(existing.id);
         setStartedAt(existing.startedAt || new Date().toISOString());
@@ -83,13 +231,20 @@ function WorkoutLoggerModal({
         const snapBlocks = assignment.plannedSnapshot?.blocks || [];
         const initialBlocks = snapBlocks.map(b => ({
           blockId: b.id,
-          exercises: (b.exercises || []).map(e => ({
+          // Un mismo ejercicio (mismo exerciseId) puede repetirse varias
+          // veces dentro de un bloque -p. ej. 3 series de Front Squat como
+          // entradas separadas-, así que exerciseId solo NO sirve para
+          // identificar cuál es cuál: hace falta el id propio de esa entrada
+          // dentro del bloque (e.id), con el índice como respaldo si faltase
+          // en una rutina antigua.
+          exercises: (b.exercises || []).map((e, eIdx) => ({
+            id: e.id || `${b.id}-${eIdx}`,
             exerciseId: String(e.exerciseId),
             exerciseName: e.exerciseName || 'Ejercicio',
             // Las series son del bloque. Las rutinas antiguas las guardaban en
             // cada ejercicio (plannedSets), así que se respetan como respaldo.
             sets: Array.from({ length: Number(b.rounds) || Number(e.plannedSets) || 1 }, (_, setIdx) => ({
-              setId: `${b.id}-${e.exerciseId}-${setIdx + 1}`,
+              setId: `${e.id || `${b.id}-${eIdx}`}-${setIdx + 1}`,
               setNumber: setIdx + 1,
               completed: false,
               repsPlanned: e.plannedReps || '',
@@ -113,22 +268,26 @@ function WorkoutLoggerModal({
     }
   }, [assignment]);
 
-  const handleUpdateSet = (blockId, exerciseId, setId, field, value) => {
+  // "exUid" identifica la entrada de ejercicio dentro del bloque (ex.id, con
+  // el índice como respaldo) y no "exerciseId": si el mismo ejercicio aparece
+  // repetido en el bloque, exerciseId por sí solo actualizaría las series de
+  // las varias copias a la vez en vez de solo la que se está editando.
+  const handleUpdateSet = (blockId, exUid, setId, field, value) => {
     setLoggedBlocks(prev => prev.map(b => {
-      if (b.blockId === blockId) {
-        const updatedExs = b.exercises.map(e => {
-          if (e.exerciseId === exerciseId) {
-            return {
-              ...e,
-              sets: e.sets.map(s => (s.setId === setId ? { ...s, [field]: value } : s))
-            };
-          }
-          return e;
-        });
-        return { ...b, exercises: updatedExs };
-      }
-      return b;
+      if (b.blockId !== blockId) return b;
+      const updatedExs = b.exercises.map((e, eIdx) => {
+        if ((e.id || `${blockId}-${eIdx}`) !== exUid) return e;
+        return {
+          ...e,
+          sets: e.sets.map(s => (s.setId === setId ? { ...s, [field]: value } : s))
+        };
+      });
+      return { ...b, exercises: updatedExs };
     }));
+  };
+
+  const toggleExpanded = (exUid) => {
+    setExpandedExercises(prev => ({ ...prev, [exUid]: !prev[exUid] }));
   };
 
   const handleSaveResult = async (statusType) => {
@@ -176,20 +335,26 @@ function WorkoutLoggerModal({
     }
   };
 
+  const showLog = readOnly || phase === 'log';
+
   return (
     <div className="cp__logger-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="cp__logger-modal" onClick={e => e.stopPropagation()}>
-        
+
         {/* Cabecera */}
         <div className="cp__logger-header">
           <div>
             <h2 className="el__modal-title">{assignment.plannedSnapshot?.name || 'Registrar Sesión'}</h2>
             <span style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>
-              Asignado el {formatDate(assignment.scheduledAt)}
+              {readOnly ? `Realizado el ${formatDate(assignment.scheduledAt)}` : showLog ? 'Registrando entrenamiento' : '¿Cómo ha ido?'}
             </span>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <RestTimer />
+            {readOnly ? (
+              <span className="cp__done-badge">✓ Completado</span>
+            ) : showLog ? (
+              <RestTimer />
+            ) : null}
             <button className="el__modal-close" onClick={onClose} style={{ position: 'static' }}>✕</button>
           </div>
         </div>
@@ -202,197 +367,143 @@ function WorkoutLoggerModal({
             </div>
           )}
 
-          {loggedBlocks.map((b, bIdx) => {
-            const snapBlock = assignment.plannedSnapshot?.blocks?.find(bl => bl.id === b.blockId);
-            return (
-              <div key={b.blockId} className="cp__logger-block-card">
-                <div className="cp__logger-block-title">
-                  <span>Bloque {bIdx + 1}: {snapBlock?.name || 'Ejercicios'}</span>
-                  <span>{snapBlock?.rounds || 1} serie{(snapBlock?.rounds || 1) === 1 ? '' : 's'}</span>
-                </div>
-
-                {b.exercises.map(ex => {
-                  const snapEx = snapBlock?.exercises?.find(se => String(se.exerciseId) === String(ex.exerciseId));
-                  return (
-                  <div key={ex.exerciseId} className="cp__logger-exercise-box">
-                    <h4 className="cp__logger-exercise-name">{ex.exerciseName}</h4>
-
-                    {/* Indicaciones que le dejó el entrenador para este ejercicio */}
-                    {snapEx?.instructions && (
-                      <p className="cp__logger-instructions">{snapEx.instructions}</p>
-                    )}
-
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="cp__logger-sets-table">
-                        <thead>
-                          <tr>
-                            <th style={{ width: '40px' }}>Hecho</th>
-                            <th style={{ width: '50px' }}>Serie</th>
-                            <th>Objetivo</th>
-                            <th>Reps reales</th>
-                            <th>Carga real</th>
-                            <th>Tiempo (s)</th>
-                            <th>Distancia (m)</th>
-                            <th>RPE</th>
-                            <th>RIR</th>
-                            <th>Notas</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ex.sets.map(s => (
-                            <tr key={s.setId} style={{ background: s.completed ? '#f0fdf4' : 'transparent' }}>
-                              <td>
-                                <input
-                                  type="checkbox"
-                                  checked={s.completed}
-                                  onChange={e => handleUpdateSet(b.blockId, ex.exerciseId, s.setId, 'completed', e.target.checked)}
-                                />
-                              </td>
-                              <td><strong>#{s.setNumber}</strong></td>
-                              <td style={{ color: 'var(--gray-500)', fontSize: '0.7rem' }}>
-                                {s.repsPlanned} reps @ {s.loadPlanned ? `${s.loadPlanned}${s.loadUnit}` : 'RPE'}
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="cp__logger-input"
-                                  min="0"
-                                  placeholder={s.repsPlanned || '0'}
-                                  value={s.repsLogged !== null ? s.repsLogged : ''}
-                                  onChange={e => handleUpdateSet(b.blockId, ex.exerciseId, s.setId, 'repsLogged', e.target.value !== '' ? Number(e.target.value) : null)}
-                                />
-                              </td>
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', justifyContent: 'center' }}>
-                                  <input
-                                    type="number"
-                                    className="cp__logger-input"
-                                    min="0"
-                                    placeholder={s.loadPlanned !== null ? String(s.loadPlanned) : '0'}
-                                    value={s.loadLogged !== null ? s.loadLogged : ''}
-                                    onChange={e => handleUpdateSet(b.blockId, ex.exerciseId, s.setId, 'loadLogged', e.target.value !== '' ? Number(e.target.value) : null)}
-                                  />
-                                  <span>{s.loadUnit}</span>
-                                </div>
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="cp__logger-input"
-                                  min="0"
-                                  placeholder="opcional"
-                                  value={s.timeLoggedSeconds !== null ? s.timeLoggedSeconds : ''}
-                                  onChange={e => handleUpdateSet(b.blockId, ex.exerciseId, s.setId, 'timeLoggedSeconds', e.target.value !== '' ? Number(e.target.value) : null)}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="cp__logger-input"
-                                  min="0"
-                                  placeholder="opcional"
-                                  value={s.distanceLoggedMeters !== null ? s.distanceLoggedMeters : ''}
-                                  onChange={e => handleUpdateSet(b.blockId, ex.exerciseId, s.setId, 'distanceLoggedMeters', e.target.value !== '' ? Number(e.target.value) : null)}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="cp__logger-input"
-                                  min="1"
-                                  max="10"
-                                  placeholder="1-10"
-                                  value={s.rpeLogged !== null ? s.rpeLogged : ''}
-                                  onChange={e => handleUpdateSet(b.blockId, ex.exerciseId, s.setId, 'rpeLogged', e.target.value !== '' ? Number(e.target.value) : null)}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="cp__logger-input"
-                                  min="0"
-                                  max="5"
-                                  placeholder="0-5"
-                                  value={s.rirLogged !== null ? s.rirLogged : ''}
-                                  onChange={e => handleUpdateSet(b.blockId, ex.exerciseId, s.setId, 'rirLogged', e.target.value !== '' ? Number(e.target.value) : null)}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="text"
-                                  className="cp__logger-input"
-                                  style={{ width: '90px', textAlign: 'left' }}
-                                  placeholder="dolor, sensaciones..."
-                                  value={s.notes || ''}
-                                  onChange={e => handleUpdateSet(b.blockId, ex.exerciseId, s.setId, 'notes', e.target.value)}
-                                />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+          {showLog ? (
+            // PANTALLA 1: el entrenamiento en sí, sin nada más alrededor -
+            // el cliente está en el gimnasio con el móvil y solo necesita
+            // ver esto.
+            loggedBlocks.map((b, bIdx) => {
+              const snapBlock = assignment.plannedSnapshot?.blocks?.find(bl => bl.id === b.blockId);
+              return (
+                <div key={b.blockId} className="cp__logger-block-card">
+                  <div className="cp__logger-block-title">
+                    <span>Bloque {bIdx + 1}: {snapBlock?.name || 'Ejercicios'}</span>
+                    <span>{snapBlock?.rounds || 1} serie{(snapBlock?.rounds || 1) === 1 ? '' : 's'}</span>
                   </div>
-                  );
-                })}
+
+                  {b.exercises.map((ex, exIdx) => {
+                    const exUid = ex.id || `${b.blockId}-${exIdx}`;
+                    // Por posición, no por exerciseId: si el mismo ejercicio
+                    // se repite en el bloque, buscar por exerciseId siempre
+                    // encontraba la primera copia y le copiaba sus
+                    // instrucciones a todas las demás.
+                    const snapEx = snapBlock?.exercises?.[exIdx];
+                    return (
+                      <div key={exUid} className="cp__logger-exercise-box">
+                        <div className="cp__exercise-box-header">
+                          <h4 className="cp__logger-exercise-name">{ex.exerciseName}</h4>
+                          {!readOnly && (
+                            <button type="button" className="cp__set-more-toggle" onClick={() => toggleExpanded(exUid)}>
+                              {expandedExercises[exUid] ? '▴ Menos datos' : '▾ Tiempo / RPE / RIR / notas'}
+                            </button>
+                          )}
+                        </div>
+
+                        {snapEx?.instructions && (
+                          <p className="cp__logger-instructions">{snapEx.instructions}</p>
+                        )}
+
+                        <div className="cp__set-card-list">
+                          {ex.sets.map(s => (
+                            <SetCard
+                              key={s.setId}
+                              set={s}
+                              readOnly={readOnly}
+                              expanded={!!expandedExercises[exUid]}
+                              onChange={(field, value) => handleUpdateSet(b.blockId, exUid, s.setId, field, value)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })
+          ) : null}
+
+          {/* En una sesión ya completada, el resumen de RPE/RIR/notas se
+              muestra siempre debajo de las series, no como una pantalla
+              aparte (aquí ya no hay nada más que hacer). */}
+          {readOnly && (
+            <div className="cp__done-summary">
+              <div>
+                <span className="cp__done-summary-label">Esfuerzo percibido (RPE)</span>
+                <strong>{feedbackRpe || '—'}</strong>
               </div>
-            );
-          })}
-
-          {/* Feedback general de la sesión */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px', borderTop: '1px solid var(--gray-200)', paddingTop: '16px' }}>
-            <div className="el__field">
-              <label className="el__label">Esfuerzo percibido general (RPE 1-10) *</label>
-              <input
-                type="number"
-                min="1"
-                max="10"
-                className="el__input"
-                placeholder="1 (muy suave) a 10 (máximo esfuerzo)"
-                value={feedbackRpe}
-                onChange={e => setFeedbackRpe(e.target.value)}
-                required
-              />
+              <div>
+                <span className="cp__done-summary-label">RIR promedio</span>
+                <strong>{feedbackRir || '—'}</strong>
+              </div>
+              {feedbackNotes && (
+                <div className="cp__done-summary-notes">
+                  <span className="cp__done-summary-label">Comentarios</span>
+                  <p>{feedbackNotes}</p>
+                </div>
+              )}
             </div>
-            <div className="el__field">
-              <label className="el__label">RIR promedio general (0-5 RIR)</label>
-              <input
-                type="number"
-                min="0"
-                max="5"
-                className="el__input"
-                placeholder="Repeticiones en reserva al fallo"
-                value={feedbackRir}
-                onChange={e => setFeedbackRir(e.target.value)}
-              />
-            </div>
-          </div>
+          )}
 
-          <div className="el__field">
-            <label className="el__label">Comentarios o dolores percibidos</label>
-            <textarea
-              className="el__input el__input--textarea"
-              placeholder="Indica sensaciones, dolores articulares, fatiga general..."
-              rows="2"
-              value={feedbackNotes}
-              onChange={e => setFeedbackNotes(e.target.value)}
-            />
-          </div>
+          {!readOnly && !showLog && (
+            // PANTALLA 2: solo se llega aquí al pulsar "Finalizar". Antes el
+            // RPE/RIR/comentarios se veían todo el rato mezclados con las
+            // series, sin distinguir "estoy entrenando" de "ya he acabado".
+            <div className="cp__feedback-phase">
+              <h3 className="cp__feedback-title">¿Cómo ha ido el entrenamiento?</h3>
+
+              <div className="el__field">
+                <label className="el__label">Esfuerzo percibido (RPE) *</label>
+                <RatingPicker value={feedbackRpe} onChange={setFeedbackRpe} min={1} max={10} />
+              </div>
+
+              <div className="el__field">
+                <label className="el__label">RIR promedio (repeticiones en reserva)</label>
+                <RatingPicker value={feedbackRir} onChange={setFeedbackRir} min={0} max={5} />
+              </div>
+
+              <div className="el__field">
+                <label className="el__label">Comentarios o dolores percibidos</label>
+                <textarea
+                  className="el__input el__input--textarea"
+                  placeholder="Indica sensaciones, dolores articulares, fatiga general..."
+                  rows="3"
+                  value={feedbackNotes}
+                  onChange={e => setFeedbackNotes(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="cp__logger-footer">
-          <button type="button" className="el__btn el__btn--ghost" onClick={onClose}>
-            Cancelar
-          </button>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button type="button" className="el__btn el__btn--ghost" style={{ borderColor: '#fde047', color: '#854d0e' }} onClick={() => handleSaveResult('draft')}>
-              Guardar Progreso (Borrador)
+          {readOnly ? (
+            <button type="button" className="el__btn el__btn--primary" style={{ width: '100%' }} onClick={onClose}>
+              Cerrar
             </button>
-            <button type="button" className="el__btn el__btn--primary" onClick={() => handleSaveResult('submitted')}>
-              Finalizar Entrenamiento
-            </button>
-          </div>
+          ) : showLog ? (
+            <>
+              <button type="button" className="el__btn el__btn--ghost" onClick={onClose}>
+                Cancelar
+              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" className="el__btn el__btn--ghost" style={{ borderColor: '#fde047', color: '#854d0e' }} onClick={() => handleSaveResult('draft')}>
+                  Guardar Progreso
+                </button>
+                <button type="button" className="el__btn el__btn--primary" onClick={() => setPhase('feedback')}>
+                  Finalizar
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button type="button" className="el__btn el__btn--ghost" onClick={() => setPhase('log')}>
+                ← Volver al entrenamiento
+              </button>
+              <button type="button" className="el__btn el__btn--primary" onClick={() => handleSaveResult('submitted')}>
+                Guardar y finalizar
+              </button>
+            </>
+          )}
         </div>
 
       </div>
@@ -540,9 +651,7 @@ export default function ClientPortal() {
 
   // Agenda
   const [assignments, setAssignments] = useState([]);
-  const [programAssignments, setProgramAssignments] = useState([]);
   const [workoutResults, setWorkoutResults] = useState([]);
-  const [programs, setPrograms] = useState([]);
   const [activeFilter, setActiveFilter] = useState('pending'); // 'pending' | 'history'
 
   // Tests
@@ -583,14 +692,8 @@ export default function ClientPortal() {
     dbAssigns.sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
     setAssignments(dbAssigns);
 
-    const dbPAs = await storage.getProgramAssignments(cId);
-    setProgramAssignments(dbPAs);
-
     const dbResults = await storage.getWorkoutResults(cId);
     setWorkoutResults(dbResults);
-
-    const dbProgs = await storage.getPrograms();
-    setPrograms(dbProgs);
 
     // Cargar Tests
     const dbTestDefs = await storage.getEntities(KEYS.TEST_DEFINITIONS);
@@ -729,8 +832,18 @@ export default function ClientPortal() {
         </div>
       )}
 
-      {/* Cabecera del Portal del Cliente */}
-      <div className="cp__header-card">
+      {/* Cabecera del Portal del Cliente: mismo criterio que el resto de la
+          app (título pequeño y sencillo, sin cajas grandes de color) en vez
+          de la antigua tarjeta morada a pantalla ancha. */}
+      <div className="cp__header-row">
+        <div>
+          <h2 className="cp__header-title">
+            {client ? `¡Hola, ${client.firstName}!` : '¡Hola!'}
+          </h2>
+          <p className="cp__header-subtitle">
+            Tu espacio para revisar tus entrenamientos y tu ficha de salud.
+          </p>
+        </div>
         <button
           type="button"
           className="cp__logout-btn"
@@ -738,35 +851,15 @@ export default function ClientPortal() {
           aria-label="Cerrar sesión"
           title="Cerrar sesión"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16 17 21 12 16 7" />
             <line x1="21" y1="12" x2="9" y2="12" />
           </svg>
+          <span>Salir</span>
         </button>
-        <h2 className="cp__header-title">
-          {client ? `¡Hola, ${client.firstName}!` : '¡Hola!'}
-        </h2>
-        <p className="cp__header-subtitle">
-          Aquí tienes tu espacio personal para revisar tus entrenamientos programados y tu ficha de salud.
-        </p>
-
-        {programAssignments.map(pa => {
-          if (pa.status !== 'active') return null;
-          const progName = programs.find(p => p.id === pa.programId)?.name || 'Programa activo';
-          return (
-            <div key={pa.id} style={{ marginTop: '16px', background: 'rgba(255,255,255,0.08)', borderRadius: 'var(--radius-sm)', padding: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                <span>Plan en Curso: {progName}</span>
-                <span>{pa.progressPercentage}% completado</span>
-              </div>
-              <div className="pm__progress-bar-wrap" style={{ background: 'rgba(255,255,255,0.2)', height: '6px', marginTop: '6px' }}>
-                <div className="pm__progress-bar-fill" style={{ width: `${pa.progressPercentage}%`, background: '#fbbf24' }} />
-              </div>
-            </div>
-          );
-        })}
       </div>
+
 
       {/* Tabs de Navegación Interna */}
       <div className="cp__tabs" role="tablist">
@@ -776,7 +869,7 @@ export default function ClientPortal() {
           aria-selected={activeTab === 'agenda'}
           onClick={() => setActiveTab('agenda')}
         >
-          Mi Planificación (Agenda)
+          Mi Planificación
         </button>
         <button
           className={`cp__tab-btn ${activeTab === 'profile' ? 'cp__tab-btn--active' : ''}`}
@@ -786,14 +879,18 @@ export default function ClientPortal() {
         >
           Mi Perfil
         </button>
-        <button
-          className={`cp__tab-btn ${activeTab === 'progress' ? 'cp__tab-btn--active' : ''}`}
-          role="tab"
-          aria-selected={activeTab === 'progress'}
-          onClick={() => setActiveTab('progress')}
-        >
-          Tests Físicos
-        </button>
+        {/* Hasta que el entrenador no registre el primer test, esta pestaña
+            no tiene nada que enseñar: mejor no mostrarla que enseñarla vacía. */}
+        {testResults.length > 0 && (
+          <button
+            className={`cp__tab-btn ${activeTab === 'progress' ? 'cp__tab-btn--active' : ''}`}
+            role="tab"
+            aria-selected={activeTab === 'progress'}
+            onClick={() => setActiveTab('progress')}
+          >
+            Tests Físicos
+          </button>
+        )}
         <button
           className={`cp__tab-btn ${activeTab === 'records' ? 'cp__tab-btn--active' : ''}`}
           role="tab"
@@ -983,15 +1080,12 @@ export default function ClientPortal() {
         </div>
       )}
 
-      {/* PESTAÑA 2: HISTORIAL Y FICHA */}
-      {activeTab === 'history' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-          
-          {/* FICHA MÉDICA ANAMNESIS (SOLO LECTURA) */}
-          <div>
-            <h3 className="wb__section-title">🔒 Mi Ficha Médica y de Salud</h3>
-            
-            {anamnesis ? (
+      {/* PESTAÑA 2: MI PERFIL (ficha médica de solo lectura) */}
+      {activeTab === 'profile' && (
+        <div>
+          <h3 className="wb__section-title">🔒 Mi Ficha Médica y de Salud</h3>
+
+          {anamnesis ? (
               <div style={{ background: 'var(--off-white)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.8125rem' }}>
                 <div style={{ background: '#e0f2fe', color: '#0369a1', padding: '8px 12px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
                   🔒 Ficha de salud de acceso protegido. Modificaciones reservadas al entrenador.
@@ -1032,13 +1126,17 @@ export default function ClientPortal() {
                 No se ha creado una anamnesis para ti en el sistema.
               </p>
             )}
-          </div>
+        </div>
+      )}
 
-          {/* HISTORIAL Y REGISTRO DE TESTS */}
-          <div>
+      {/* PESTAÑA 3: TESTS FÍSICOS */}
+      {activeTab === 'progress' && (
+        <div>
+          {/* Registro de test (solo si el entrenador autoriza autoregistro
+              para alguno) e historial de mediciones, antes de la evolución. */}
+          <div style={{ marginBottom: '32px' }}>
             <h3 className="wb__section-title">Registro de Test Físico</h3>
 
-            {/* Formulario de registro (sólo si hay tests con allowClientEntry) */}
             <form onSubmit={handleRegisterTest} style={{ background: 'var(--white)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)', padding: '16px', marginBottom: '20px' }}>
               <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)', margin: '0 0 10px 0' }}>
                 Introduce mediciones de pruebas físicas autorizadas por tu entrenador.
@@ -1117,7 +1215,6 @@ export default function ClientPortal() {
               </button>
             </form>
 
-            {/* Listado de Mediciones realizadas */}
             <h4 style={{ fontSize: '0.8125rem', fontWeight: '800', marginBottom: '8px', color: 'var(--gray-800)' }}>
               Historial de Tests
             </h4>
@@ -1130,7 +1227,7 @@ export default function ClientPortal() {
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                   {testResults.map(r => {
                     const def = testDefs.find(d => d.id === r.testDefinitionId);
-                    
+
                     let renderedVal = '';
                     if (r.numericValue !== null) renderedVal = `${r.numericValue}${r.unit || ''}`;
                     else if (r.booleanValue !== null) renderedVal = r.booleanValue ? 'APTO' : 'NO APTO';
@@ -1154,12 +1251,7 @@ export default function ClientPortal() {
               )}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* PESTAÑA 3: TESTS FÍSICOS */}
-      {activeTab === 'progress' && (
-        <div>
           <h3 className="wb__section-title">📈 Evolución de Tests Físicos</h3>
           
           {testDefs.length === 0 ? (

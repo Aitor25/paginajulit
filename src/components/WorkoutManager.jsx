@@ -366,7 +366,8 @@ export default function WorkoutManager() {
 
           {showCatalogModal && (
             <GlobalCatalogModal
-              mode="complete"
+              contextKeys={[KEYS.GROUPS]}
+              initialActiveKey={KEYS.GROUPS}
               onClose={() => {
                 setShowCatalogModal(false);
                 loadData();

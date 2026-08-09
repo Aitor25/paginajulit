@@ -36,10 +36,7 @@ function ClientDetail({
   onDelete,
   groups,
   sports,
-  teams,
-  clientCategories,
-  positions,
-  competitiveLevels
+  teams
 }) {
   const { userProfile } = useAuth();
   const isOwner = userProfile?.role === 'owner';
@@ -168,16 +165,10 @@ function ClientDetail({
   const groupName = groups.find(g => String(g.id) === String(client.groupId))?.name;
   const sportName = sports.find(s => String(s.id) === String(client.sportId))?.name;
   const teamName = teams.find(t => String(t.id) === String(client.teamId))?.name;
-  const catName = clientCategories.find(c => String(c.id) === String(client.categoryId))?.name;
-  const posName = positions.find(p => String(p.id) === String(client.positionId))?.name;
-  const levelName = competitiveLevels.find(l => String(l.id) === String(client.competitiveLevelId))?.name;
 
   const datosDeportivos = [
     ['Deporte', sportName],
     ['Equipo / Club', teamName],
-    ['Categoría', catName],
-    ['Posición / Función', posName],
-    ['Nivel Competitivo', levelName],
     ['Grupo de Entrenamiento', groupName]
   ].filter(([, valor]) => !!valor);
 
@@ -711,9 +702,6 @@ export default function ClientManager() {
   const [groups, setGroups] = useState([]);
   const [sports, setSports] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [clientCategories, setClientCategories] = useState([]);
-  const [positions, setPositions] = useState([]);
-  const [competitiveLevels, setCompetitiveLevels] = useState([]);
 
   /* Búsqueda, filtros y ordenación */
   const [search, setSearch] = useState('');
@@ -744,12 +732,9 @@ export default function ClientManager() {
     weight: '',
     sportId: '',
     teamId: '',
-    categoryId: '',
     groupId: '',
     image: '',
-    generalNotes: '',
-    positionId: '',
-    competitiveLevelId: ''
+    generalNotes: ''
   });
   const [formError, setFormError] = useState('');
 
@@ -759,9 +744,6 @@ export default function ClientManager() {
     const dbGroups = await storage.getEntities(KEYS.GROUPS);
     const dbSports = await storage.getEntities(KEYS.SPORTS);
     const dbTeams = await storage.getEntities(KEYS.TEAMS);
-    const dbCats = await storage.getEntities(KEYS.CLIENT_CATEGORIES);
-    const dbPos = await storage.getEntities(KEYS.POSITIONS);
-    const dbLvl = await storage.getEntities(KEYS.COMPETITIVE_LEVELS);
 
     setClients(dbClients);
     setGroups(dbGroups);
@@ -770,9 +752,6 @@ export default function ClientManager() {
     }
     setSports(dbSports);
     setTeams(dbTeams);
-    setClientCategories(dbCats);
-    setPositions(dbPos);
-    setCompetitiveLevels(dbLvl);
   }
 
   useEffect(() => {
@@ -819,13 +798,6 @@ export default function ClientManager() {
         const lName = stripAccents(c.lastName).includes(query);
         const emailMatch = stripAccents(c.email).includes(query);
 
-        // Mapeo dinámico para el buscador relacional
-        const posName = positions.find(p => p.id === c.positionId)?.name || '';
-        const posMatch = stripAccents(posName).includes(query);
-
-        const lvlName = competitiveLevels.find(l => l.id === c.competitiveLevelId)?.name || '';
-        const levelMatch = stripAccents(lvlName).includes(query);
-
         const sport = sports.find(s => s.id === c.sportId);
         const sportMatch = sport && stripAccents(sport.name).includes(query);
 
@@ -835,7 +807,7 @@ export default function ClientManager() {
         const group = groups.find(g => g.id === c.groupId);
         const groupMatch = group && stripAccents(group.name).includes(query);
 
-        return fName || lName || emailMatch || posMatch || levelMatch || sportMatch || teamMatch || groupMatch;
+        return fName || lName || emailMatch || sportMatch || teamMatch || groupMatch;
       });
     }
 
@@ -875,7 +847,7 @@ export default function ClientManager() {
     }
 
     return sorted;
-  }, [clients, search, selectedGroupFilter, selectedSportFilter, selectedCoachFilter, sortOrder, sports, teams, groups, positions, competitiveLevels]);
+  }, [clients, search, selectedGroupFilter, selectedSportFilter, selectedCoachFilter, sortOrder, sports, teams, groups]);
 
   /* ── Procesamiento de Foto con Canvas y Fondo Blanco ── */
   const handleImageChange = (e) => {
@@ -950,10 +922,7 @@ export default function ClientManager() {
       weight: form.weight ? Number(form.weight) : null,
       sportId: form.sportId ? String(form.sportId) : null,
       teamId: form.teamId ? String(form.teamId) : null,
-      categoryId: form.categoryId ? String(form.categoryId) : null,
       groupId: form.groupId ? String(form.groupId) : null,
-      positionId: form.positionId ? String(form.positionId) : null,
-      competitiveLevelId: form.competitiveLevelId ? String(form.competitiveLevelId) : null,
       image: form.image,
       generalNotes: form.generalNotes.trim()
     };
@@ -992,10 +961,7 @@ export default function ClientManager() {
       weight: '',
       sportId: sports[0]?.id || '',
       teamId: teams[0]?.id || '',
-      categoryId: clientCategories[0]?.id || '',
       groupId: '',
-      positionId: '',
-      competitiveLevelId: '',
       image: '',
       generalNotes: ''
     });
@@ -1016,10 +982,7 @@ export default function ClientManager() {
       weight: c.weight || '',
       sportId: c.sportId || '',
       teamId: c.teamId || '',
-      categoryId: c.categoryId || '',
       groupId: c.groupId || '',
-      positionId: c.positionId || '',
-      competitiveLevelId: c.competitiveLevelId || '',
       image: c.image || '',
       generalNotes: c.generalNotes || ''
     });
@@ -1066,9 +1029,6 @@ export default function ClientManager() {
           groups={groups}
           sports={sports}
           teams={teams}
-          clientCategories={clientCategories}
-          positions={positions}
-          competitiveLevels={competitiveLevels}
         />
       ) : (
         <>
@@ -1233,7 +1193,7 @@ export default function ClientManager() {
       {/* ══ MODAL ÚNICO: CREAR / EDITAR CLIENTE ═══════════════ */}
       {showModal && (
         <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && handleCloseModal()}>
-          <div className="el__modal" onClick={e => e.stopPropagation()}>
+          <div className="el__modal" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
             <div className="el__modal-header">
               <h2 className="el__modal-title">{editingClient ? 'Editar Perfil del Cliente' : 'Registrar Nuevo Cliente'}</h2>
               <button className="el__modal-close" onClick={handleCloseModal} aria-label="Cerrar modal">
@@ -1353,8 +1313,8 @@ export default function ClientManager() {
                 </div>
               </div>
 
-              {/* Deporte y Club */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {/* Deporte, Club y Grupo */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <div className="el__field">
                   <label htmlFor="form-sport" className="el__label">Deporte</label>
                   <select
@@ -1383,26 +1343,8 @@ export default function ClientManager() {
                     ))}
                   </select>
                 </div>
-              </div>
-
-              {/* Categoría Deportiva y Grupo */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="el__field">
-                  <label htmlFor="form-cat" className="el__label">Categoría Deportiva</label>
-                  <select
-                    id="form-cat"
-                    className="el__input el__input--select"
-                    value={form.categoryId}
-                    onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
-                  >
-                    <option value="">Sin categoría</option>
-                    {clientCategories.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="el__field">
-                  <label htmlFor="form-group" className="el__label">Grupo de Entrenamiento</label>
+                  <label htmlFor="form-group" className="el__label">Grupo</label>
                   <select
                     id="form-group"
                     className="el__input el__input--select"
@@ -1412,38 +1354,6 @@ export default function ClientManager() {
                     <option value="">Sin grupo</option>
                     {groups.map(g => (
                       <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Posición y Nivel Competitivo Relacionales */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="el__field">
-                  <label htmlFor="form-pos" className="el__label">Posición / Función</label>
-                  <select
-                    id="form-pos"
-                    className="el__input el__input--select"
-                    value={form.positionId}
-                    onChange={e => setForm(f => ({ ...f, positionId: e.target.value }))}
-                  >
-                    <option value="">Sin asignar</option>
-                    {positions.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="el__field">
-                  <label htmlFor="form-level" className="el__label">Nivel Competitivo</label>
-                  <select
-                    id="form-level"
-                    className="el__input el__input--select"
-                    value={form.competitiveLevelId}
-                    onChange={e => setForm(f => ({ ...f, competitiveLevelId: e.target.value }))}
-                  >
-                    <option value="">Sin asignar</option>
-                    {competitiveLevels.map(l => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
                     ))}
                   </select>
                 </div>
@@ -1551,7 +1461,8 @@ export default function ClientManager() {
       {/* ══ MODAL DE GESTIÓN DE ENTIDADES UNIFICADO ═══════════ */}
       {showEntityModal && (
         <GlobalCatalogModal
-          mode="complete"
+          contextKeys={[KEYS.SPORTS, KEYS.TEAMS, KEYS.GROUPS]}
+          initialActiveKey={KEYS.SPORTS}
           onClose={() => {
             setShowEntityModal(false);
             loadData();

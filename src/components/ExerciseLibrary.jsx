@@ -486,7 +486,6 @@ export default function ExerciseLibrary() {
       {/* ══ MODAL GLOBAL DE CATÁLOGOS CONTEXTUAL ══════════════ */}
       {showCatalogModal && (
         <GlobalCatalogModal
-          mode="contextual"
           contextKeys={[KEYS.EX_CATEGORIES, KEYS.EX_SUBCATEGORIES]}
           initialActiveKey={KEYS.EX_CATEGORIES}
           onClose={() => setShowCatalogModal(false)}

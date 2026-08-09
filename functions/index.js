@@ -315,7 +315,11 @@ export const saveResultFn = onCall(async (request) => {
   }
 
   await db.runTransaction(async (t) => {
-    // Verificar Assignment base
+    // Todas las lecturas van antes que cualquier escritura: Firestore no
+    // permite mezclarlas dentro de una transacción (un t.get() después de
+    // un t.set()/t.update() hace fallar la transacción entera con un error
+    // interno). Por eso las dos lecturas -asignación y resultado- se hacen
+    // primero, y las escrituras -asignación, resultado, auditoría- después.
     const assignmentRef = db.collection('workout_assignments').doc(result.assignmentId);
     const assignSnap = await t.get(assignmentRef);
     if (!assignSnap.exists || assignSnap.data().orgId !== orgId) {
@@ -332,6 +336,23 @@ export const saveResultFn = onCall(async (request) => {
         throw new HttpsError('aborted', 'Conflict: Document was modified by another request');
       }
     }
+
+    // Esta función nunca tocaba el estado de la asignación: se guardaba el
+    // resultado, pero "Finalizar Entrenamiento" no dejaba ningún rastro en
+    // workout_assignments.status, así que la sesión seguía viéndose como
+    // "pendiente" o "perdida" para siempre y no había forma de distinguir
+    // que ya se había completado. El cliente no puede escribir en
+    // workout_assignments directamente (las reglas de Firestore lo
+    // reservan a coach/owner), así que este cambio de estado tiene que
+    // hacerse aquí, en la función que sí corre con privilegios de servidor.
+    const assignData = assignSnap.data();
+    const assignmentUpdate = { updatedAt: FieldValue.serverTimestamp() };
+    if (result.status === 'submitted') {
+      assignmentUpdate.status = 'completed';
+    } else if (result.status === 'draft' && assignData.status !== 'completed' && assignData.status !== 'cancelled') {
+      assignmentUpdate.status = 'in_progress';
+    }
+    t.update(assignmentRef, assignmentUpdate);
 
     const docData = {
       ...result,

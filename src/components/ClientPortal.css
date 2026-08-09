@@ -20,60 +20,52 @@
   100% { opacity: 1; transform: translateY(0); }
 }
 
-.cp__header-card {
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-  color: var(--white);
-  padding: 24px;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  position: relative;
-  overflow: hidden;
-}
-
-.cp__logout-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 1;
+/* Cabecera pequeña y sencilla, igual que el resto de la app (.cm__title):
+   antes era una tarjeta grande en degradado morado con sombra, demasiado
+   protagonista para lo que dice. */
+.cp__header-row {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-  transition: background var(--transition);
-}
-
-.cp__logout-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.cp__header-card::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  right: -20%;
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 60%);
-  pointer-events: none;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .cp__header-title {
-  font-size: 1.5rem;
-  font-weight: 800;
-  margin: 0 0 6px 0;
-  letter-spacing: -0.025em;
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0;
 }
 
 .cp__header-subtitle {
-  font-size: 0.875rem;
-  color: #c7d2fe;
-  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--gray-400);
+  margin: 4px 0 0;
+}
+
+.cp__logout-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--gray-600);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.cp__logout-btn:hover {
+  background: var(--gray-50);
+  border-color: var(--gray-300);
+  color: var(--gray-800);
 }
 
 .cp__tabs {
@@ -338,41 +330,240 @@
   white-space: pre-wrap;
 }
 
-.cp__logger-sets-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.75rem;
+/* Cabecera del ejercicio: nombre + botón para desplegar tiempo/RPE/RIR/notas,
+   que por defecto están ocultos para que la pantalla muestre lo máximo
+   posible del entrenamiento (reps y carga, lo que se mira en cada serie). */
+.cp__exercise-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
-.cp__logger-sets-table th {
-  padding: 6px 8px;
+.cp__exercise-box-header .cp__logger-exercise-name {
+  margin-bottom: 0;
+}
+
+.cp__set-more-toggle {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.cp__set-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Tarjeta grande por serie, pensada para tocar con el dedo en el gimnasio en
+   vez de rellenar una tabla apretada de 10 columnas. */
+.cp__set-card {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.cp__set-card--done {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.cp__set-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cp__set-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  cursor: pointer;
+}
+
+.cp__set-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+.cp__set-target {
+  font-size: 0.7rem;
   color: var(--gray-400);
-  font-weight: 600;
-  text-align: center;
-  border-bottom: 1px solid var(--gray-100);
 }
 
-.cp__logger-sets-table td {
-  padding: 6px 8px;
-  text-align: center;
-  border-bottom: 1px solid var(--gray-100);
+.cp__set-card-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
-.cp__logger-input {
-  width: 60px;
-  height: 28px;
+.cp__set-card-extra {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--gray-200);
+}
+
+.cp__set-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cp__set-field--full {
+  grid-column: 1 / -1;
+}
+
+.cp__set-field label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--gray-400);
+}
+
+.cp__set-field span {
+  font-size: 0.8125rem;
+  color: var(--gray-700);
+}
+
+.cp__set-field strong {
+  font-size: 1.05rem;
+  color: var(--gray-900);
+}
+
+.cp__set-input {
+  width: 100%;
+  height: 36px;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-sm);
-  padding: 0 4px;
+  padding: 0 8px;
   text-align: center;
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: 16px; /* evita el zoom automático de iOS al enfocar */
   transition: all 0.2s ease;
 }
 
-.cp__logger-input:focus {
+.cp__set-input:focus {
   border-color: var(--accent);
   outline: none;
+}
+
+.cp__set-input--big {
+  height: 44px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* Pantalla de feedback tras "Finalizar" */
+.cp__feedback-phase {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cp__feedback-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.cp__rating-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cp__rating-btn {
+  flex: 1 0 40px;
+  min-width: 40px;
+  height: 44px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cp__rating-btn:hover {
+  border-color: var(--gray-300);
+}
+
+.cp__rating-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--white);
+}
+
+/* ── Vista de solo lectura de un entrenamiento ya completado ── */
+.cp__done-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.cp__done-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.cp__done-summary-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #166534;
+  margin-bottom: 2px;
+}
+
+.cp__done-summary strong {
+  font-size: 1rem;
+  color: #14532d;
+}
+
+.cp__done-summary-notes {
+  grid-column: 1 / -1;
+}
+
+.cp__done-summary-notes p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #14532d;
 }
 
 /* Cronómetro flotante/cabecera */
@@ -396,12 +587,12 @@
     gap: 16px;
   }
 
-  .cp__header-card {
-    padding: 18px;
-  }
-
   .cp__header-title {
     font-size: 1.2rem;
+  }
+
+  .cp__logout-btn span {
+    display: none;
   }
 
   /* El registro de sesión pasa a pantalla completa */
@@ -422,26 +613,8 @@
     gap: 16px;
   }
 
-  /* La tabla de series scrollea dentro de su ficha, no en la página */
   .cp__logger-exercise-box {
     padding: 12px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .cp__logger-sets-table {
-    min-width: 320px;
-  }
-
-  .cp__logger-sets-table th,
-  .cp__logger-sets-table td {
-    padding: 6px 4px;
-  }
-
-  .cp__logger-input {
-    width: 52px;
-    height: 32px;
-    font-size: 16px; /* Evita el zoom automático de iOS */
   }
 
   .cp__logger-footer {

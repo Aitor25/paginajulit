@@ -311,7 +311,8 @@ export default function ProgramManager() {
 
       {showCatalogModal && (
         <GlobalCatalogModal
-          mode="complete"
+          contextKeys={[KEYS.GROUPS]}
+          initialActiveKey={KEYS.GROUPS}
           onClose={() => {
             setShowCatalogModal(false);
             loadData();

@@ -215,9 +215,9 @@ service cloud.firestore {
 
     // Reglas para catálogos auxiliares y datos menores
     match /{collection}/{docId} {
-      allow read: if isAuthenticated() && (collection in ['categories', 'subcategories', 'ex_categories', 'ex_subcategories', 'materials', 'ex_tags', 'ex_types', 'positions', 'competitive_levels', 'test_categories', 'workout_tags', 'sports', 'teams', 'client_categories', 'groups', 'anamnesis', 'test_definitions', 'test_results', 'private_notes', 'change_history']);
-      
-      allow create, update, delete: if isCoach() && (collection in ['categories', 'subcategories', 'ex_categories', 'ex_subcategories', 'materials', 'ex_tags', 'ex_types', 'positions', 'competitive_levels', 'test_categories', 'workout_tags', 'sports', 'teams', 'client_categories', 'groups', 'anamnesis', 'test_definitions', 'test_results', 'private_notes', 'change_history']);
+      allow read: if isAuthenticated() && (collection in ['categories', 'subcategories', 'ex_categories', 'ex_subcategories', 'materials', 'ex_tags', 'ex_types', 'test_categories', 'workout_tags', 'sports', 'teams', 'groups', 'anamnesis', 'test_definitions', 'test_results', 'private_notes', 'change_history']);
+
+      allow create, update, delete: if isCoach() && (collection in ['categories', 'subcategories', 'ex_categories', 'ex_subcategories', 'materials', 'ex_tags', 'ex_types', 'test_categories', 'workout_tags', 'sports', 'teams', 'groups', 'anamnesis', 'test_definitions', 'test_results', 'private_notes', 'change_history']);
     }
 
     // Denegación por defecto.

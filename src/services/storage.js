@@ -11,8 +11,6 @@ export const KEYS = {
   EX_CATEGORIES: 'fitcoach_ex_categories',
   EX_SUBCATEGORIES: 'fitcoach_ex_subcategories',
   EX_TYPES: 'fitcoach_ex_types',
-  POSITIONS: 'fitcoach_positions',
-  COMPETITIVE_LEVELS: 'fitcoach_competitive_levels',
   TEST_CATEGORIES: 'fitcoach_test_categories',
 
   CLIENTS: 'fitcoach_clients',
@@ -29,7 +27,6 @@ export const KEYS = {
   TEST_RESULTS: 'fitcoach_test_results',
   SPORTS: 'fitcoach_sports',
   TEAMS: 'fitcoach_teams',
-  CLIENT_CATEGORIES: 'fitcoach_client_categories',
   PRIVATE_NOTES: 'fitcoach_private_notes',
   CHANGE_HISTORY: 'fitcoach_change_history'
 };
@@ -852,13 +849,24 @@ export const storage = {
     return await firestoreService.getDocumentsByQuery('workout_results', filters);
   },
 
-  getWorkoutResultByAssignmentId: async (assignmentId) => {
+  // clientId es opcional para el coach (sus reglas no lo exigen), pero
+  // imprescindible para el cliente: la regla de Firestore solo le deja leer
+  // workout_results propios, y sin este filtro en la propia consulta la
+  // query entera se deniega (no se evalúa documento a documento). Sin este
+  // filtro, al abrir un entrenamiento el cliente se encontraba con un
+  // "Missing or insufficient permissions" silencioso y el modal se quedaba
+  // vacío, sin bloques ni ejercicios.
+  getWorkoutResultByAssignmentId: async (assignmentId, clientId = null) => {
     const orgId = sessionService.getOrgId();
     if (!orgId) return null;
-    const res = await firestoreService.getDocumentsByQuery('workout_results', [
+    const filters = [
       { field: 'orgId', op: '==', value: orgId },
       { field: 'assignmentId', op: '==', value: String(assignmentId) }
-    ]);
+    ];
+    if (clientId) {
+      filters.push({ field: 'clientId', op: '==', value: String(clientId) });
+    }
+    const res = await firestoreService.getDocumentsByQuery('workout_results', filters);
     return res.length > 0 ? res[0] : null;
   },
 
@@ -867,7 +875,7 @@ export const storage = {
     if (!orgId) throw new Error('No active organization');
 
     if (sessionService.getRole() === 'client') {
-      if (String(result.clientId) !== String(sessionService.getActiveClientId())) {
+      if (String(result.clientId) !== String(sessionService.getClientId())) {
         throw new Error("Permiso denegado: No puedes registrar resultados para otro deportista.");
       }
     }
@@ -1010,7 +1018,18 @@ export const storage = {
   },
 
   getExerciseAnalytics: async (clientId, exerciseId, periodDays = null) => {
-    const results = (await getCollection('workout_results')).filter(r => String(r.clientId) === String(clientId) && (r.status === 'completed' || r.status === 'submitted'));
+    // La consulta filtra por clientId en la propia query (no en memoria como
+    // getCollection): las reglas de Firestore le deniegan al cliente el
+    // listado entero de "workout_results" de la organización, y sin este
+    // filtro se rechazaba la consulta completa con "permission-denied" antes
+    // de que el filtro en memoria llegase siquiera a ejecutarse.
+    const orgId = sessionService.getOrgId();
+    const results = orgId
+      ? (await firestoreService.getDocumentsByQuery('workout_results', [
+          { field: 'orgId', op: '==', value: orgId },
+          { field: 'clientId', op: '==', value: String(clientId) }
+        ])).filter(r => r.status === 'completed' || r.status === 'submitted')
+      : [];
     const exercises = await getCollection('exercises');
     let exerciseDef = exercises.find(e => String(e.id) === String(exerciseId));
 
@@ -1161,8 +1180,15 @@ export const storage = {
   },
 
   getClientPersonalRecords: async (clientId) => {
-    // Get all completed workouts
-    const results = (await getCollection('workout_results')).filter(r => String(r.clientId) === String(clientId) && (r.status === 'completed' || r.status === 'submitted'));
+    // Mismo motivo que en getExerciseAnalytics: el filtro por clientId tiene
+    // que ir en la consulta, no aplicarse después en memoria.
+    const orgId = sessionService.getOrgId();
+    const results = orgId
+      ? (await firestoreService.getDocumentsByQuery('workout_results', [
+          { field: 'orgId', op: '==', value: orgId },
+          { field: 'clientId', op: '==', value: String(clientId) }
+        ])).filter(r => r.status === 'completed' || r.status === 'submitted')
+      : [];
 
     const executedExerciseIds = new Set();
     results.forEach(r => {

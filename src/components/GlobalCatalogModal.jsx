@@ -8,26 +8,24 @@ const ALL_CATALOGS = [
   { key: KEYS.GROUPS, label: 'Grupos de Entrenamiento' },
   { key: KEYS.SPORTS, label: 'Deportes' },
   { key: KEYS.TEAMS, label: 'Equipos / Clubes' },
-  { key: KEYS.CLIENT_CATEGORIES, label: 'Categorías de Cliente' },
-  { key: KEYS.POSITIONS, label: 'Posiciones de Cliente' },
-  { key: KEYS.COMPETITIVE_LEVELS, label: 'Niveles Competitivos' },
   { key: KEYS.TEST_CATEGORIES, label: 'Categorías de Test' },
   { key: KEYS.TEST_DEFINITIONS, label: 'Definiciones de Tests' }
 ];
 
 export default function GlobalCatalogModal({
-  mode = 'complete',
+  // Cada página declara qué catálogos le pertenecen (p. ej. la Librería de
+  // Ejercicios solo pasa las categorías/subcategorías de ejercicio). Sin
+  // "contextKeys" no se abre ningún catálogo a propósito: antes había un modo
+  // "complete" que volcaba los diez catálogos de la app en cualquier página,
+  // mezclando cosas de clientes con cosas de ejercicios o de tests.
   contextKeys = [],
   initialActiveKey = null,
   onClose,
   onRefresh
 }) {
-  // Filtrar catálogos a mostrar según el modo
-  const catalogsToShow = mode === 'contextual'
-    ? ALL_CATALOGS.filter(c => contextKeys.includes(c.key))
-    : ALL_CATALOGS;
+  const catalogsToShow = ALL_CATALOGS.filter(c => contextKeys.includes(c.key));
 
-  const [activeKey, setActiveKey] = useState(initialActiveKey || catalogsToShow[0]?.key || KEYS.EX_CATEGORIES);
+  const [activeKey, setActiveKey] = useState(initialActiveKey || catalogsToShow[0]?.key || '');
   const [items, setItems] = useState([]);
   
   // Listas auxiliares para relaciones en subformularios

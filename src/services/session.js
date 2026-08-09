@@ -6,27 +6,22 @@ let currentState = {
   user: null,
   orgId: null,
   role: null,
-  activeClientId: null
+  // Ficha vinculada al usuario logueado cuando es un cliente (viene de
+  // users/{uid}.clientId). null para coach/owner.
+  clientId: null
 };
 
 export const sessionService = {
-  setSession: (user, orgId, role) => {
+  setSession: (user, orgId, role, clientId = null) => {
     currentState.user = user;
     currentState.orgId = orgId;
     currentState.role = role;
+    currentState.clientId = clientId;
   },
 
   getCurrentUser: () => currentState.user,
   getUserId: () => currentState.user?.uid,
   getOrgId: () => currentState.orgId,
   getRole: () => currentState.role,
-
-  getActiveClientId: () => {
-    return currentState.activeClientId;
-  },
-
-  setActiveClientId: (clientId) => {
-    currentState.activeClientId = clientId;
-    window.dispatchEvent(new Event('fitcoach_session_changed'));
-  }
+  getClientId: () => currentState.clientId
 };

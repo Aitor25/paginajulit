@@ -92,7 +92,7 @@ export function AuthProvider({ children }) {
             if (docSnap.exists()) {
               const profile = docSnap.data();
               setUserProfile(profile);
-              sessionService.setSession(user, profile.organizationId, profile.role);
+              sessionService.setSession(user, profile.organizationId, profile.role, profile.clientId || null);
               setAuthState('ready');
             } else {
               // Wait for authService.register to create it
