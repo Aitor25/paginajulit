@@ -10,6 +10,10 @@ import { toDateKey } from '../utils/dateUtils';
 export const ClientCalendarTab = ({ clientId, readOnly = false, onReadOnlyEventClick = null }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month'); // 'month' | 'week'
+  // Por defecto se ve todo (pendientes, en progreso, perdidos...), no solo lo
+  // completado; este interruptor deja reducir la vista a solo completados
+  // con un clic cuando el calendario se llena de entrenamientos futuros.
+  const [showOnlyCompleted, setShowOnlyCompleted] = useState(false);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null); // Para reprogramar (Coach)
@@ -77,6 +81,13 @@ export const ClientCalendarTab = ({ clientId, readOnly = false, onReadOnlyEventC
     loadData();
   };
 
+  // Las sesiones libres y los hitos de programa no tienen un estado
+  // "pendiente" que ocultar; el filtro solo afecta a las asignaciones de
+  // entrenamiento (pendiente, en progreso, perdida, cancelada).
+  const visibleEvents = showOnlyCompleted
+    ? events.filter(ev => ev.type !== 'workout' || ev.status === 'completed')
+    : events;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -97,6 +108,15 @@ export const ClientCalendarTab = ({ clientId, readOnly = false, onReadOnlyEventC
               Semana
             </button>
           </div>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${showOnlyCompleted ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setShowOnlyCompleted(v => !v)}
+            title={showOnlyCompleted ? 'Mostrar también pendientes, en progreso y perdidos' : 'Mostrar solo los entrenamientos completados'}
+          >
+            {showOnlyCompleted ? 'Solo completados' : 'Mostrar todos'}
+          </button>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -117,7 +137,7 @@ export const ClientCalendarTab = ({ clientId, readOnly = false, onReadOnlyEventC
       ) : viewMode === 'month' ? (
         <CalendarGrid
           currentDate={currentDate}
-          events={events}
+          events={visibleEvents}
           showClientName={false}
           onDateClick={dateStr => !readOnly && setQuickAssignDate(dateStr)}
           onEventClick={ev => {
@@ -136,7 +156,7 @@ export const ClientCalendarTab = ({ clientId, readOnly = false, onReadOnlyEventC
       ) : (
         <CalendarWeek
           currentDateStr={toDateKey(currentDate)}
-          events={events}
+          events={visibleEvents}
           showClientName={false}
           onDateClick={dateStr => !readOnly && setQuickAssignDate(dateStr)}
           onEventClick={ev => {
