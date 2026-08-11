@@ -589,7 +589,7 @@ function FreeSessionModal({ clientId, onClose, onSave }) {
             </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="cp__grid-2">
             <div className="el__form-group">
               <label className="el__label">Duración (minutos)</label>
               <input 
@@ -813,6 +813,15 @@ export default function ClientPortal() {
     } catch (err) {
       setTestError(err.message);
     }
+  };
+
+  // Faltaba por definir: el modal de Sesión Libre recibía "onSave={handleSaveFreeSession}"
+  // sin que esa función existiera en ningún sitio, así que abrir el modal
+  // rompía el render entero (ReferenceError) y dejaba el portal en blanco.
+  const handleSaveFreeSession = async (payload) => {
+    await storage.saveWorkoutResult(payload);
+    await loadClientData();
+    setShowFreeSessionModal(false);
   };
 
   return (
@@ -1110,7 +1119,7 @@ export default function ClientPortal() {
                   <strong>Notas médicas auxiliares:</strong>
                   <p style={{ margin: '2px 0 0 0', color: 'var(--gray-600)' }}>{anamnesis.healthNotes || 'Sin comentarios.'}</p>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', borderTop: '1px solid var(--gray-200)', paddingTop: '10px' }}>
+                <div className="cp__grid-2" style={{ gap: '10px', borderTop: '1px solid var(--gray-200)', paddingTop: '10px' }}>
                   <div>
                     <strong>Objetivos a corto plazo:</strong>
                     <p style={{ margin: '2px 0 0 0', color: 'var(--gray-600)' }}>{anamnesis.shortTermGoals || 'Sin definir.'}</p>
@@ -1165,7 +1174,7 @@ export default function ClientPortal() {
                 </select>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
+              <div className="cp__grid-2-1">
                 <div className="el__field">
                   <label className="el__label" style={{ fontSize: '0.7rem' }}>Valor de la Medida *</label>
                   <input
@@ -1333,7 +1342,7 @@ export default function ClientPortal() {
                 <div key={pr.exerciseId} className="el__card" style={{ padding: '20px', borderLeft: '4px solid var(--accent)' }}>
                   <h4 style={{ margin: '0 0 16px 0', fontSize: '1.125rem', fontWeight: 'bold' }}>{pr.exerciseName}</h4>
                   
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px' }}>
                     {pr.analyticalType === 'strength' && (
                       <>
                         <div>
@@ -1389,7 +1398,7 @@ export default function ClientPortal() {
 
       {/* PESTAÑA 4: MÉTRICAS */}
       {activeTab === 'metrics' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
           
           {/* Métricas de Carga y RPE */}
           <div>

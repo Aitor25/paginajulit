@@ -4,9 +4,17 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 1000px;
+  /* Sin "width: 100%" este contenedor es hijo flex de <main> (que centra con
+     "margin: auto"), y unos márgenes auto desactivan el stretch por defecto
+     de flexbox: el ancho se resolvía por shrink-to-fit del contenido
+     (~638px en un monitor de 1440px) en vez de ocupar el máximo disponible.
+     Por eso se veía tan estrecho, aunque max-width fuera generoso. */
+  width: 100%;
+  /* 1280px en vez de 1000px: en un monitor ancho, 1000px dejaba el portal
+     como una columna estrecha con muchísimo hueco vacío a los lados. */
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 16px 24px;
   /* "backwards" en vez de "both": con "both" esta caja se queda con un
      transform activo para siempre, y cualquier modal con position:fixed
      que se abra dentro (registro de sesión, sesión libre...) se centra
@@ -118,11 +126,22 @@
   border-radius: 2px;
 }
 
-/* Agenda de Cliente */
+/* Agenda de Cliente: antes era una única columna de tarjetas finas, muy
+   pobre en un monitor ancho. Con auto-fill se reparten en 2-3 columnas
+   cuando hay sitio, y en una sola en pantallas estrechas, sin necesidad de
+   media queries. */
 .cp__agenda-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+/* La vista de calendario y los estados vacíos ocupan todo el ancho, no una
+   celda de la rejilla. */
+.cp__agenda-list > .cp__card,
+.cp__agenda-list > .cp__empty-state {
+  grid-column: 1 / -1;
 }
 
 /* ─── Empty State ─────────────────────────────────── */
@@ -167,10 +186,13 @@
   border-radius: var(--radius-md);
   padding: 16px;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 12px 16px;
+  box-shadow: var(--shadow-xs);
   transition: all 0.2s ease;
+  height: 100%;
 }
 
 .cp__agenda-card:hover {
@@ -205,6 +227,22 @@
 .cp__agenda-meta {
   font-size: 0.75rem;
   color: var(--gray-400);
+}
+
+/* Rejillas de 2 columnas usadas en varios formularios/paneles del portal
+   (sesión libre, objetivos, registro de test...). Antes eran grids fijos en
+   línea que en el móvil dejaban cada columna aplastada en ~140px; con estas
+   clases se pliegan a 1 columna por debajo de 640px. */
+.cp__grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.cp__grid-2-1 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
 }
 
 /* Modulo Ejecución - Logger */
@@ -593,6 +631,32 @@
 
   .cp__logout-btn span {
     display: none;
+  }
+
+  /* Una tarjeta por fila, y dentro de cada una la info arriba y el botón
+     de acción a todo el ancho debajo: antes el botón quedaba apretado al
+     lado del texto, como si la vista de escritorio se hubiera encogido en
+     vez de adaptarse a un móvil. */
+  .cp__agenda-list {
+    grid-template-columns: 1fr;
+  }
+
+  .cp__agenda-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cp__agenda-card > div:last-child:not(.cp__agenda-info) {
+    width: 100%;
+  }
+
+  .cp__agenda-card > div:last-child:not(.cp__agenda-info) .el__btn {
+    width: 100%;
+  }
+
+  .cp__grid-2,
+  .cp__grid-2-1 {
+    grid-template-columns: 1fr;
   }
 
   /* El registro de sesión pasa a pantalla completa */
