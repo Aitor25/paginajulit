@@ -26,8 +26,12 @@ export default function ProgramManager() {
   // Filtros
   const [search, setSearch] = useState('');
 
+  // Selección múltiple: para poder asignar o borrar varios programas de una
+  // sola vez en vez de fila por fila (igual que en Plantillas de Entrenamiento).
+  const [selectedIds, setSelectedIds] = useState([]);
+
   // Modales
-  const [assignProgramId, setAssignProgramId] = useState(null);
+  const [assignProgramIds, setAssignProgramIds] = useState(null); // array de ids a asignar
   const [assignDurationWeeks, setAssignDurationWeeks] = useState(4);
   const [showCatalogModal, setShowCatalogModal] = useState(false);
 
@@ -72,17 +76,42 @@ export default function ProgramManager() {
     }
   };
 
+  // Se actualiza el estado local en vez de volver a llamar a loadData():
+  // loadData() pone loading=true, y con eso toda la sección se sustituye un
+  // instante por la pantalla de carga, un parpadeo que se siente como si la
+  // página entera se hubiera recargado solo por borrar una fila.
   const handleDeleteProgram = async (id, name) => {
     if (!window.confirm(`¿Seguro que deseas eliminar el programa "${name}"? Se anularán todas las asignaciones de clientes activas.`)) return;
     await storage.deleteProgram(id);
-    await loadData();
+    setPrograms(prev => prev.filter(p => p.id !== id));
+    setSelectedIds(prev => prev.filter(sid => sid !== id));
+  };
+
+  const handleBulkDeletePrograms = async () => {
+    const count = selectedIds.length;
+    if (count === 0) return;
+    if (!window.confirm(`¿Seguro que deseas eliminar ${count} programa${count === 1 ? '' : 's'}? Se anularán todas las asignaciones de clientes activas.`)) return;
+    await Promise.all(selectedIds.map(id => storage.deleteProgram(id)));
+    const idsSet = new Set(selectedIds);
+    setPrograms(prev => prev.filter(p => !idsSet.has(p.id)));
+    setSelectedIds([]);
+  };
+
+  const toggleSelected = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAllVisible = () => {
+    const visibleIds = filteredPrograms.map(p => p.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
+    setSelectedIds(allSelected ? [] : visibleIds);
   };
 
   // --- CRUD Asignaciones ---
   const handleDeleteAssignment = async (id) => {
     if (!window.confirm("¿Seguro que deseas anular este programa para el deportista? Se removerán sus sesiones pendientes del calendario.")) return;
     await storage.deleteProgramAssignment(id);
-    await loadData();
+    setAssignments(prev => prev.filter(a => a.id !== id));
   };
 
   // --- Filtrado ---
@@ -168,14 +197,35 @@ export default function ProgramManager() {
           />
         </div>
 
+        {selectedIds.length > 0 && (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', fontWeight: 600 }}>
+              {selectedIds.length} seleccionado{selectedIds.length === 1 ? '' : 's'}
+            </span>
+            <button
+              className="el__btn el__btn--primary"
+              style={{ height: '32px', padding: '0 12px', fontSize: '0.75rem' }}
+              onClick={() => setAssignProgramIds(selectedIds)}
+            >
+              Asignar seleccionados
+            </button>
+            <button
+              className="el__btn el__btn--ghost"
+              style={{ height: '32px', padding: '0 12px', fontSize: '0.75rem', color: '#e53e3e', borderColor: '#fbc2c2' }}
+              onClick={handleBulkDeletePrograms}
+            >
+              Eliminar seleccionados
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ marginBottom: '16px', fontSize: '0.8125rem', color: 'var(--gray-400)' }}>
         Mostrando <strong>{filteredPrograms.length}</strong> de {programs.length} programas.
       </div>
 
-      {/* Lista de Programas: misma tabla que las rutinas — fila completa
-          clicable para editar, sin lápiz. */}
+      {/* Lista de Programas: misma tabla que los entrenamientos — fila
+          completa clicable para editar, sin lápiz. */}
       {filteredPrograms.length === 0 ? (
         <div className="cm__empty" style={{ padding: '60px 24px' }}>
           <p>No se encontraron programas de entrenamiento.</p>
@@ -186,6 +236,14 @@ export default function ProgramManager() {
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: '32px' }}>
+                  <input
+                    type="checkbox"
+                    checked={filteredPrograms.length > 0 && filteredPrograms.every(p => selectedIds.includes(p.id))}
+                    onChange={toggleSelectAllVisible}
+                    aria-label="Seleccionar todos los programas visibles"
+                  />
+                </th>
                 <th>Programa</th>
                 <th>Duración</th>
                 <th style={{ textAlign: 'center' }}>Acciones</th>
@@ -197,6 +255,14 @@ export default function ProgramManager() {
 
                 return (
                   <tr key={p.id} className="wk__row" onClick={() => handleOpenEdit(p)}>
+                    <td onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(p.id)}
+                        onChange={() => toggleSelected(p.id)}
+                        aria-label={`Seleccionar ${p.name}`}
+                      />
+                    </td>
                     <td>
                       <div style={{ fontWeight: 600 }}>{p.name}</div>
                       {p.description && (
@@ -212,7 +278,7 @@ export default function ProgramManager() {
                           className="el__btn el__btn--primary"
                           style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }}
                           onClick={() => {
-                            setAssignProgramId(p.id);
+                            setAssignProgramIds([p.id]);
                             setAssignDurationWeeks(p.durationWeeks);
                           }}
                         >
@@ -300,12 +366,16 @@ export default function ProgramManager() {
       </div>
 
       {/* MODALES */}
-      {assignProgramId && (
+      {assignProgramIds && (
         <ProgramAssignmentModal
-          programId={assignProgramId}
+          programIds={assignProgramIds}
           durationWeeks={assignDurationWeeks}
-          onClose={() => setAssignProgramId(null)}
-          onSave={loadData}
+          onClose={() => setAssignProgramIds(null)}
+          onSave={() => {
+            setAssignProgramIds(null);
+            setSelectedIds([]);
+            loadData();
+          }}
         />
       )}
 

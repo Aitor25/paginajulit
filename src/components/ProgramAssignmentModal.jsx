@@ -3,10 +3,17 @@ import { storage, KEYS } from '../services/storage';
 
 export default function ProgramAssignmentModal({
   programId,
+  programIds, // Si viene (selección múltiple), se asignan todos estos a la vez
   durationWeeks,
   onClose,
   onSave
 }) {
+  // Normaliza las dos formas de recibir programas fijos (uno solo o varios
+  // de una selección múltiple) a una única lista de trabajo.
+  const fixedProgramIds = programIds && programIds.length > 0
+    ? programIds.map(String)
+    : (programId ? [String(programId)] : []);
+
   const [clients, setClients] = useState([]);
   const [groups, setGroups] = useState([]);
 
@@ -118,33 +125,43 @@ export default function ProgramAssignmentModal({
 
     try {
       // 2. APLICAR RESOLUCIÓN Y PERSISTIR
-      for (const cId of targetClientIds) {
-        const conflict = conflicts.find(co => String(co.clientId) === cId);
-        
-        if (conflict && overlapResolution === 'pause') {
-          // Pausar el programa anterior: cambiar estado a 'completed' y fijar endDate el día anterior a startDate
-          const oldAssign = conflict.existingAssignment;
-          const prevDay = new Date(startDate);
-          prevDay.setDate(prevDay.getDate() - 1);
+      // Nota: el chequeo de solapamiento (arriba) solo compara contra lo que
+      // ya existía en Firestore antes de este envío. Si se seleccionan
+      // varios programas a la vez para el mismo cliente, aquí se crean todos
+      // como "active" sin pausarse entre sí — asignar varios macrociclos
+      // simultáneos al mismo deportista de una tacada es un caso raro (no
+      // tiene mucho sentido tener dos planes activos a la vez), así que se
+      // deja sin resolver en vez de complicar el flujo de conflictos con una
+      // cascada de pausas dentro del propio lote.
+      for (const pId of fixedProgramIds) {
+        for (const cId of targetClientIds) {
+          const conflict = conflicts.find(co => String(co.clientId) === cId);
 
+          if (conflict && overlapResolution === 'pause') {
+            // Pausar el programa anterior: cambiar estado a 'completed' y fijar endDate el día anterior a startDate
+            const oldAssign = conflict.existingAssignment;
+            const prevDay = new Date(startDate);
+            prevDay.setDate(prevDay.getDate() - 1);
+
+            await storage.saveProgramAssignment({
+              ...oldAssign,
+              status: 'completed',
+              endDate: prevDay.toISOString().split('T')[0],
+              forceOverlap: true
+            });
+          }
+
+          // Crear la nueva asignación individual
           await storage.saveProgramAssignment({
-            ...oldAssign,
-            status: 'completed',
-            endDate: prevDay.toISOString().split('T')[0],
-            forceOverlap: true
+            programId: pId,
+            clientId: cId,
+            groupId: assignmentType === 'group' ? String(selectedGroupId) : null,
+            startDate: startDate,
+            status: 'active',
+            progressPercentage: 0,
+            forceOverlap: true // Ya controlamos el solapamiento en el modal
           });
         }
-
-        // Crear la nueva asignación individual
-        await storage.saveProgramAssignment({
-          programId: String(programId),
-          clientId: cId,
-          groupId: assignmentType === 'group' ? String(selectedGroupId) : null,
-          startDate: startDate,
-          status: 'active',
-          progressPercentage: 0,
-          forceOverlap: true // Ya controlamos el solapamiento en el modal
-        });
       }
 
       if (onSave) onSave();
@@ -158,7 +175,9 @@ export default function ProgramAssignmentModal({
     <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="el__modal" style={{ maxWidth: '460px' }} onClick={e => e.stopPropagation()}>
         <div className="el__modal-header">
-          <h2 className="el__modal-title">Asignar Programa</h2>
+          <h2 className="el__modal-title">
+            {fixedProgramIds.length > 1 ? `Asignar ${fixedProgramIds.length} Programas` : 'Asignar Programa'}
+          </h2>
           <button className="el__modal-close" onClick={onClose} aria-label="Cerrar modal">✕</button>
         </div>
 
