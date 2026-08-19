@@ -1045,7 +1045,7 @@ export default function ClientPortal() {
                     className={`cp__agenda-card cp__agenda-card--${a.status}`}
                   >
                     <div className="cp__agenda-info">
-                      <span className="cp__agenda-name">{a.plannedSnapshot?.name || 'Sesión de Rutina'}</span>
+                      <span className="cp__agenda-name">{a.plannedSnapshot?.name || 'Sesión de Entrenamiento'}</span>
                       <span className="cp__agenda-meta">
                         📅 Programado: {formatDate(a.scheduledAt)} · {a.plannedSnapshot?.estimatedDurationMinutes || 60} minutos
                       </span>
@@ -1077,7 +1077,7 @@ export default function ClientPortal() {
                           style={{ height: '32px', fontSize: '0.75rem', padding: '0 12px' }}
                           onClick={() => setActiveAssignment(a)}
                         >
-                          {a.status === 'in_progress' ? 'Retomar Rutina' : 'Iniciar'}
+                          {a.status === 'in_progress' ? 'Retomar Entrenamiento' : 'Iniciar'}
                         </button>
                       )}
                     </div>

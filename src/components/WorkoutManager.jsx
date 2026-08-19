@@ -34,8 +34,12 @@ export default function WorkoutManager() {
   const [showAllWorkouts, setShowAllWorkouts] = useState(false);
   const [showAllAssignments, setShowAllAssignments] = useState(false);
 
+  // Selección múltiple: para poder asignar o borrar varios entrenamientos
+  // de una sola vez en vez de fila por fila.
+  const [selectedIds, setSelectedIds] = useState([]);
+
   // Modales
-  const [assignWorkoutId, setAssignWorkoutId] = useState(null);
+  const [assignWorkoutIds, setAssignWorkoutIds] = useState(null); // array de ids a asignar
   const [showCatalogModal, setShowCatalogModal] = useState(false);
 
   // Cargar datos
@@ -77,17 +81,43 @@ export default function WorkoutManager() {
     setShowBuilder(true);
   };
 
+  // Se actualiza el estado local en vez de volver a llamar a loadData():
+  // loadData() pone loading=true, y con eso toda la sección se sustituye un
+  // instante por "Cargando módulo de entrenamientos...", un parpadeo que se
+  // siente como si la página entera se hubiera recargado solo por borrar
+  // una fila.
   const handleDeleteWorkout = async (id, name) => {
     if (!window.confirm(`¿Seguro que deseas eliminar la plantilla "${name}"? Se borrarán también todas sus asignaciones programadas.`)) return;
     await storage.deleteWorkout(id);
-    await loadData();
+    setWorkouts(prev => prev.filter(w => w.id !== id));
+    setSelectedIds(prev => prev.filter(sid => sid !== id));
+  };
+
+  const handleBulkDeleteWorkouts = async () => {
+    const count = selectedIds.length;
+    if (count === 0) return;
+    if (!window.confirm(`¿Seguro que deseas eliminar ${count} entrenamiento${count === 1 ? '' : 's'}? Se borrarán también todas sus asignaciones programadas.`)) return;
+    await Promise.all(selectedIds.map(id => storage.deleteWorkout(id)));
+    const idsSet = new Set(selectedIds);
+    setWorkouts(prev => prev.filter(w => !idsSet.has(w.id)));
+    setSelectedIds([]);
+  };
+
+  const toggleSelected = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAllVisible = () => {
+    const visibleIds = visibleWorkouts.map(w => w.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
+    setSelectedIds(allSelected ? [] : visibleIds);
   };
 
   // --- CRUD Asignaciones ---
   const handleDeleteAssignment = async (id) => {
     if (!window.confirm("¿Seguro que deseas anular esta asignación programada?")) return;
     await storage.deleteWorkoutAssignment(id);
-    await loadData();
+    setAssignments(prev => prev.filter(a => a.id !== id));
   };
 
   // --- Filtrado ---
@@ -144,7 +174,7 @@ export default function WorkoutManager() {
           style={{ height: '36px', padding: '0 16px', fontSize: '0.8125rem' }}
           onClick={() => setSubTab('workouts')}
         >
-          🏋️ Plantillas de Rutina
+          🏋️ Plantillas de Entrenamiento
         </button>
         <button
           className={`el__btn ${subTab === 'programs' ? 'el__btn--primary' : 'el__btn--ghost'}`}
@@ -164,22 +194,22 @@ export default function WorkoutManager() {
             <div className="el__title-group">
               <h1 className="cm__title">Biblioteca de Entrenamientos</h1>
               <p className="cm__subtitle">
-                Crea rutinas de ejercicios estructuradas y asígnalas de manera rápida a clientes o equipos.
+                Crea entrenamientos estructurados y asígnalos de manera rápida a clientes o equipos.
               </p>
             </div>
 
             <div className="cm__header-actions">
-              <button className="el__btn el__btn--ghost" onClick={() => setShowCatalogModal(true)} title="Gestionar categorías, materiales y etiquetas de rutinas">
+              <button className="el__btn el__btn--ghost" onClick={() => setShowCatalogModal(true)} title="Gestionar categorías, materiales y etiquetas de entrenamientos">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                 </svg>
                 Gestionar Catálogos
               </button>
-              <button className="el__btn el__btn--primary" onClick={handleOpenCreate} title="Abrir constructor para crear una rutina">
+              <button className="el__btn el__btn--primary" onClick={handleOpenCreate} title="Abrir constructor para crear un entrenamiento">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
-                Nueva Rutina
+                Nuevo Entrenamiento
               </button>
             </div>
           </header>
@@ -193,24 +223,45 @@ export default function WorkoutManager() {
               <input
                 type="text"
                 className="cm__search"
-                placeholder="Buscar rutina por nombre o descripción..."
+                placeholder="Buscar entrenamiento por nombre o descripción..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                aria-label="Buscar rutinas"
+                aria-label="Buscar entrenamientos"
               />
             </div>
 
+            {selectedIds.length > 0 && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', fontWeight: 600 }}>
+                  {selectedIds.length} seleccionado{selectedIds.length === 1 ? '' : 's'}
+                </span>
+                <button
+                  className="el__btn el__btn--primary"
+                  style={{ height: '32px', padding: '0 12px', fontSize: '0.75rem' }}
+                  onClick={() => setAssignWorkoutIds(selectedIds)}
+                >
+                  Asignar seleccionados
+                </button>
+                <button
+                  className="el__btn el__btn--ghost"
+                  style={{ height: '32px', padding: '0 12px', fontSize: '0.75rem', color: '#e53e3e', borderColor: '#fbc2c2' }}
+                  onClick={handleBulkDeleteWorkouts}
+                >
+                  Eliminar seleccionados
+                </button>
+              </div>
+            )}
           </div>
 
           <div style={{ marginBottom: '16px', fontSize: '0.8125rem', color: 'var(--gray-400)' }}>
             Mostrando <strong>{visibleWorkouts.length}</strong> de {filteredWorkouts.length} plantillas de entrenamiento.
           </div>
 
-          {/* Lista de Rutinas */}
+          {/* Lista de Entrenamientos */}
           {filteredWorkouts.length === 0 ? (
             <div className="cm__empty" style={{ padding: '60px 24px' }}>
               <p>No se encontraron plantillas de entrenamiento.</p>
-              <span>Ajusta los filtros o empieza creando una nueva rutina en el constructor.</span>
+              <span>Ajusta los filtros o empieza creando un nuevo entrenamiento en el constructor.</span>
             </div>
           ) : (
             <>
@@ -218,7 +269,15 @@ export default function WorkoutManager() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Rutina</th>
+                      <th style={{ width: '32px' }}>
+                        <input
+                          type="checkbox"
+                          checked={visibleWorkouts.length > 0 && visibleWorkouts.every(w => selectedIds.includes(w.id))}
+                          onChange={toggleSelectAllVisible}
+                          aria-label="Seleccionar todos los entrenamientos visibles"
+                        />
+                      </th>
+                      <th>Entrenamiento</th>
                       <th>Duración</th>
                       <th style={{ textAlign: 'center' }}>Acciones</th>
                     </tr>
@@ -233,6 +292,14 @@ export default function WorkoutManager() {
 
                       return (
                         <tr key={w.id} className="wk__row" onClick={() => handleOpenEdit(w)}>
+                          <td onClick={e => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(w.id)}
+                              onChange={() => toggleSelected(w.id)}
+                              aria-label={`Seleccionar ${w.name}`}
+                            />
+                          </td>
                           <td>
                             <div style={{ fontWeight: 600 }}>{w.name}</div>
                             {w.description && (
@@ -244,7 +311,7 @@ export default function WorkoutManager() {
                           </td>
                           <td onClick={e => e.stopPropagation()}>
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                              <button className="el__btn el__btn--primary" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => setAssignWorkoutId(w.id)}>
+                              <button className="el__btn el__btn--primary" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => setAssignWorkoutIds([w.id])}>
                                 Asignar
                               </button>
                               <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0, color: '#e53e3e', borderColor: '#fbc2c2' }} onClick={() => handleDeleteWorkout(w.id, w.name)} title="Eliminar definitivamente">
@@ -273,7 +340,7 @@ export default function WorkoutManager() {
 
           {/* ══ APARTADO 3: HISTORIAL DE ASIGNACIONES RECIENTES ═════ */}
           <div style={{ marginTop: '48px', borderTop: '1px solid var(--gray-200)', paddingTop: '32px' }}>
-            <h3 className="wb__section-title">Calendario de Rutinas Asignadas</h3>
+            <h3 className="wb__section-title">Calendario de Entrenamientos Asignados</h3>
 
             {assignments.length === 0 ? (
               <p style={{ fontSize: '0.8125rem', color: 'var(--gray-400)', textAlign: 'center', padding: '24px', background: 'var(--off-white)', borderRadius: 'var(--radius-sm)' }}>
@@ -294,7 +361,7 @@ export default function WorkoutManager() {
                     </thead>
                     <tbody>
                       {visibleAssignments.map(a => {
-                        const wName = workouts.find(w => w.id === a.workoutId)?.name || 'Rutina eliminada';
+                        const wName = workouts.find(w => w.id === a.workoutId)?.name || 'Entrenamiento eliminado';
 
                         let targetName = 'N/A';
                         if (a.clientId) {
@@ -356,11 +423,15 @@ export default function WorkoutManager() {
           </div>
 
           {/* MODALES */}
-          {assignWorkoutId && (
+          {assignWorkoutIds && (
             <WorkoutAssignmentModal
-              workoutId={assignWorkoutId}
-              onClose={() => setAssignWorkoutId(null)}
-              onSave={loadData}
+              workoutIds={assignWorkoutIds}
+              onClose={() => setAssignWorkoutIds(null)}
+              onSave={() => {
+                setAssignWorkoutIds(null);
+                setSelectedIds([]);
+                loadData();
+              }}
             />
           )}
 

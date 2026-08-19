@@ -382,7 +382,7 @@ export default function WorkoutBuilderView({
 
     const trimmedName = workoutForm.name.trim();
     if (!trimmedName) {
-      setFormError('El nombre de la rutina es obligatorio.');
+      setFormError('El nombre del entrenamiento es obligatorio.');
       return;
     }
     if (workoutForm.blocks.length === 0) {
@@ -432,7 +432,7 @@ export default function WorkoutBuilderView({
       if (onSave) onSave(saved);
       onClose();
     } catch (err) {
-      setFormError(err.message || 'No se pudo guardar la rutina.');
+      setFormError(err.message || 'No se pudo guardar el entrenamiento.');
     }
   }
 
@@ -467,7 +467,7 @@ export default function WorkoutBuilderView({
           {workoutForm.blocks.length} bloque{workoutForm.blocks.length === 1 ? '' : 's'} · {totalEjercicios} ejercicio{totalEjercicios === 1 ? '' : 's'}
         </span>
         <button className="el__btn el__btn--primary" onClick={handleSaveWorkout}>
-          Guardar Rutina
+          Guardar Entrenamiento
         </button>
       </div>
 

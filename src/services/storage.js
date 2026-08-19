@@ -132,25 +132,13 @@ export const storage = {
     return saved;
   },
   deleteExercise: async (id) => {
-    // Integridad Referencial: Bloquear si está en uso en entrenamientos
-    const workouts = await getCollection('workouts');
-    let occurrences = 0;
-    workouts.forEach(w => {
-      if (Array.isArray(w.blocks)) {
-        w.blocks.forEach(b => {
-          if (Array.isArray(b.exercises)) {
-            if (b.exercises.some(ex => String(ex.exerciseId) === String(id))) {
-              occurrences++;
-            }
-          }
-        });
-      }
-    });
-
-    if (occurrences > 0) {
-      throw new Error(`No puedes eliminar este ejercicio porque está en uso en ${occurrences} entrenamiento(s) planificado(s).`);
-    }
-
+    // Se permite borrar aunque esté en uso en entrenamientos planificados:
+    // las plantillas solo guardan el exerciseId como referencia, así que un
+    // bloque que lo use simplemente deja de poder resolver su nombre (cae al
+    // "Ejercicio" genérico de reserva) en vez de bloquear el borrado. Las
+    // sesiones ya asignadas o completadas no se ven afectadas porque
+    // capturan su propio plannedSnapshot con el nombre en el momento de
+    // asignarse.
     await firestoreService.deleteDocument('exercises', String(id));
     return true;
   },

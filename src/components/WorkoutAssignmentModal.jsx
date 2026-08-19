@@ -3,12 +3,18 @@ import { storage, KEYS } from '../services/storage';
 import { createFocusTrap } from '../utils/focusTrap';
 
 export default function WorkoutAssignmentModal({
-  workoutId, // Si viene, se asigna esta rutina específica
+  workoutId, // Si viene, se asigna este entrenamiento específico
+  workoutIds, // Si viene (selección múltiple), se asignan todos estos a la vez
   clientId, // Si viene, se fija el cliente
   initialDate, // YYYY-MM-DD
   onClose,
   onSave
 }) {
+  // Normaliza las dos formas de recibir entrenamientos fijos (uno solo o
+  // varios de una selección múltiple) a una única lista de trabajo.
+  const fixedWorkoutIds = workoutIds && workoutIds.length > 0
+    ? workoutIds.map(String)
+    : (workoutId ? [String(workoutId)] : null);
   const [clients, setClients] = useState([]);
   const [groups, setGroups] = useState([]);
   const [workouts, setWorkouts] = useState([]);
@@ -38,9 +44,7 @@ export default function WorkoutAssignmentModal({
         setTargetId(String(dbClients[0].id));
       }
 
-      if (workoutId) {
-        setSelectedWorkoutId(String(workoutId));
-      } else if (dbWorkouts.length > 0) {
+      if (!fixedWorkoutIds && dbWorkouts.length > 0) {
         setSelectedWorkoutId(String(dbWorkouts[0].id));
       }
     }
@@ -48,7 +52,8 @@ export default function WorkoutAssignmentModal({
 
     // Inicializar la primera fecha
     setScheduledDates([initialDate || new Date().toISOString().split('T')[0]]);
-  }, [clientId, initialDate, workoutId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, initialDate, workoutId, workoutIds]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -103,8 +108,9 @@ export default function WorkoutAssignmentModal({
       setErrorMsg('Debes seleccionar un destinatario válido.');
       return;
     }
-    if (!selectedWorkoutId) {
-      setErrorMsg('Debes seleccionar una rutina para asignar.');
+    const idsToAssign = fixedWorkoutIds || (selectedWorkoutId ? [String(selectedWorkoutId)] : []);
+    if (idsToAssign.length === 0) {
+      setErrorMsg('Debes seleccionar un entrenamiento para asignar.');
       return;
     }
     // Fechas válidas y sin duplicados, en el orden en que se introdujeron.
@@ -129,19 +135,23 @@ export default function WorkoutAssignmentModal({
       return;
     }
 
-    // Se cruzan destinatarios × fechas: una asignación individual por cada
-    // combinación cliente-día. La hora de las 10:00 se añadía
-    // automáticamente antes, pero el usuario pidió mantener scheduledAt
-    // como fecha local YYYY-MM-DD, sin hora ficticia.
+    // Se cruzan entrenamientos × destinatarios × fechas: una asignación
+    // individual por cada combinación entrenamiento-cliente-día (lo normal es
+    // un único entrenamiento, pero la selección múltiple permite asignar
+    // varios de golpe). La hora de las 10:00 se añadía automáticamente
+    // antes, pero el usuario pidió mantener scheduledAt como fecha local
+    // YYYY-MM-DD, sin hora ficticia.
     const jobs = [];
-    for (const cId of targetClientIds) {
-      for (const date of dates) {
-        jobs.push(storage.saveWorkoutAssignment({
-          workoutId: String(selectedWorkoutId),
-          clientId: cId,
-          scheduledAt: date,
-          status: 'pending'
-        }));
+    for (const wId of idsToAssign) {
+      for (const cId of targetClientIds) {
+        for (const date of dates) {
+          jobs.push(storage.saveWorkoutAssignment({
+            workoutId: String(wId),
+            clientId: cId,
+            scheduledAt: date,
+            status: 'pending'
+          }));
+        }
       }
     }
 
@@ -183,10 +193,17 @@ export default function WorkoutAssignmentModal({
             </div>
           )}
 
-          {/* Rutina a asignar */}
-          {!workoutId && (
+          {/* Entrenamiento(s) a asignar */}
+          {fixedWorkoutIds && fixedWorkoutIds.length > 1 ? (
             <div className="el__field">
-              <label className="el__label">Rutina (Plantilla)</label>
+              <label className="el__label">Entrenamientos seleccionados</label>
+              <div style={{ fontSize: '0.875rem', color: 'var(--gray-600)' }}>
+                Se asignarán <strong>{fixedWorkoutIds.length}</strong> entrenamientos.
+              </div>
+            </div>
+          ) : !fixedWorkoutIds && (
+            <div className="el__field">
+              <label className="el__label">Entrenamiento (Plantilla)</label>
               <select
                 className="el__input"
                 value={selectedWorkoutId}

@@ -420,9 +420,9 @@ export default function ProgramBuilderView({
                       <span className="wb__day-name">{DAY_SHORT[day.dayOffset]}</span>
 
                       {day.restDay ? (
-                        <span className="wb__day-rest">Descanso · arrastra una rutina o pulsa + en la biblioteca</span>
+                        <span className="wb__day-rest">Descanso · arrastra un entrenamiento o pulsa + en la biblioteca</span>
                       ) : (
-                        <span className="wb__day-workout">🏋️ {workoutObj ? workoutObj.name : `Rutina no encontrada`}</span>
+                        <span className="wb__day-workout">🏋️ {workoutObj ? workoutObj.name : `Entrenamiento no encontrado`}</span>
                       )}
 
                       <input
@@ -434,7 +434,7 @@ export default function ProgramBuilderView({
                       />
 
                       {!day.restDay && (
-                        <button type="button" className="wb__icon-btn wb__icon-btn--danger" onClick={() => handleClearDay(activeWeekIdx, day.dayOffset)} title="Quitar rutina de este día">✕</button>
+                        <button type="button" className="wb__icon-btn wb__icon-btn--danger" onClick={() => handleClearDay(activeWeekIdx, day.dayOffset)} title="Quitar entrenamiento de este día">✕</button>
                       )}
                     </div>
                   );
@@ -444,21 +444,21 @@ export default function ProgramBuilderView({
           )}
         </div>
 
-        {/* ══ COLUMNA DERECHA: BIBLIOTECA DE RUTINAS ═════════ */}
+        {/* ══ COLUMNA DERECHA: BIBLIOTECA DE ENTRENAMIENTOS ═════════ */}
         <div className="wb__col wb__col--right">
-          <h2 className="wb__section-title">Rutinas</h2>
+          <h2 className="wb__section-title">Entrenamientos</h2>
 
           <input
             type="text"
             className="wb__field-input"
-            placeholder="Buscar rutina..."
+            placeholder="Buscar entrenamiento..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
 
           <div className="wb__library-list">
             {filteredWorkouts.length === 0 && (
-              <p className="wb__empty-hint">No hay rutinas que encajen con la búsqueda.</p>
+              <p className="wb__empty-hint">No hay entrenamientos que encajen con la búsqueda.</p>
             )}
 
             {filteredWorkouts.map(w => (

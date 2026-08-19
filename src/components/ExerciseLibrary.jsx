@@ -55,14 +55,14 @@ function getCategoryBadgeClass(categoryId) {
 }
 
 /* ─── Sub-componente: Video / Imagen Preview ────────────── */
-function VideoThumbnail({ videoUrl, name, image }) {
+function VideoThumbnail({ videoUrl, name, image, big = false }) {
   const [imgError, setImgError] = useState(false);
   const thumbnailUrl = getYouTubeThumbnail(videoUrl);
   const src = (!imgError && image) ? image : (!imgError ? thumbnailUrl : null);
   const showImg = !!src;
 
   return (
-    <div className="el__card-img-wrap">
+    <div className={`el__card-img-wrap ${big ? 'el__card-img-wrap--big' : ''}`}>
       {showImg ? (
         <img
           src={src}
@@ -94,6 +94,67 @@ function VideoThumbnail({ videoUrl, name, image }) {
   );
 }
 
+/* ─── Sub-componente: Modal de detalle de ejercicio ──────────
+   Al abrir solo se ve la foto/miniatura y las categorías (lo que ya se veía
+   en la tarjeta); la descripción y las instrucciones técnicas, antes
+   siempre visibles en la tarjeta, ahora solo aparecen aquí. Si hay vídeo,
+   se reproduce dentro del propio modal al pulsar sobre la miniatura, en vez
+   de saltar a un modal aparte. */
+function ExerciseDetailModal({ exercise, categories, subcategories, onClose }) {
+  const [playing, setPlaying] = useState(false);
+  const catName = categories.find(c => c.id === exercise.categoryId)?.name || 'Sin categoría';
+  const subName = subcategories.find(s => s.id === exercise.subcategoryId)?.name || '';
+
+  return (
+    <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="el__modal el__modal--exercise-detail" onClick={e => e.stopPropagation()}>
+        <div className="el__modal-header" style={{ padding: '12px' }}>
+          <button className="el__modal-close" onClick={onClose} aria-label="Cerrar detalle">✕</button>
+        </div>
+
+        <div className="el__modal-body" style={{ padding: 0 }}>
+          {playing && exercise.videoUrl ? (
+            <div className="el__video-aspect">
+              <iframe
+                src={getYouTubeEmbedUrl(exercise.videoUrl)}
+                title={`Vídeo de ${exercise.name}`}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <div
+              onClick={() => exercise.videoUrl && setPlaying(true)}
+              style={{ cursor: exercise.videoUrl ? 'pointer' : 'default' }}
+            >
+              <VideoThumbnail videoUrl={exercise.videoUrl} name={exercise.name} image={exercise.image} big />
+            </div>
+          )}
+
+          <div className="el__card-content">
+            <div className="el__card-badges">
+              <span className={`badge ${getCategoryBadgeClass(exercise.categoryId)}`}>{catName}</span>
+              {subName && <span className="badge badge--default">{subName}</span>}
+            </div>
+
+            <h3 className="el__card-title">{exercise.name}</h3>
+            <p className="el__card-desc" style={{ WebkitLineClamp: 'unset' }}>
+              {exercise.description || 'Sin descripción.'}
+            </p>
+
+            {exercise.technicalInstructions && (
+              <div style={{ marginTop: '8px', fontSize: '0.8125rem', color: 'var(--gray-400)', borderLeft: '2px solid var(--gray-200)', paddingLeft: '8px' }}>
+                <strong>Instrucciones:</strong> {exercise.technicalInstructions}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ExerciseLibrary() {
   // Datos principales relacionales V4
   const [exercises, setExercises] = useState([]);
@@ -104,13 +165,13 @@ export default function ExerciseLibrary() {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
-  const [activeVideoUrl, setActiveVideoUrl] = useState(null);
+  const [detailExercise, setDetailExercise] = useState(null);
 
   // Filtros
   const [search, setSearch] = useState('');
   const [selectedCatFilter, setSelectedCatFilter] = useState('Todas');
   const [selectedSubcatFilter, setSelectedSubcatFilter] = useState('Todas');
-  const [sortOrder, setSortOrder] = useState('name-asc');
+  const [sortOrder, setSortOrder] = useState('recent');
 
   // Modales
   const [showFormModal, setShowFormModal] = useState(false);
@@ -149,12 +210,12 @@ export default function ExerciseLibrary() {
     setSearch('');
     setSelectedCatFilter('Todas');
     setSelectedSubcatFilter('Todas');
-    setSortOrder('name-asc');
+    setSortOrder('recent');
   };
 
   // --- Toggle Favoritos Instantáneo ---
   const handleToggleFavorite = async (e, ex) => {
-    e.stopPropagation(); // Evitar abrir modal de vídeo
+    e.stopPropagation(); // Evitar abrir el modal de detalle
     const updated = {
       ...ex,
       favorite: !ex.favorite
@@ -183,7 +244,7 @@ export default function ExerciseLibrary() {
       await storage.deleteExercise(ex.id);
       setExercises(prev => prev.filter(item => item.id !== ex.id));
     } catch (err) {
-      alert(err.message); // Bloqueo por integridad si está en uso en rutinas
+      alert(err.message);
     }
   };
 
@@ -231,6 +292,8 @@ export default function ExerciseLibrary() {
       sorted.sort((a, b) => b.name.localeCompare(a.name));
     } else if (sortOrder === 'favorites') {
       sorted.sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0));
+    } else if (sortOrder === 'recent') {
+      sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     }
 
     return sorted;
@@ -321,6 +384,7 @@ export default function ExerciseLibrary() {
               onChange={(e) => setSortOrder(e.target.value)}
               aria-label="Ordenar listado"
             >
+              <option value="recent">Añadidos recientemente</option>
               <option value="name-asc">Nombre (A-Z)</option>
               <option value="name-desc">Nombre (Z-A)</option>
               <option value="favorites">Favoritos Primero</option>
@@ -387,9 +451,9 @@ export default function ExerciseLibrary() {
               <article
                 key={ex.id}
                 className="el__card"
-                onClick={() => ex.videoUrl && setActiveVideoUrl(ex.videoUrl)}
+                onClick={() => setDetailExercise(ex)}
                 role="listitem"
-                style={{ cursor: ex.videoUrl ? 'pointer' : 'default' }}
+                style={{ cursor: 'pointer' }}
               >
                 {/* Estrella de favorito */}
                 <button
@@ -417,13 +481,11 @@ export default function ExerciseLibrary() {
                   </div>
 
                   <h3 className="el__card-title">{ex.name}</h3>
-                  <p className="el__card-desc">{ex.description || 'Sin descripción.'}</p>
-                  
-                  {ex.technicalInstructions && (
-                    <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--gray-400)', borderLeft: '2px solid var(--gray-200)', paddingLeft: '8px' }}>
-                      <strong>Instrucciones:</strong> {ex.technicalInstructions}
-                    </div>
-                  )}
+
+                  {/* La descripción y las instrucciones técnicas ya no se ven
+                      aquí: se han movido al modal de detalle, que se abre al
+                      pulsar la tarjeta. Antes de un clic, solo la foto y las
+                      categorías dan pistas sobre el ejercicio. */}
 
                   {/* Acciones de administración */}
                   <div className="el__card-admin-actions">
@@ -449,26 +511,14 @@ export default function ExerciseLibrary() {
         </div>
       )}
 
-      {/* ══ MODAL DE VÍDEO (YOUTUBE EMBED) ═══════════════════ */}
-      {activeVideoUrl && (
-        <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={() => setActiveVideoUrl(null)}>
-          <div className="el__modal el__modal--video" onClick={e => e.stopPropagation()}>
-            <div className="el__modal-header" style={{ borderBottom: 'none', padding: '12px' }}>
-              <button className="el__modal-close" onClick={() => setActiveVideoUrl(null)} aria-label="Cerrar reproductor">
-                ✕
-              </button>
-            </div>
-            <div className="el__video-aspect">
-              <iframe
-                src={getYouTubeEmbedUrl(activeVideoUrl)}
-                title="Reproductor de vídeo de ejercicio"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          </div>
-        </div>
+      {/* ══ MODAL DE DETALLE DE EJERCICIO (foto/vídeo + descripción) ══ */}
+      {detailExercise && (
+        <ExerciseDetailModal
+          exercise={detailExercise}
+          categories={categories}
+          subcategories={subcategories}
+          onClose={() => setDetailExercise(null)}
+        />
       )}
 
       {/* ══ MODAL UNIFICADO: AÑADIR / EDITAR EJERCICIO ════════ */}

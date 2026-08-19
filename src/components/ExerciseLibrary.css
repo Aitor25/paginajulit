@@ -175,10 +175,30 @@
 
 .el__grid {
   display: grid;
-  /* min() evita que la columna de 320px desborde pantallas más estrechas */
-  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  /* 4 columnas fijas en escritorio en vez de auto-fill (que dejaba 5-6
+     columnas muy estrechas en monitores anchos); se reduce por breakpoints
+     en vez de con auto-fill para que el número de columnas sea predecible. */
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
   margin-top: 1.5rem;
+}
+
+@media (max-width: 1400px) {
+  .el__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1000px) {
+  .el__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .el__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .el__card {
@@ -388,18 +408,12 @@
   animation: fadeIn 0.3s ease;
 }
 
-.el__modal--video {
-  background: #000;
-  width: 100%;
-  max-width: 900px;
-  border-radius: 16px;
-  /* Red de seguridad: en una pantalla ancha pero muy baja (móvil en
-     horizontal), la caja de vídeo de proporción 16:9 puede ser más alta que
-     el hueco disponible. Con scroll propio del modal en vez del "overflow:
-     hidden" heredado, en ese caso extremo aparece una barra dentro del propio
-     reproductor en vez de recortar el vídeo sin forma de verlo entero. */
-  overflow-y: auto;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+.el__modal--exercise-detail {
+  max-width: 560px;
+}
+
+.el__card-img-wrap--big {
+  height: 320px;
 }
 
 .el__video-aspect {
