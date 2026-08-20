@@ -1,6 +1,13 @@
 /* src/components/ExerciseLibrary.css */
 .el {
   padding: 2rem;
+  /* Sin "width: 100%" este contenedor es hijo flex de <main> (que centra con
+     "margin: auto"), y unos márgenes auto desactivan el stretch por defecto
+     de flexbox: el ancho se resolvía por shrink-to-fit del contenido en vez
+     de ocupar el máximo disponible, así que la rejilla de 4 columnas podía
+     no llegar nunca a desplegarse del todo. Mismo bug que ya se corrigió en
+     el portal de cliente (.cp__container). */
+  width: 100%;
   max-width: 1600px;
   margin: 0 auto;
   color: var(--text-color);
@@ -183,19 +190,24 @@
   margin-top: 1.5rem;
 }
 
-@media (max-width: 1400px) {
+/* El umbral de 4 columnas se ha bajado a propósito hasta 1024px: no sabemos
+   el ancho de pantalla real de cada entrenador, así que se prioriza que se
+   vean las 4 columnas en la inmensa mayoría de portátiles y monitores
+   (prácticamente todos parten de 1280px de ancho lógico hacia arriba) en
+   vez de reservar ese umbral para monitores muy anchos. */
+@media (max-width: 1024px) {
   .el__grid {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 768px) {
   .el__grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 480px) {
   .el__grid {
     grid-template-columns: 1fr;
   }
