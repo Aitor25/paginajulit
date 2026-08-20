@@ -101,7 +101,8 @@ function measureRow(doc, ex, info) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   const iconSpace = info?.videoUrl ? 5 : 0;
-  const nameLines = doc.splitTextToSize(ex.exerciseName || 'Ejercicio', COL_WIDTHS.exercise - 4 - iconSpace);
+  const exName = ex.exerciseName || info?.name || 'Ejercicio';
+  const nameLines = doc.splitTextToSize(exName, COL_WIDTHS.exercise - 4 - iconSpace);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.3);
@@ -330,12 +331,13 @@ export function buildWorkoutPdfDoc(snap, { clientName, coachName, scheduledAt } 
     y += 3;
   }
 
+  const blockCount = (snap.blocks || []).length;
   const totalExercises = (snap.blocks || []).reduce((n, b) => n + (b.exercises?.length || 0), 0);
   y = drawMetaRow(doc, y, [
     { label: 'Deportista', value: clientName || '—' },
     { label: 'Fecha programada', value: scheduledAt ? formatDate(scheduledAt) : '—' },
     { label: 'Duración estimada', value: `${snap.estimatedDurationMinutes || 60} minutos` },
-    { label: 'Bloques', value: `${(snap.blocks || []).length} bloques · ${totalExercises} ejercicios` }
+    { label: 'Bloques', value: `${blockCount} bloque${blockCount === 1 ? '' : 's'} · ${totalExercises} ejercicio${totalExercises === 1 ? '' : 's'}` }
   ]);
 
   (snap.blocks || []).forEach((block, i) => {
@@ -344,6 +346,33 @@ export function buildWorkoutPdfDoc(snap, { clientName, coachName, scheduledAt } 
 
   drawFooters(doc);
   return doc;
+}
+
+// El snapshot de una asignación solo guarda exerciseId + nombre; una
+// plantilla sin asignar ni siquiera guarda el nombre junto al bloque.
+// Categoría, subcategoría, vídeo y nombre se resuelven siempre contra el
+// catálogo actual (si el ejercicio se borró o cambió después, el PDF usa lo
+// que haya hoy).
+async function resolveExerciseCatalog() {
+  const exercisesById = new Map();
+  try {
+    const [exs, cats, subs] = await Promise.all([
+      storage.getExercises(),
+      storage.getEntities(KEYS.EX_CATEGORIES),
+      storage.getEntities(KEYS.EX_SUBCATEGORIES)
+    ]);
+    const catById = new Map(cats.map(c => [String(c.id), c.name]));
+    const subById = new Map(subs.map(s => [String(s.id), s.name]));
+    exs.forEach(e => exercisesById.set(String(e.id), {
+      name: e.name || null,
+      videoUrl: e.videoUrl || null,
+      categoryName: catById.get(String(e.categoryId)) || null,
+      subcategoryName: subById.get(String(e.subcategoryId)) || null
+    }));
+  } catch (err) {
+    console.error('No se pudo cargar el catálogo de ejercicios para el PDF:', err);
+  }
+  return exercisesById;
 }
 
 /**
@@ -356,29 +385,25 @@ export async function downloadWorkoutAssignmentPdf(assignment, { clientName, coa
     throw new Error('Este entrenamiento todavía no tiene datos guardados para generar el PDF.');
   }
 
-  // El snapshot solo guarda exerciseId + nombre; categoría, subcategoría y
-  // vídeo se resuelven contra el catálogo actual (si el ejercicio se borró
-  // o cambió de categoría después de asignarse, el PDF usa lo que haya hoy).
-  const exercisesById = new Map();
-  try {
-    const [exs, cats, subs] = await Promise.all([
-      storage.getExercises(),
-      storage.getEntities(KEYS.EX_CATEGORIES),
-      storage.getEntities(KEYS.EX_SUBCATEGORIES)
-    ]);
-    const catById = new Map(cats.map(c => [String(c.id), c.name]));
-    const subById = new Map(subs.map(s => [String(s.id), s.name]));
-    exs.forEach(e => exercisesById.set(String(e.id), {
-      videoUrl: e.videoUrl || null,
-      categoryName: catById.get(String(e.categoryId)) || null,
-      subcategoryName: subById.get(String(e.subcategoryId)) || null
-    }));
-  } catch (err) {
-    console.error('No se pudo cargar el catálogo de ejercicios para el PDF:', err);
-  }
-
+  const exercisesById = await resolveExerciseCatalog();
   const doc = buildWorkoutPdfDoc(snap, { clientName, coachName, scheduledAt: assignment.scheduledAt }, exercisesById);
 
   const fileName = `entrenamiento-${slugify(snap.name)}${assignment.scheduledAt ? '-' + assignment.scheduledAt : ''}.pdf`;
   doc.save(fileName);
+}
+
+/**
+ * Genera y descarga el PDF de una plantilla de entrenamiento suelta, sin
+ * asignar a nadie todavía: deportista y fecha programada quedan en blanco
+ * en vez de bloquear la descarga.
+ */
+export async function downloadWorkoutTemplatePdf(workout, { coachName } = {}) {
+  if (!workout) {
+    throw new Error('No se ha podido cargar este entrenamiento.');
+  }
+
+  const exercisesById = await resolveExerciseCatalog();
+  const doc = buildWorkoutPdfDoc(workout, { coachName }, exercisesById);
+
+  doc.save(`entrenamiento-${slugify(workout.name)}.pdf`);
 }

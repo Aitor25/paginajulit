@@ -133,6 +133,17 @@ export default function WorkoutManager() {
     }
   };
 
+  // Plantilla suelta, sin asignar a nadie todavía: deportista y fecha se
+  // dejan en blanco en el PDF en vez de exigir una asignación primero.
+  const handleDownloadTemplatePdf = async (workout) => {
+    try {
+      const { downloadWorkoutTemplatePdf } = await import('../utils/workoutPdf');
+      await downloadWorkoutTemplatePdf(workout, { coachName: userProfile?.fullName });
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   // --- Filtrado ---
   const filteredWorkouts = useMemo(() => {
     let result = workouts;
@@ -326,6 +337,9 @@ export default function WorkoutManager() {
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
                               <button className="el__btn el__btn--primary" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => setAssignWorkoutIds([w.id])}>
                                 Asignar
+                              </button>
+                              <button className="el__btn el__btn--ghost" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => handleDownloadTemplatePdf(w)} title="Descargar PDF del entrenamiento">
+                                PDF
                               </button>
                               <button className="el__btn el__btn--ghost" style={{ height: '30px', width: '30px', padding: 0, color: '#e53e3e', borderColor: '#fbc2c2' }} onClick={() => handleDeleteWorkout(w.id, w.name)} title="Eliminar definitivamente">
                                 ✕
