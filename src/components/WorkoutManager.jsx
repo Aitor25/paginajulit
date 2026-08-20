@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS } from '../services/storage';
 import { formatDate } from '../utils/dateUtils';
+import { useAuth } from '../contexts/AuthProvider';
 import WorkoutBuilderView from './WorkoutBuilderView';
 import WorkoutAssignmentModal from './WorkoutAssignmentModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
@@ -13,6 +14,7 @@ function stripAccents(str) {
 }
 
 export default function WorkoutManager() {
+  const { userProfile } = useAuth();
   const [subTab, setSubTab] = useState('workouts'); // 'workouts' | 'programs'
 
   const [workouts, setWorkouts] = useState([]);
@@ -118,6 +120,17 @@ export default function WorkoutManager() {
     if (!window.confirm("¿Seguro que deseas anular esta asignación programada?")) return;
     await storage.deleteWorkoutAssignment(id);
     setAssignments(prev => prev.filter(a => a.id !== id));
+  };
+
+  const handleDownloadAssignmentPdf = async (assignment, clientName) => {
+    try {
+      // Carga diferida: jsPDF (con sus tablas de fuentes) solo se descarga
+      // cuando alguien pulsa "PDF", no en cada carga de esta página.
+      const { downloadWorkoutAssignmentPdf } = await import('../utils/workoutPdf');
+      await downloadWorkoutAssignmentPdf(assignment, { clientName, coachName: userProfile?.fullName });
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   // --- Filtrado ---
@@ -364,13 +377,14 @@ export default function WorkoutManager() {
                         const wName = workouts.find(w => w.id === a.workoutId)?.name || 'Entrenamiento eliminado';
 
                         let targetName = 'N/A';
+                        const clientObj = a.clientId ? clients.find(cl => cl.id === a.clientId) : null;
                         if (a.clientId) {
-                          const c = clients.find(cl => cl.id === a.clientId);
-                          targetName = c ? `👤 ${c.firstName} ${c.lastName}` : 'Cliente no encontrado';
+                          targetName = clientObj ? `👤 ${clientObj.firstName} ${clientObj.lastName}` : 'Cliente no encontrado';
                         } else if (a.groupId) {
                           const g = groups.find(gp => gp.id === a.groupId);
                           targetName = g ? `👥 Grupo: ${g.name}` : 'Grupo no encontrado';
                         }
+                        const clientFullName = clientObj ? `${clientObj.firstName} ${clientObj.lastName}` : '';
 
                         return (
                           <tr key={a.id}>
@@ -398,6 +412,14 @@ export default function WorkoutManager() {
                                   Reabrir
                                 </button>
                               )}
+                              <button
+                                className="el__card-admin-btn"
+                                style={{ marginRight: '6px' }}
+                                onClick={() => handleDownloadAssignmentPdf(a, clientFullName)}
+                                title="Descargar PDF del entrenamiento"
+                              >
+                                PDF
+                              </button>
                               <button className="el__card-admin-btn el__card-admin-btn--delete" onClick={() => handleDeleteAssignment(a.id)} title="Anular asignación">
                                 Anular
                               </button>

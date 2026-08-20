@@ -824,6 +824,16 @@ export default function ClientPortal() {
     setShowFreeSessionModal(false);
   };
 
+  const handleDownloadAssignmentPdf = async (assignment) => {
+    try {
+      const { downloadWorkoutAssignmentPdf } = await import('../utils/workoutPdf');
+      const fullName = client ? `${client.firstName} ${client.lastName}` : '';
+      await downloadWorkoutAssignmentPdf(assignment, { clientName: fullName });
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   return (
     <div className="cp__container">
 
@@ -1062,7 +1072,16 @@ export default function ClientPortal() {
                       )}
                     </div>
 
-                    <div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        className="el__btn el__btn--ghost cp__icon-btn"
+                        style={{ height: '32px', width: '32px', padding: 0, fontSize: '0.9rem', flexShrink: 0 }}
+                        onClick={() => handleDownloadAssignmentPdf(a)}
+                        title="Descargar entrenamiento en PDF"
+                        aria-label="Descargar entrenamiento en PDF"
+                      >
+                        ⬇
+                      </button>
                       {a.status === 'completed' ? (
                         <button
                           className="el__btn el__btn--ghost"

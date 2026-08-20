@@ -534,6 +534,7 @@ export const storage = {
           templateVersion: 1,
           capturedAt: new Date().toISOString(),
           name: template.name,
+          description: template.description || '',
           estimatedDurationMinutes: template.estimatedDurationMinutes || 60,
           // El bloque solo tiene nombre y series. Firestore rechaza undefined,
           // así que los campos retirados no se copian si la plantilla es antigua.

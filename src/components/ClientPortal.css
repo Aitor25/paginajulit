@@ -650,7 +650,7 @@
     width: 100%;
   }
 
-  .cp__agenda-card > div:last-child:not(.cp__agenda-info) .el__btn {
+  .cp__agenda-card > div:last-child:not(.cp__agenda-info) .el__btn:not(.cp__icon-btn) {
     width: 100%;
   }
 
