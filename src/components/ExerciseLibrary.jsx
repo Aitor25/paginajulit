@@ -11,38 +11,47 @@ function stripAccents(str) {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
-function getYouTubeThumbnail(videoUrl) {
+// Además de "youtu.be" y "?v=", ahora también entiende "/shorts/{id}": antes
+// una URL de Shorts no encontraba ningún id (ni miniatura ni reproductor),
+// porque solo se miraba el parámetro "v", que los Shorts no llevan.
+function extractYouTubeId(videoUrl) {
   if (!videoUrl) return null;
   try {
     const url = new URL(videoUrl);
-    let videoId = null;
     if (url.hostname === 'youtu.be') {
-      videoId = url.pathname.slice(1);
-    } else if (url.hostname.includes('youtube.com')) {
-      videoId = url.searchParams.get('v');
+      return url.pathname.slice(1) || null;
     }
-    if (!videoId) return null;
-    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    if (url.hostname.includes('youtube.com')) {
+      if (url.pathname.startsWith('/shorts/')) {
+        return url.pathname.split('/')[2] || null;
+      }
+      return url.searchParams.get('v');
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
-function getYouTubeEmbedUrl(videoUrl) {
-  if (!videoUrl) return null;
+// Un Short es un vídeo vertical: se reproduce en una caja 9:16 en vez de la
+// habitual 16:9, para no dejarlo con bandas negras enormes a los lados.
+function isYouTubeShorts(videoUrl) {
+  if (!videoUrl) return false;
   try {
-    const url = new URL(videoUrl);
-    let videoId = null;
-    if (url.hostname === 'youtu.be') {
-      videoId = url.pathname.slice(1);
-    } else if (url.hostname.includes('youtube.com')) {
-      videoId = url.searchParams.get('v');
-    }
-    if (!videoId) return null;
-    return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`;
+    return new URL(videoUrl).pathname.startsWith('/shorts/');
   } catch {
-    return null;
+    return false;
   }
+}
+
+function getYouTubeThumbnail(videoUrl) {
+  const videoId = extractYouTubeId(videoUrl);
+  return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
+}
+
+function getYouTubeEmbedUrl(videoUrl) {
+  const videoId = extractYouTubeId(videoUrl);
+  return videoId ? `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1` : null;
 }
 
 function getCategoryBadgeClass(categoryId) {
@@ -114,7 +123,7 @@ function ExerciseDetailModal({ exercise, categories, subcategories, onClose }) {
 
         <div className="el__modal-body" style={{ padding: 0 }}>
           {playing && exercise.videoUrl ? (
-            <div className="el__video-aspect">
+            <div className={`el__video-aspect ${isYouTubeShorts(exercise.videoUrl) ? 'el__video-aspect--vertical' : ''}`}>
               <iframe
                 src={getYouTubeEmbedUrl(exercise.videoUrl)}
                 title={`Vídeo de ${exercise.name}`}
@@ -134,8 +143,8 @@ function ExerciseDetailModal({ exercise, categories, subcategories, onClose }) {
 
           <div className="el__card-content">
             <div className="el__card-badges">
-              <span className={`badge ${getCategoryBadgeClass(exercise.categoryId)}`}>{catName}</span>
-              {subName && <span className="badge badge--default">{subName}</span>}
+              <span className={`badge badge--category ${getCategoryBadgeClass(exercise.categoryId)}`}>{catName}</span>
+              {subName && <span className="badge badge--subcategory">{subName}</span>}
             </div>
 
             <h3 className="el__card-title">{exercise.name}</h3>
@@ -470,11 +479,11 @@ export default function ExerciseLibrary() {
                 {/* Contenido */}
                 <div className="el__card-content">
                   <div className="el__card-badges">
-                    <span className={`badge ${getCategoryBadgeClass(ex.categoryId)}`}>
+                    <span className={`badge badge--category ${getCategoryBadgeClass(ex.categoryId)}`}>
                       {catName}
                     </span>
                     {subName && (
-                      <span className="badge badge--default">
+                      <span className="badge badge--subcategory">
                         {subName}
                       </span>
                     )}

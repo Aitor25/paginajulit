@@ -182,19 +182,24 @@
 
 .el__grid {
   display: grid;
-  /* 4 columnas fijas en escritorio en vez de auto-fill (que dejaba 5-6
-     columnas muy estrechas en monitores anchos); se reduce por breakpoints
-     en vez de con auto-fill para que el número de columnas sea predecible. */
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
+  /* 5 columnas fijas en escritorio en vez de auto-fill (que dejaba columnas
+     muy estrechas en monitores anchos); se reduce por breakpoints en vez de
+     con auto-fill para que el número de columnas sea predecible. */
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1.25rem;
   margin-top: 1.5rem;
 }
 
-/* El umbral de 4 columnas se ha bajado a propósito hasta 1024px: no sabemos
-   el ancho de pantalla real de cada entrenador, así que se prioriza que se
-   vean las 4 columnas en la inmensa mayoría de portátiles y monitores
-   (prácticamente todos parten de 1280px de ancho lógico hacia arriba) en
-   vez de reservar ese umbral para monitores muy anchos. */
+/* Los umbrales se bajan a propósito: no sabemos el ancho de pantalla real
+   de cada entrenador, así que se prioriza que se vean las 5 columnas en la
+   inmensa mayoría de portátiles y monitores en vez de reservarlas para
+   monitores muy anchos. */
+@media (max-width: 1300px) {
+  .el__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 @media (max-width: 1024px) {
   .el__grid {
     grid-template-columns: repeat(3, 1fr);
@@ -232,7 +237,7 @@
 
 .el__card-img-wrap {
   width: 100%;
-  height: 200px;
+  height: 130px;
   position: relative;
   background: #111;
   overflow: hidden;
@@ -323,26 +328,51 @@
 }
 
 .el__card-content {
-  padding: 1.5rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   flex: 1;
 }
 
+/* "flex-wrap: nowrap" en vez de "wrap": con la tarjeta más estrecha (5
+   columnas) la subcategoría se apilaba debajo de la categoría en cuanto no
+   cabían las dos en la misma línea. Ahora la categoría nunca se encoge
+   (manda ella) y es la subcategoría la que se trunca con "…" si hace falta. */
 .el__card-badges {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+  min-width: 0;
 }
 
 .badge {
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.75rem;
+  padding: 2px 7px;
+  border-radius: 5px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* La categoría se ve algo más grande que la subcategoría, y nunca cede
+   espacio: es la pista principal del ejercicio. */
+.badge--category {
+  font-size: 0.6875rem;
+  flex-shrink: 0;
+}
+
+.badge--subcategory {
+  font-size: 0.5625rem;
+  font-weight: 500;
+  opacity: 0.85;
+  flex-shrink: 1;
+  background: rgba(156, 163, 175, 0.15);
+  color: #9ca3af;
 }
 
 .badge--blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
@@ -351,7 +381,7 @@
 .badge--default { background: rgba(156, 163, 175, 0.15); color: #9ca3af; }
 
 .el__card-title {
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 700;
   margin: 0 0 0.5rem 0;
   line-height: 1.3;
@@ -440,6 +470,17 @@
   left: 0;
   width: 100%;
   height: 100%;
+}
+
+/* Vídeo vertical (Shorts): caja 9:16 centrada y acotada en ancho, en vez de
+   estirarse a todo el ancho del modal a 16:9 invertido (quedaría enorme y
+   con bandas negras a los lados). */
+.el__video-aspect--vertical {
+  width: min(100%, 300px);
+  margin: 0 auto;
+  padding-bottom: 0;
+  aspect-ratio: 9 / 16;
+  height: auto;
 }
 
 @keyframes fadeIn {
