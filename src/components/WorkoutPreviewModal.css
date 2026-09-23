@@ -1,0 +1,162 @@
+/* src/components/WorkoutPreviewModal.css */
+
+.wpv__modal {
+  max-width: 560px;
+}
+
+.wpv__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.wpv__description {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--gray-500);
+  line-height: 1.5;
+}
+
+.wpv__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wpv__meta-pill {
+  background: var(--off-white, #f9fafb);
+  border: 1px solid var(--gray-200, #e5e7eb);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gray-600, #4b5563);
+}
+
+.wpv__loading {
+  text-align: center;
+  padding: 24px;
+  color: var(--gray-400);
+  font-size: 0.85rem;
+}
+
+.wpv__block {
+  border: 1px solid var(--gray-200, #e5e7eb);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.wpv__block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--accent);
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.wpv__block-rounds {
+  background: #fff;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.7rem;
+}
+
+.wpv__exercise {
+  border-top: 1px solid var(--gray-100, #f3f4f6);
+}
+
+.wpv__exercise-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.wpv__exercise-num {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gray-100, #f3f4f6);
+  color: var(--gray-500);
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wpv__exercise-name {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gray-800, #1f2937);
+}
+
+.wpv__chevron {
+  flex-shrink: 0;
+  color: var(--gray-400);
+  font-size: 0.75rem;
+  transition: transform 0.15s ease;
+}
+
+.wpv__chevron--open {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+.wpv__exercise-body {
+  padding: 0 12px 12px 42px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wpv__exercise-stats {
+  display: flex;
+  gap: 20px;
+}
+
+.wpv__stat-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--gray-400);
+}
+
+.wpv__stat-value {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gray-800, #1f2937);
+  margin-top: 2px;
+}
+
+.wpv__exercise-notes {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--gray-600, #4b5563);
+  background: #fffbeb;
+  border-left: 2px solid #f59e0b;
+  padding: 6px 10px;
+  border-radius: 0 6px 6px 0;
+}
+
+.wpv__exercise-notes--empty {
+  background: none;
+  border-left-color: var(--gray-200, #e5e7eb);
+  color: var(--gray-400);
+  font-style: italic;
+}

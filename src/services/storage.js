@@ -490,6 +490,31 @@ export const storage = {
     return true;
   },
 
+  duplicateWorkout: async (id) => {
+    const workout = await storage.getWorkoutById(id);
+    if (!workout) throw new Error("Entrenamiento no encontrado.");
+
+    const cloned = {
+      name: `[Copia] - ${workout.name}`,
+      description: workout.description,
+      estimatedDurationMinutes: workout.estimatedDurationMinutes,
+      // Ids nuevos para bloques y ejercicios: son dos entrenamientos
+      // independientes a partir de aquí, y reutilizar los mismos ids podría
+      // confundir el drag&drop/las keys de React si ambos se llegan a
+      // renderizar en la misma vista (p. ej. al construir un programa).
+      blocks: (workout.blocks || []).map(b => ({
+        ...b,
+        id: generateUUID(),
+        exercises: (b.exercises || []).map(e => ({
+          ...e,
+          id: generateUUID()
+        }))
+      }))
+    };
+
+    return storage.saveWorkout(cloned);
+  },
+
   // ASIGNACIONES (Fase 5)
   // ASIGNACIONES (Fase 5)
   getWorkoutAssignments: async (clientId = null, groupId = null) => {

@@ -4,6 +4,7 @@ import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthProvider';
 import WorkoutBuilderView from './WorkoutBuilderView';
 import WorkoutAssignmentModal from './WorkoutAssignmentModal';
+import WorkoutPreviewModal from './WorkoutPreviewModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
 import ProgramManager from './ProgramManager';
 import './WorkoutManager.css';
@@ -43,6 +44,10 @@ export default function WorkoutManager() {
   // Modales
   const [assignWorkoutIds, setAssignWorkoutIds] = useState(null); // array de ids a asignar
   const [showCatalogModal, setShowCatalogModal] = useState(false);
+  // Al hacer clic en un entrenamiento se abre esta vista previa en vez del
+  // constructor directamente; "Editar" dentro de ella es lo que abre el
+  // constructor de verdad.
+  const [previewWorkout, setPreviewWorkout] = useState(null);
 
   // Cargar datos
   const [errorMsg, setErrorMsg] = useState(null);
@@ -79,8 +84,19 @@ export default function WorkoutManager() {
   };
 
   const handleOpenEdit = (w) => {
+    setPreviewWorkout(null);
     setEditingWorkout(w);
     setShowBuilder(true);
+  };
+
+  const handleDuplicateWorkout = async (w) => {
+    try {
+      const cloned = await storage.duplicateWorkout(w.id);
+      setWorkouts(prev => [cloned, ...prev]);
+      setPreviewWorkout(null);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   // Se actualiza el estado local en vez de volver a llamar a loadData():
@@ -315,7 +331,7 @@ export default function WorkoutManager() {
                       });
 
                       return (
-                        <tr key={w.id} className="wk__row" onClick={() => handleOpenEdit(w)}>
+                        <tr key={w.id} className="wk__row" onClick={() => setPreviewWorkout(w)}>
                           <td onClick={e => e.stopPropagation()}>
                             <input
                               type="checkbox"
@@ -480,6 +496,19 @@ export default function WorkoutManager() {
                 loadData();
               }}
               onRefresh={loadData}
+            />
+          )}
+
+          {previewWorkout && (
+            <WorkoutPreviewModal
+              workout={previewWorkout}
+              onClose={() => setPreviewWorkout(null)}
+              onEdit={() => handleOpenEdit(previewWorkout)}
+              onDuplicate={() => handleDuplicateWorkout(previewWorkout)}
+              onAssign={() => {
+                setAssignWorkoutIds([previewWorkout.id]);
+                setPreviewWorkout(null);
+              }}
             />
           )}
         </>
