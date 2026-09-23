@@ -524,6 +524,44 @@ textarea.el__input {
   line-height: 1.4;
 }
 
+/* Lista de casillas para elegir varios valores a la vez (p. ej. varias
+   categorías o subcategorías de un ejercicio), en vez de un desplegable de
+   un solo valor. */
+.el__checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 10px);
+  background: var(--bg-color);
+}
+
+.el__checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+.el__checkbox-item input {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.el__checkbox-list-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--gray-400);
+}
+
 /* Error de validación de un campo concreto */
 .el__field-error {
   font-size: 0.8rem;

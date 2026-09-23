@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { storage, KEYS } from '../services/storage';
+import { getExerciseCategoryIds, getExerciseSubcategoryIds } from '../utils/exerciseCatalog';
 
 export default function ExerciseFormModal({
   editingEx = null,
@@ -13,15 +14,15 @@ export default function ExerciseFormModal({
   // Formulario
   const [form, setForm] = useState({
     name: '',
-    categoryId: '',
-    subcategoryId: '',
+    categoryIds: [],
+    subcategoryIds: [],
     description: '',
     technicalInstructions: '',
     favorite: false,
     image: '',
     videoUrl: ''
   });
-  
+
   const [formError, setFormError] = useState('');
 
   // Cargar catálogos
@@ -36,8 +37,8 @@ export default function ExerciseFormModal({
       if (editingEx) {
         setForm({
           name: editingEx.name || '',
-          categoryId: editingEx.categoryId ? String(editingEx.categoryId) : (dbCats[0]?.id ? String(dbCats[0].id) : ''),
-          subcategoryId: editingEx.subcategoryId ? String(editingEx.subcategoryId) : '',
+          categoryIds: getExerciseCategoryIds(editingEx),
+          subcategoryIds: getExerciseSubcategoryIds(editingEx),
           description: editingEx.description || '',
           technicalInstructions: editingEx.technicalInstructions || '',
           favorite: !!editingEx.favorite,
@@ -47,8 +48,8 @@ export default function ExerciseFormModal({
       } else {
         setForm({
           name: '',
-          categoryId: dbCats[0]?.id ? String(dbCats[0].id) : '',
-          subcategoryId: '',
+          categoryIds: [],
+          subcategoryIds: [],
           description: '',
           technicalInstructions: '',
           favorite: false,
@@ -60,23 +61,41 @@ export default function ExerciseFormModal({
     loadData();
   }, [editingEx]);
 
-  // Filtrar subcategorías según la categoría seleccionada
+  const toggleCategory = (id) => {
+    setForm(f => ({
+      ...f,
+      categoryIds: f.categoryIds.includes(id)
+        ? f.categoryIds.filter(c => c !== id)
+        : [...f.categoryIds, id]
+    }));
+    setFormError('');
+  };
+
+  const toggleSubcategory = (id) => {
+    setForm(f => ({
+      ...f,
+      subcategoryIds: f.subcategoryIds.includes(id)
+        ? f.subcategoryIds.filter(s => s !== id)
+        : [...f.subcategoryIds, id]
+    }));
+  };
+
+  // Subcategorías de cualquiera de las categorías marcadas
   const filteredSubcategories = subcategories.filter(
-    s => String(s.categoryId) === String(form.categoryId)
+    s => form.categoryIds.includes(String(s.categoryId))
   );
 
-  // Auto-seleccionar primera subcategoría si cambia la categoría y la actual no pertenece
+  // Si se desmarca una categoría, las subcategorías que dependían solo de
+  // ella dejan de ser válidas y se quitan de la selección.
   useEffect(() => {
-    if (form.categoryId) {
-      const isValid = filteredSubcategories.some(s => String(s.id) === form.subcategoryId);
-      if (!isValid) {
-        setForm(f => ({
-          ...f,
-          subcategoryId: filteredSubcategories[0]?.id ? String(filteredSubcategories[0].id) : ''
-        }));
-      }
-    }
-  }, [form.categoryId, subcategories]);
+    const validIds = new Set(filteredSubcategories.map(s => String(s.id)));
+    setForm(f => {
+      const pruned = f.subcategoryIds.filter(id => validIds.has(id));
+      if (pruned.length === f.subcategoryIds.length) return f;
+      return { ...f, subcategoryIds: pruned };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.categoryIds, subcategories]);
 
   // Procesar archivo de imagen con canvas y fondo blanco neutro
   const handleImageChange = (e) => {
@@ -141,11 +160,15 @@ export default function ExerciseFormModal({
       setFormError('El nombre del ejercicio es obligatorio.');
       return;
     }
+    if (form.categoryIds.length === 0) {
+      setFormError('Selecciona al menos una categoría.');
+      return;
+    }
 
     const exerciseData = {
       name: trimmedName,
-      categoryId: form.categoryId ? String(form.categoryId) : null,
-      subcategoryId: form.subcategoryId ? String(form.subcategoryId) : null,
+      categoryIds: form.categoryIds,
+      subcategoryIds: form.subcategoryIds,
       description: form.description.trim(),
       technicalInstructions: form.technicalInstructions.trim(),
       favorite: !!form.favorite,
@@ -194,35 +217,47 @@ export default function ExerciseFormModal({
             {formError && <p className="el__field-error">{formError}</p>}
           </div>
 
-          {/* Categoría y Subcategoría */}
+          {/* Categoría y Subcategoría: varias de cada, marcando casillas en
+              vez de un desplegable de un solo valor. */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div className="el__field">
-              <label htmlFor="ex-cat" className="el__label">Categoría *</label>
-              <select
-                id="ex-cat"
-                className="el__input el__input--select"
-                value={form.categoryId}
-                onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
-                required
-              >
+              <label className="el__label">Categorías *</label>
+              <div className="el__checkbox-list">
+                {categories.length === 0 && (
+                  <p className="el__checkbox-list-empty">No hay categorías creadas.</p>
+                )}
                 {categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <label key={c.id} className="el__checkbox-item">
+                    <input
+                      type="checkbox"
+                      checked={form.categoryIds.includes(String(c.id))}
+                      onChange={() => toggleCategory(String(c.id))}
+                    />
+                    {c.name}
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
             <div className="el__field">
-              <label htmlFor="ex-sub" className="el__label">Subcategoría</label>
-              <select
-                id="ex-sub"
-                className="el__input el__input--select"
-                value={form.subcategoryId}
-                onChange={e => setForm(f => ({ ...f, subcategoryId: e.target.value }))}
-              >
-                <option value="">Sin subcategoría</option>
-                {filteredSubcategories.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+              <label className="el__label">Subcategorías</label>
+              <div className="el__checkbox-list">
+                {form.categoryIds.length === 0 ? (
+                  <p className="el__checkbox-list-empty">Elige antes una categoría.</p>
+                ) : filteredSubcategories.length === 0 ? (
+                  <p className="el__checkbox-list-empty">Sin subcategorías para lo elegido.</p>
+                ) : (
+                  filteredSubcategories.map(s => (
+                    <label key={s.id} className="el__checkbox-item">
+                      <input
+                        type="checkbox"
+                        checked={form.subcategoryIds.includes(String(s.id))}
+                        onChange={() => toggleSubcategory(String(s.id))}
+                      />
+                      {s.name}
+                    </label>
+                  ))
+                )}
+              </div>
             </div>
           </div>
 

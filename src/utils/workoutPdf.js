@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { storage, KEYS } from '../services/storage';
 import { formatDate } from './dateUtils';
+import { getExerciseCategoryNames, getExerciseSubcategoryNames } from './exerciseCatalog';
 
 // Paleta calcada de las variables de la app (--accent, grises, ámbar de las
 // notas) para que el PDF no desentone del resto de la interfaz.
@@ -361,13 +362,13 @@ async function resolveExerciseCatalog() {
       storage.getEntities(KEYS.EX_CATEGORIES),
       storage.getEntities(KEYS.EX_SUBCATEGORIES)
     ]);
-    const catById = new Map(cats.map(c => [String(c.id), c.name]));
-    const subById = new Map(subs.map(s => [String(s.id), s.name]));
     exs.forEach(e => exercisesById.set(String(e.id), {
       name: e.name || null,
       videoUrl: e.videoUrl || null,
-      categoryName: catById.get(String(e.categoryId)) || null,
-      subcategoryName: subById.get(String(e.subcategoryId)) || null
+      // Puede tener varias categorías/subcategorías: se juntan con coma
+      // para que quepan en la línea de subtítulo del PDF.
+      categoryName: getExerciseCategoryNames(e, cats).join(', ') || null,
+      subcategoryName: getExerciseSubcategoryNames(e, subs).join(', ') || null
     }));
   } catch (err) {
     console.error('No se pudo cargar el catálogo de ejercicios para el PDF:', err);

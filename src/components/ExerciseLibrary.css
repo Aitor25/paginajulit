@@ -347,6 +347,19 @@
   min-width: 0;
 }
 
+/* En el modal de detalle sí hay sitio para varias categorías/subcategorías:
+   a diferencia de la tarjeta de la rejilla, aquí se envuelven en más de una
+   línea en vez de truncarse. */
+.el__card-badges--wrap {
+  flex-wrap: wrap;
+}
+
+.el__card-badges--wrap .badge--category,
+.el__card-badges--wrap .badge--subcategory {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .badge {
   padding: 2px 7px;
   border-radius: 5px;

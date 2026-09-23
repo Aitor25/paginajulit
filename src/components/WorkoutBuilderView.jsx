@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS, generateUUID } from '../services/storage';
 import { getYouTubeThumbnail } from '../utils/youtubeHelpers';
+import { getExerciseCategoryIds, getExerciseSubcategoryIds, getExerciseCategoryNames } from '../utils/exerciseCatalog';
 import ExerciseFormModal from './ExerciseFormModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
 
@@ -480,10 +481,10 @@ export default function WorkoutBuilderView({
     let result = exercises;
 
     if (selectedCatFilter !== 'Todas') {
-      result = result.filter(ex => String(ex.categoryId) === String(selectedCatFilter));
+      result = result.filter(ex => getExerciseCategoryIds(ex).includes(String(selectedCatFilter)));
     }
     if (selectedSubcatFilter !== 'Todas') {
-      result = result.filter(ex => String(ex.subcategoryId) === String(selectedSubcatFilter));
+      result = result.filter(ex => getExerciseSubcategoryIds(ex).includes(String(selectedSubcatFilter)));
     }
     if (search.trim()) {
       const query = stripAccents(search);
@@ -857,7 +858,7 @@ export default function WorkoutBuilderView({
                     {ex.favorite && <span className="wb__library-item-fav">★</span>}
                   </span>
                   <span className="wb__library-item-cat">
-                    {categories.find(c => c.id === ex.categoryId)?.name || 'Sin categoría'}
+                    {getExerciseCategoryNames(ex, categories).join(', ') || 'Sin categoría'}
                   </span>
                 </div>
 

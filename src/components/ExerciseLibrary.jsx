@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { storage, KEYS } from '../services/storage';
 import { getYouTubeThumbnail, getYouTubeEmbedUrl, isYouTubeShorts } from '../utils/youtubeHelpers';
+import { getExerciseCategoryIds, getExerciseSubcategoryIds, getExerciseCategoryNames, getExerciseSubcategoryNames } from '../utils/exerciseCatalog';
 import ExerciseFormModal from './ExerciseFormModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
 import './ExerciseLibrary.css';
@@ -69,8 +70,9 @@ function VideoThumbnail({ videoUrl, name, image, big = false }) {
    de saltar a un modal aparte. */
 function ExerciseDetailModal({ exercise, categories, subcategories, onClose }) {
   const [playing, setPlaying] = useState(false);
-  const catName = categories.find(c => c.id === exercise.categoryId)?.name || 'Sin categoría';
-  const subName = subcategories.find(s => s.id === exercise.subcategoryId)?.name || '';
+  const catNames = getExerciseCategoryNames(exercise, categories);
+  const subNames = getExerciseSubcategoryNames(exercise, subcategories);
+  const exCategoryIds = getExerciseCategoryIds(exercise);
 
   return (
     <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -100,9 +102,18 @@ function ExerciseDetailModal({ exercise, categories, subcategories, onClose }) {
           )}
 
           <div className="el__card-content">
-            <div className="el__card-badges">
-              <span className={`badge badge--category ${getCategoryBadgeClass(exercise.categoryId)}`}>{catName}</span>
-              {subName && <span className="badge badge--subcategory">{subName}</span>}
+            {/* Aquí sí caben todas: a diferencia de la tarjeta de la
+                rejilla, este modal tiene sitio de sobra para envolver
+                varias categorías/subcategorías en más de una línea. */}
+            <div className="el__card-badges el__card-badges--wrap">
+              {catNames.length > 0 ? catNames.map((name, i) => (
+                <span key={`cat-${i}`} className={`badge badge--category ${getCategoryBadgeClass(exCategoryIds[i])}`}>{name}</span>
+              )) : (
+                <span className="badge badge--category badge--default">Sin categoría</span>
+              )}
+              {subNames.map((name, i) => (
+                <span key={`sub-${i}`} className="badge badge--subcategory">{name}</span>
+              ))}
             </div>
 
             <h3 className="el__card-title">{exercise.name}</h3>
@@ -224,14 +235,15 @@ export default function ExerciseLibrary() {
       result = result.filter(ex => !!ex.favorite);
     }
 
-    // 2. Filtro Categoría
+    // 2. Filtro Categoría: el ejercicio puede tener varias, basta con que
+    // incluya la elegida en el filtro.
     if (selectedCatFilter !== 'Todas') {
-      result = result.filter(ex => String(ex.categoryId) === String(selectedCatFilter));
+      result = result.filter(ex => getExerciseCategoryIds(ex).includes(String(selectedCatFilter)));
     }
 
-    // 3. Filtro Subcategoría
+    // 3. Filtro Subcategoría (mismo criterio)
     if (selectedSubcatFilter !== 'Todas') {
-      result = result.filter(ex => String(ex.subcategoryId) === String(selectedSubcatFilter));
+      result = result.filter(ex => getExerciseSubcategoryIds(ex).includes(String(selectedSubcatFilter)));
     }
 
     // 7. Buscador
@@ -239,13 +251,10 @@ export default function ExerciseLibrary() {
       const query = stripAccents(search);
       result = result.filter(ex => {
         const nameMatch = stripAccents(ex.name).includes(query);
-        
-        // Buscar nombres correspondientes a los IDs para buscar por categoría
-        const catName = categories.find(c => c.id === ex.categoryId)?.name || '';
-        const catMatch = stripAccents(catName).includes(query);
 
-        const subName = subcategories.find(s => s.id === ex.subcategoryId)?.name || '';
-        const subcatMatch = stripAccents(subName).includes(query);
+        // Buscar nombres correspondientes a los IDs para buscar por categoría
+        const catMatch = getExerciseCategoryNames(ex, categories).some(n => stripAccents(n).includes(query));
+        const subcatMatch = getExerciseSubcategoryNames(ex, subcategories).some(n => stripAccents(n).includes(query));
 
         return nameMatch || catMatch || subcatMatch;
       });
@@ -411,9 +420,20 @@ export default function ExerciseLibrary() {
       ) : (
         <div className="el__grid" role="list">
           {filteredExercises.map(ex => {
-            const catName = categories.find(c => c.id === ex.categoryId)?.name || 'Sin categoría';
-            const subName = subcategories.find(s => s.id === ex.subcategoryId)?.name || '';
-            
+            // La tarjeta es estrecha (5 columnas) y no envuelve línea, así
+            // que si hay más de una categoría/subcategoría solo se enseña
+            // la primera + un "+N"; la lista completa está en el modal de
+            // detalle, que sí tiene sitio.
+            const exCatIds = getExerciseCategoryIds(ex);
+            const catNames = getExerciseCategoryNames(ex, categories);
+            const subNames = getExerciseSubcategoryNames(ex, subcategories);
+            const catName = catNames.length > 0
+              ? catNames[0] + (catNames.length > 1 ? ` +${catNames.length - 1}` : '')
+              : 'Sin categoría';
+            const subName = subNames.length > 0
+              ? subNames[0] + (subNames.length > 1 ? ` +${subNames.length - 1}` : '')
+              : '';
+
             return (
               <article
                 key={ex.id}
@@ -437,7 +457,7 @@ export default function ExerciseLibrary() {
                 {/* Contenido */}
                 <div className="el__card-content">
                   <div className="el__card-badges">
-                    <span className={`badge badge--category ${getCategoryBadgeClass(ex.categoryId)}`}>
+                    <span className={`badge badge--category ${getCategoryBadgeClass(exCatIds[0])}`}>
                       {catName}
                     </span>
                     {subName && (
