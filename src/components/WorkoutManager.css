@@ -115,7 +115,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding: 0.6rem 1.25rem;
+  padding: 0.4rem 1rem;
   border-bottom: 1px solid var(--border-color);
   background: rgba(255, 255, 255, 0.02);
 }
@@ -124,6 +124,16 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--gray-500);
+}
+
+/* Botones de "Salir"/"Guardar" más pequeños que el tamaño por defecto de
+   .el__btn (pensado para páginas normales, no para esta barra fija que
+   quita espacio a los bloques de debajo). */
+.wb__top-btn {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+  box-shadow: none;
 }
 
 .wb__grid {
@@ -225,8 +235,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1.1rem;
-  padding-bottom: 0.5rem;
+  margin-top: 0.6rem;
+  padding-bottom: 0.4rem;
   border-bottom: 1px solid var(--border-color);
 }
 

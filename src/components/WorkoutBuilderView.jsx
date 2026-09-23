@@ -500,13 +500,13 @@ export default function WorkoutBuilderView({
     <div className="wb__container">
       {/* Barra superior de acciones */}
       <div className="wb__top-bar">
-        <button className="el__btn el__btn--ghost" onClick={onClose}>
+        <button className="el__btn el__btn--ghost wb__top-btn" onClick={onClose}>
           ✕ Salir del constructor
         </button>
         <span className="wb__top-summary">
           {workoutForm.blocks.length} bloque{workoutForm.blocks.length === 1 ? '' : 's'} · {totalEjercicios} ejercicio{totalEjercicios === 1 ? '' : 's'}
         </span>
-        <button className="el__btn el__btn--primary" onClick={handleSaveWorkout}>
+        <button className="el__btn el__btn--primary wb__top-btn" onClick={handleSaveWorkout}>
           Guardar Entrenamiento
         </button>
       </div>
