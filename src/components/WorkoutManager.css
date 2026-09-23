@@ -430,6 +430,26 @@
   background: var(--bg-elevated);
 }
 
+/* Ejercicio cuya referencia ya no existe en el catálogo (se borró estando
+   en uso): antes esta fila se ocultaba sin más, dejando un hueco invisible
+   que seguía contando en la numeración. Ahora se marca para poder quitarla. */
+.wb__exercise-row--orphan {
+  border-color: #fca5a5;
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.wb__exercise-row--orphan .wb__exercise-name {
+  color: #b91c1c;
+  white-space: normal;
+}
+
+.wb__orphan-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #991b1b;
+  line-height: 1.4;
+}
+
 .wb__exercise-row-header {
   display: flex;
   align-items: center;

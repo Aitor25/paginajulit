@@ -590,14 +590,23 @@ export default function WorkoutBuilderView({
                     </p>
                   ) : (
                     block.exercises.map((ex, exIdx) => {
+                      // Si el ejercicio se borró del catálogo (ahora se
+                      // puede, aunque esté en uso), esta búsqueda no
+                      // encuentra nada. Antes eso hacía desaparecer la fila
+                      // en silencio, dejando un hueco "fantasma" que seguía
+                      // contando en el orden — el siguiente ejercicio
+                      // añadido se numeraba de más sin que se viera por qué.
+                      // Ahora se enseña, marcado como roto, para poder
+                      // quitarlo y que la numeración cuadre.
                       const original = exercises.find(e => e.id === ex.exerciseId);
-                      if (!original) return null;
+                      const isOrphan = !original;
 
                       return (
                         <div
                           key={ex.id}
                           className={
                             'wb__exercise-row' +
+                            (isOrphan ? ' wb__exercise-row--orphan' : '') +
                             (arrastre?.tipo === 'ejercicio' && arrastre.exId === ex.id ? ' wb__exercise-row--dragging' : '') +
                             (dropExId === ex.id ? ' wb__exercise-row--drop' : '')
                           }
@@ -616,7 +625,9 @@ export default function WorkoutBuilderView({
                               ⠿
                             </span>
                             <span className="wb__exercise-order">{ex.order}</span>
-                            <strong className="wb__exercise-name">{original.name}</strong>
+                            <strong className="wb__exercise-name">
+                              {isOrphan ? '⚠️ Ejercicio eliminado del catálogo' : original.name}
+                            </strong>
 
                             <div className="wb__block-header-actions">
                               <button type="button" className="wb__icon-btn" onClick={() => handleMoveExercise(block.id, exIdx, -1)} disabled={exIdx === 0} title="Subir">▲</button>
@@ -626,82 +637,91 @@ export default function WorkoutBuilderView({
                             </div>
                           </div>
 
-                          <div className="wb__exercise-fields">
-                            <div className="wb__field">
-                              <label className="wb__field-label">Repeticiones</label>
-                              <input
-                                type="text"
-                                className="wb__field-input"
-                                value={ex.plannedReps}
-                                onChange={e => handleUpdateExerciseField(block.id, ex.id, 'plannedReps', e.target.value)}
-                              />
-                            </div>
+                          {isOrphan ? (
+                            <p className="wb__orphan-hint">
+                              El ejercicio original ya no está en la biblioteca. Quítalo con el ✕ de arriba
+                              y añade uno nuevo desde la biblioteca de la derecha si hace falta.
+                            </p>
+                          ) : (
+                            <>
+                              <div className="wb__exercise-fields">
+                                <div className="wb__field">
+                                  <label className="wb__field-label">Repeticiones</label>
+                                  <input
+                                    type="text"
+                                    className="wb__field-input"
+                                    value={ex.plannedReps}
+                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'plannedReps', e.target.value)}
+                                  />
+                                </div>
 
-                            <div className="wb__field">
-                              <label className="wb__field-label">Carga</label>
-                              <div className="wb__field-pair">
-                                <input
-                                  type="number"
-                                  className="wb__field-input"
-                                  placeholder="—"
-                                  value={ex.loadValue ?? ''}
-                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadValue', e.target.value ? Number(e.target.value) : null)}
-                                />
-                                <input
-                                  type="text"
-                                  className="wb__field-input wb__field-input--unit"
-                                  value={ex.loadUnit}
-                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadUnit', e.target.value)}
+                                <div className="wb__field">
+                                  <label className="wb__field-label">Carga</label>
+                                  <div className="wb__field-pair">
+                                    <input
+                                      type="number"
+                                      className="wb__field-input"
+                                      placeholder="—"
+                                      value={ex.loadValue ?? ''}
+                                      onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadValue', e.target.value ? Number(e.target.value) : null)}
+                                    />
+                                    <input
+                                      type="text"
+                                      className="wb__field-input wb__field-input--unit"
+                                      value={ex.loadUnit}
+                                      onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadUnit', e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="wb__field">
+                                  <label className="wb__field-label">RPE / RIR</label>
+                                  <div className="wb__field-pair">
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="10"
+                                      className="wb__field-input"
+                                      placeholder="RPE"
+                                      value={ex.rpe ?? ''}
+                                      onChange={e => handleUpdateExerciseField(block.id, ex.id, 'rpe', e.target.value ? Number(e.target.value) : null)}
+                                    />
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      className="wb__field-input"
+                                      placeholder="RIR"
+                                      value={ex.rir ?? ''}
+                                      onChange={e => handleUpdateExerciseField(block.id, ex.id, 'rir', e.target.value ? Number(e.target.value) : null)}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="wb__field">
+                                  <label className="wb__field-label">Descanso (s)</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="wb__field-input"
+                                    value={ex.restSeconds}
+                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'restSeconds', Number(e.target.value) || 0)}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Lo que leerá el cliente al abrir el entrenamiento */}
+                              <div className="wb__field wb__instructions">
+                                <label className="wb__field-label">Instrucciones</label>
+                                <textarea
+                                  className="wb__field-input wb__field-input--area"
+                                  rows="2"
+                                  placeholder="Lo que verá el cliente: técnica, tempo, sensaciones, avisos..."
+                                  value={ex.instructions}
+                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'instructions', e.target.value)}
                                 />
                               </div>
-                            </div>
-
-                            <div className="wb__field">
-                              <label className="wb__field-label">RPE / RIR</label>
-                              <div className="wb__field-pair">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="10"
-                                  className="wb__field-input"
-                                  placeholder="RPE"
-                                  value={ex.rpe ?? ''}
-                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'rpe', e.target.value ? Number(e.target.value) : null)}
-                                />
-                                <input
-                                  type="number"
-                                  min="0"
-                                  className="wb__field-input"
-                                  placeholder="RIR"
-                                  value={ex.rir ?? ''}
-                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'rir', e.target.value ? Number(e.target.value) : null)}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="wb__field">
-                              <label className="wb__field-label">Descanso (s)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                className="wb__field-input"
-                                value={ex.restSeconds}
-                                onChange={e => handleUpdateExerciseField(block.id, ex.id, 'restSeconds', Number(e.target.value) || 0)}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Lo que leerá el cliente al abrir el entrenamiento */}
-                          <div className="wb__field wb__instructions">
-                            <label className="wb__field-label">Instrucciones</label>
-                            <textarea
-                              className="wb__field-input wb__field-input--area"
-                              rows="2"
-                              placeholder="Lo que verá el cliente: técnica, tempo, sensaciones, avisos..."
-                              value={ex.instructions}
-                              onChange={e => handleUpdateExerciseField(block.id, ex.id, 'instructions', e.target.value)}
-                            />
-                          </div>
+                            </>
+                          )}
                         </div>
                       );
                     })
