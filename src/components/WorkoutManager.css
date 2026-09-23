@@ -412,7 +412,7 @@
   padding: 0.7rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.4rem;
 }
 
 .wb__empty-hint {
@@ -425,8 +425,8 @@
 
 .wb__exercise-row {
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 0.6rem 0.7rem;
+  border-radius: 9px;
+  padding: 0.4rem 0.55rem;
   background: var(--bg-elevated);
 }
 
@@ -453,9 +453,9 @@
 .wb__exercise-row-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding-bottom: 0.5rem;
-  margin-bottom: 0.55rem;
+  gap: 6px;
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.3rem;
   border-bottom: 1px dashed var(--border-color);
 }
 
@@ -471,6 +471,24 @@
   border-radius: 5px;
 }
 
+/* Miniatura pequeña del ejercicio, entre el número de orden y el nombre. */
+.wb__exercise-thumb {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  object-fit: cover;
+  background: #111;
+}
+
+.wb__exercise-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-400);
+  border: 1px dashed var(--border-color);
+}
+
 .wb__exercise-name {
   flex: 1;
   min-width: 0;
@@ -482,8 +500,41 @@
 
 .wb__exercise-fields {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
+}
+
+/* Casilla "Instrucciones" en línea con el resto de campos, con el mismo
+   alto que un input: al pulsarla despliega el textarea debajo en vez de
+   tenerlo siempre abierto ocupando sitio. */
+.wb__instructions-toggle {
+  height: var(--wb-control-h);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 0 8px;
+  font-size: 0.72rem;
+  font-family: inherit;
+  color: var(--gray-400);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.wb__instructions-toggle--filled {
+  color: var(--accent);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.wb__instructions-chevron {
+  transition: transform 0.15s ease;
+}
+
+.wb__instructions-chevron--open {
+  transform: rotate(180deg);
 }
 
 .wb__field {

@@ -1,11 +1,43 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS, generateUUID } from '../services/storage';
+import { getYouTubeThumbnail } from '../utils/youtubeHelpers';
 import ExerciseFormModal from './ExerciseFormModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
 
 function stripAccents(str) {
   if (!str) return '';
   return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// Miniatura peque\u00f1a del ejercicio en su fila del bloque: antes solo hab\u00eda
+// texto, as\u00ed que identificar un ejercicio entre varios similares (p. ej.
+// "Sentadilla" y "Sentadilla Goblet") obligaba a leer el nombre entero.
+function ExerciseThumb({ image, videoUrl, name }) {
+  const [imgError, setImgError] = useState(false);
+  const src = (!imgError && image) ? image : (!imgError ? getYouTubeThumbnail(videoUrl) : null);
+
+  if (!src) {
+    return (
+      <span className="wb__exercise-thumb wb__exercise-thumb--empty" aria-hidden="true">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="9" cy="9" r="2"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className="wb__exercise-thumb"
+      loading="lazy"
+      onError={() => setImgError(true)}
+      title={name}
+    />
+  );
 }
 
 // Las rutinas antiguas guardaban por separado el tempo y las notas del
@@ -82,6 +114,9 @@ export default function WorkoutBuilderView({
   const [dropExId, setDropExId] = useState('');           // Ejercicio resaltado al arrastrar
   const [arrastre, setArrastre] = useState(null);         // Qué se está arrastrando
   const [formError, setFormError] = useState('');
+  // Plegadas por defecto: la mayoría de series no llevan notas, y tenerlas
+  // siempre abiertas era lo que hacía cada fila de ejercicio tan alta.
+  const [expandedInstructions, setExpandedInstructions] = useState({});
 
   // Carga inicial de datos
   async function loadLibraryData() {
@@ -334,6 +369,10 @@ export default function WorkoutBuilderView({
           : b
       ))
     }));
+  };
+
+  const toggleInstructions = (exId) => {
+    setExpandedInstructions(prev => ({ ...prev, [exId]: !prev[exId] }));
   };
 
   const handleDeleteExerciseFromBlock = (blockId, exId) => {
@@ -625,6 +664,9 @@ export default function WorkoutBuilderView({
                               ⠿
                             </span>
                             <span className="wb__exercise-order">{ex.order}</span>
+                            {!isOrphan && (
+                              <ExerciseThumb image={original.image} videoUrl={original.videoUrl} name={original.name} />
+                            )}
                             <strong className="wb__exercise-name">
                               {isOrphan ? '⚠️ Ejercicio eliminado del catálogo' : original.name}
                             </strong>
@@ -707,19 +749,39 @@ export default function WorkoutBuilderView({
                                     onChange={e => handleUpdateExerciseField(block.id, ex.id, 'restSeconds', Number(e.target.value) || 0)}
                                   />
                                 </div>
+
+                                {/* En línea con el resto de campos, no como un
+                                    bloque aparte debajo: solo despliega el
+                                    textarea quien lo necesita, así que la
+                                    fila se queda pequeña por defecto. */}
+                                <div className="wb__field">
+                                  <label className="wb__field-label">Instrucciones</label>
+                                  <button
+                                    type="button"
+                                    className={`wb__instructions-toggle ${ex.instructions ? 'wb__instructions-toggle--filled' : ''}`}
+                                    onClick={() => toggleInstructions(ex.id)}
+                                    aria-expanded={!!expandedInstructions[ex.id]}
+                                  >
+                                    <span>{ex.instructions ? 'Con notas' : 'Sin notas'}</span>
+                                    <span className={`wb__instructions-chevron ${expandedInstructions[ex.id] ? 'wb__instructions-chevron--open' : ''}`}>▾</span>
+                                  </button>
+                                </div>
                               </div>
 
                               {/* Lo que leerá el cliente al abrir el entrenamiento */}
-                              <div className="wb__field wb__instructions">
-                                <label className="wb__field-label">Instrucciones</label>
-                                <textarea
-                                  className="wb__field-input wb__field-input--area"
-                                  rows="2"
-                                  placeholder="Lo que verá el cliente: técnica, tempo, sensaciones, avisos..."
-                                  value={ex.instructions}
-                                  onChange={e => handleUpdateExerciseField(block.id, ex.id, 'instructions', e.target.value)}
-                                />
-                              </div>
+                              {expandedInstructions[ex.id] && (
+                                <div className="wb__field wb__instructions">
+                                  <label className="wb__field-label">Instrucciones</label>
+                                  <textarea
+                                    className="wb__field-input wb__field-input--area"
+                                    rows="2"
+                                    placeholder="Lo que verá el cliente: técnica, tempo, sensaciones, avisos..."
+                                    value={ex.instructions}
+                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'instructions', e.target.value)}
+                                    autoFocus
+                                  />
+                                </div>
+                              )}
                             </>
                           )}
                         </div>
