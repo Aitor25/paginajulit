@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { storage } from '../services/storage';
+import { getYouTubeThumbnail } from '../utils/youtubeHelpers';
 import './WorkoutPreviewModal.css';
 
 // Objetivo de la serie con el mismo criterio que el PDF: si son reps
@@ -9,46 +10,57 @@ function formatObjetivo(ex) {
   const reps = (ex.plannedReps ?? '').toString().trim();
   const repsPart = /^\d+$/.test(reps) ? `${reps} reps` : (reps || '—');
   const hasLoad = ex.loadValue !== null && ex.loadValue !== undefined && ex.loadValue !== '';
-  return hasLoad ? `${repsPart} @ ${ex.loadValue} ${ex.loadUnit || ''}`.trim() : repsPart;
+  return hasLoad ? `${repsPart} @ ${ex.loadValue}` : repsPart;
 }
 
 function formatDescanso(ex) {
   return ex.restSeconds ? `${ex.restSeconds} s` : '—';
 }
 
-/* Fila de ejercicio numerada y desplegable: cerrada solo enseña el nombre
-   (como la lista de referencia), y al pulsar la flecha despliega objetivo,
-   descanso y las notas del entrenador — así la vista previa cabe en pantalla
-   sin desplazarse aunque el entrenamiento tenga muchos ejercicios. */
-function PreviewExerciseRow({ ex, n, name, expanded, onToggle }) {
+// Miniatura del ejercicio: su imagen, o la del vídeo de YouTube si no tiene.
+function PreviewThumb({ exercise }) {
+  const [imgError, setImgError] = useState(false);
+  const src = imgError ? null : (exercise?.image || getYouTubeThumbnail(exercise?.videoUrl));
+
+  if (!src) {
+    return <span className="wpv__thumb wpv__thumb--empty" aria-hidden="true">🏋</span>;
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      className="wpv__thumb"
+      loading="lazy"
+      onError={() => setImgError(true)}
+    />
+  );
+}
+
+/* Fila de ejercicio compacta: de un vistazo se ven número, imagen, nombre,
+   objetivo y descanso, para saber qué hay dentro del entrenamiento sin
+   abrirlo. Solo las notas del entrenador quedan plegadas tras la flecha. */
+function PreviewExerciseRow({ ex, n, exercise, expanded, onToggle }) {
   const hasNotes = !!(ex.instructions && ex.instructions.trim());
 
   return (
     <div className="wpv__exercise">
-      <button type="button" className="wpv__exercise-head" onClick={onToggle} aria-expanded={expanded}>
-        <span className="wpv__exercise-num">{n}</span>
-        <span className="wpv__exercise-name">{name}</span>
-        <span className={`wpv__chevron ${expanded ? 'wpv__chevron--open' : ''}`}>▾</span>
+      <button
+        type="button"
+        className="wpv__exercise-head"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        disabled={!hasNotes}
+      >
+        <span className="wpv__exercise-num">{n}.</span>
+        <PreviewThumb exercise={exercise} />
+        <span className="wpv__exercise-name">{exercise?.name || 'Ejercicio'}</span>
+        <span className="wpv__exercise-stat wpv__exercise-stat--goal">{formatObjetivo(ex)}</span>
+        <span className="wpv__exercise-stat wpv__exercise-stat--rest">⏱ {formatDescanso(ex)}</span>
+        <span className={`wpv__chevron ${hasNotes ? '' : 'wpv__chevron--hidden'} ${expanded ? 'wpv__chevron--open' : ''}`} title={hasNotes ? 'Ver notas del entrenador' : undefined}>▾</span>
       </button>
 
-      {expanded && (
-        <div className="wpv__exercise-body">
-          <div className="wpv__exercise-stats">
-            <div>
-              <span className="wpv__stat-label">Objetivo</span>
-              <span className="wpv__stat-value">{formatObjetivo(ex)}</span>
-            </div>
-            <div>
-              <span className="wpv__stat-label">Descanso</span>
-              <span className="wpv__stat-value">{formatDescanso(ex)}</span>
-            </div>
-          </div>
-          {hasNotes ? (
-            <p className="wpv__exercise-notes">{ex.instructions.trim()}</p>
-          ) : (
-            <p className="wpv__exercise-notes wpv__exercise-notes--empty">Sin notas del entrenador.</p>
-          )}
-        </div>
+      {expanded && hasNotes && (
+        <p className="wpv__exercise-notes">{ex.instructions.trim()}</p>
       )}
     </div>
   );
@@ -61,18 +73,18 @@ export default function WorkoutPreviewModal({ workout, onClose, onEdit, onDuplic
 
   useEffect(() => {
     let cancelled = false;
-    async function loadNames() {
+    async function loadExercises() {
       try {
         const exs = await storage.getExercises();
         if (cancelled) return;
-        setExercisesById(new Map(exs.map(e => [String(e.id), e.name])));
+        setExercisesById(new Map(exs.map(e => [String(e.id), e])));
       } catch (err) {
-        console.error('No se pudieron cargar los nombres de ejercicios para la vista previa:', err);
+        console.error('No se pudieron cargar los ejercicios para la vista previa:', err);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-    loadNames();
+    loadExercises();
     return () => { cancelled = true; };
   }, []);
 
@@ -83,6 +95,10 @@ export default function WorkoutPreviewModal({ workout, onClose, onEdit, onDuplic
   const blocks = workout.blocks || [];
   const totalExercises = blocks.reduce((n, b) => n + (b.exercises?.length || 0), 0);
 
+  // Numeración continua a lo largo de todo el entrenamiento (1, 2, 3...)
+  // en vez de reiniciarla en cada bloque.
+  let exerciseCounter = 0;
+
   return (
     <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="el__modal wpv__modal" onClick={e => e.stopPropagation()}>
@@ -92,13 +108,12 @@ export default function WorkoutPreviewModal({ workout, onClose, onEdit, onDuplic
         </div>
 
         <div className="el__modal-body wpv__body">
-          {workout.description && (
-            <p className="wpv__description">{workout.description}</p>
-          )}
-
           <div className="wpv__meta-row">
             <span className="wpv__meta-pill">⏱ {workout.estimatedDurationMinutes || 60} minutos</span>
             <span className="wpv__meta-pill">{blocks.length} bloque{blocks.length === 1 ? '' : 's'} · {totalExercises} ejercicio{totalExercises === 1 ? '' : 's'}</span>
+            {workout.description && (
+              <span className="wpv__description">{workout.description}</span>
+            )}
           </div>
 
           {loading ? (
@@ -111,18 +126,18 @@ export default function WorkoutPreviewModal({ workout, onClose, onEdit, onDuplic
               return (
                 <div key={block.id || bi} className="wpv__block">
                   <div className="wpv__block-head">
-                    <span>{block.name || 'Ejercicios'}</span>
+                    <span>{block.name || 'Bloque'}</span>
                     <span className="wpv__block-rounds">{rounds} serie{rounds === 1 ? '' : 's'}</span>
                   </div>
                   {(block.exercises || []).map((ex, ei) => {
                     const exUid = ex.id || `${block.id}-${ei}`;
-                    const name = exercisesById.get(String(ex.exerciseId)) || 'Ejercicio';
+                    exerciseCounter += 1;
                     return (
                       <PreviewExerciseRow
                         key={exUid}
                         ex={ex}
-                        n={ei + 1}
-                        name={name}
+                        n={exerciseCounter}
+                        exercise={exercisesById.get(String(ex.exerciseId))}
                         expanded={!!expanded[exUid]}
                         onToggle={() => toggleExercise(exUid)}
                       />

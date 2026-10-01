@@ -260,6 +260,20 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* En el constructor de entrenamientos el bloque va en gris y los ejercicios
+   en blanco encima, para que cada bloque se distinga de un vistazo. */
+.wb__block-card--workout {
+  background: var(--gray-100);
+}
+
+.wb__block-card--workout .wb__block-header {
+  border-bottom-color: var(--gray-200);
+}
+
+.wb__block-card--workout .wb__block-rounds input {
+  background: var(--bg-surface);
+}
+
 .wb__block-card--active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18);
@@ -436,7 +450,13 @@
 .wb__exercise-row {
   border: 1px solid var(--border-color);
   border-radius: 9px;
-  padding: 0.4rem 0.55rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.35rem;
+  background: var(--bg-surface);
+}
+
+/* Dentro de la fila blanca, los campos en gris claro para que destaquen */
+.wb__exercise-row .wb__field-input,
+.wb__exercise-row .wb__instructions-toggle {
   background: var(--bg-elevated);
 }
 
@@ -460,33 +480,21 @@
   line-height: 1.4;
 }
 
+/* Una sola línea: asa, imagen, nombre, campos y acciones. Si la columna se
+   queda estrecha, los campos bajan a la línea siguiente en vez de apretarse. */
 .wb__exercise-row-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding-bottom: 0.3rem;
-  margin-bottom: 0.3rem;
-  border-bottom: 1px dashed var(--border-color);
+  gap: 8px;
 }
 
-.wb__exercise-order {
-  flex-shrink: 0;
-  min-width: 20px;
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-align: center;
-  color: var(--accent);
-  background: rgba(99, 102, 241, 0.15);
-  padding: 3px 6px;
-  border-radius: 5px;
-}
-
-/* Miniatura pequeña del ejercicio, entre el número de orden y el nombre. */
+/* Imagen del ejercicio ya añadido al bloque: grande para reconocerlo */
 .wb__exercise-thumb {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  border-radius: 5px;
+  width: 72px;
+  height: 54px;
+  border-radius: 6px;
   object-fit: cover;
   background: #111;
 }
@@ -496,23 +504,41 @@
   align-items: center;
   justify-content: center;
   color: var(--gray-400);
+  background: var(--bg-elevated);
   border: 1px dashed var(--border-color);
 }
 
+/* Nombre en hasta dos líneas, como en Harbiz, en vez de cortarlo con "…" */
 .wb__exercise-name {
-  flex: 1;
+  flex: 1 1 140px;
   min-width: 0;
   font-size: 0.82rem;
+  line-height: 1.3;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
+/* Piezas de reps, carga, descanso e instrucciones: pequeñas y de ancho fijo
+   para que quepan todas a lo ancho en la misma línea que el nombre. */
 .wb__exercise-fields {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
 }
+
+.wb__exercise-fields .wb__field-input,
+.wb__exercise-fields .wb__instructions-toggle {
+  height: 28px;
+  padding: 0 6px;
+  font-size: 0.75rem;
+}
+
+.wb__field--reps  { width: 58px; }
+.wb__field--load  { width: 54px; }
+.wb__field--rest  { width: 58px; }
+.wb__field--notes { width: 96px; }
 
 /* Casilla "Instrucciones" en línea con el resto de campos, con el mismo
    alto que un input: al pulsarla despliega el textarea debajo en vez de
@@ -593,13 +619,6 @@ select.wb__field-input {
   cursor: pointer;
 }
 
-.wb__field-input--unit {
-  width: 42px;
-  flex-shrink: 0;
-  text-align: center;
-  padding: 0 4px;
-}
-
 .wb__field-input--area {
   height: auto;
   padding: 6px 8px;
@@ -615,6 +634,7 @@ select.wb__field-input {
 
 .wb__instructions {
   margin-top: 6px;
+  margin-left: 80px;
 }
 
 /* ─── Biblioteca lateral derecha ─── */
@@ -663,6 +683,17 @@ select.wb__field-input {
   border-radius: 10px;
   transition: border-color 0.15s ease, background 0.15s ease;
   cursor: grab;
+}
+
+/* Vista previa en imagen en la biblioteca (más pequeña que en Harbiz, pero
+   suficiente para reconocer el ejercicio sin leer el nombre). */
+.wb__library-thumb {
+  flex-shrink: 0;
+  width: 84px;
+  height: 58px;
+  border-radius: 7px;
+  object-fit: cover;
+  background: #111;
 }
 
 .wb__library-item:hover {
@@ -767,8 +798,19 @@ select.wb__field-input {
   .wb__meta-field--goal {
     grid-column: 1 / -1;
   }
+}
+
+/* Móvil: los campos ocupan su propia línea bajo la imagen y el nombre */
+@media (max-width: 640px) {
   .wb__exercise-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    order: 1;
+    flex: 1 1 100%;
+  }
+  .wb__field--notes {
+    flex: 1;
+  }
+  .wb__instructions {
+    margin-left: 0;
   }
 }
 

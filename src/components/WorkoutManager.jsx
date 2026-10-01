@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS } from '../services/storage';
-import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthProvider';
 import WorkoutBuilderView from './WorkoutBuilderView';
 import WorkoutAssignmentModal from './WorkoutAssignmentModal';
@@ -19,9 +18,6 @@ export default function WorkoutManager() {
   const [subTab, setSubTab] = useState('workouts'); // 'workouts' | 'programs'
 
   const [workouts, setWorkouts] = useState([]);
-  const [assignments, setAssignments] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [groups, setGroups] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [showBuilder, setShowBuilder] = useState(false);
@@ -33,9 +29,7 @@ export default function WorkoutManager() {
   // Listas compactas: por defecto solo se ven los primeros N, con opción
   // de desplegar el resto (la búsqueda ya permite llegar a cualquiera).
   const WORKOUTS_PAGE_SIZE = 10;
-  const ASSIGNMENTS_PAGE_SIZE = 5;
   const [showAllWorkouts, setShowAllWorkouts] = useState(false);
-  const [showAllAssignments, setShowAllAssignments] = useState(false);
 
   // Selección múltiple: para poder asignar o borrar varios entrenamientos
   // de una sola vez en vez de fila por fila.
@@ -57,14 +51,7 @@ export default function WorkoutManager() {
       setLoading(true);
       setErrorMsg(null);
       const dbWorkouts = await storage.getWorkouts();
-      const dbAssigns = await storage.getWorkoutAssignments();
-      const dbClients = await storage.getClients();
-      const dbGroups = await storage.getEntities(KEYS.GROUPS);
-
       setWorkouts(dbWorkouts);
-      setAssignments(dbAssigns);
-      setClients(dbClients);
-      setGroups(dbGroups);
     } catch (error) {
       console.error("Error loading workout data:", error);
       setErrorMsg(error.message || String(error));
@@ -131,28 +118,12 @@ export default function WorkoutManager() {
     setSelectedIds(allSelected ? [] : visibleIds);
   };
 
-  // --- CRUD Asignaciones ---
-  const handleDeleteAssignment = async (id) => {
-    if (!window.confirm("¿Seguro que deseas anular esta asignación programada?")) return;
-    await storage.deleteWorkoutAssignment(id);
-    setAssignments(prev => prev.filter(a => a.id !== id));
-  };
-
-  const handleDownloadAssignmentPdf = async (assignment, clientName) => {
-    try {
-      // Carga diferida: jsPDF (con sus tablas de fuentes) solo se descarga
-      // cuando alguien pulsa "PDF", no en cada carga de esta página.
-      const { downloadWorkoutAssignmentPdf } = await import('../utils/workoutPdf');
-      await downloadWorkoutAssignmentPdf(assignment, { clientName, coachName: userProfile?.fullName });
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
   // Plantilla suelta, sin asignar a nadie todavía: deportista y fecha se
   // dejan en blanco en el PDF en vez de exigir una asignación primero.
   const handleDownloadTemplatePdf = async (workout) => {
     try {
+      // Carga diferida: jsPDF (con sus tablas de fuentes) solo se descarga
+      // cuando alguien pulsa "PDF", no en cada carga de esta página.
       const { downloadWorkoutTemplatePdf } = await import('../utils/workoutPdf');
       await downloadWorkoutTemplatePdf(workout, { coachName: userProfile?.fullName });
     } catch (err) {
@@ -178,12 +149,6 @@ export default function WorkoutManager() {
   }, [workouts, search]);
 
   const visibleWorkouts = showAllWorkouts ? filteredWorkouts : filteredWorkouts.slice(0, WORKOUTS_PAGE_SIZE);
-
-  const sortedAssignments = useMemo(
-    () => [...assignments].sort((a, b) => String(b.scheduledAt).localeCompare(String(a.scheduledAt))),
-    [assignments]
-  );
-  const visibleAssignments = showAllAssignments ? sortedAssignments : sortedAssignments.slice(0, ASSIGNMENTS_PAGE_SIZE);
 
   if (loading) {
     return <div className="wm-container"><p>Cargando módulo de entrenamientos...</p></div>;
@@ -239,11 +204,11 @@ export default function WorkoutManager() {
             </div>
 
             <div className="cm__header-actions">
-              <button className="el__btn el__btn--ghost" onClick={() => setShowCatalogModal(true)} title="Gestionar categorías, materiales y etiquetas de entrenamientos">
+              <button className="el__btn el__btn--ghost" onClick={() => setShowCatalogModal(true)} title="Gestionar grupos de entrenamientos">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                 </svg>
-                Gestionar Catálogos
+                Administración de grupos
               </button>
               <button className="el__btn el__btn--primary" onClick={handleOpenCreate} title="Abrir constructor para crear un entrenamiento">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -354,6 +319,12 @@ export default function WorkoutManager() {
                               <button className="el__btn el__btn--primary" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => setAssignWorkoutIds([w.id])}>
                                 Asignar
                               </button>
+                              <button className="el__btn el__btn--ghost" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => handleOpenEdit(w)} title="Abrir en el constructor">
+                                ✎ Editar
+                              </button>
+                              <button className="el__btn el__btn--ghost" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => handleDuplicateWorkout(w)} title="Crear una copia de este entrenamiento">
+                                ⧉ Duplicar
+                              </button>
                               <button className="el__btn el__btn--ghost" style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }} onClick={() => handleDownloadTemplatePdf(w)} title="Descargar PDF del entrenamiento">
                                 PDF
                               </button>
@@ -381,99 +352,6 @@ export default function WorkoutManager() {
             </>
           )}
 
-          {/* ══ APARTADO 3: HISTORIAL DE ASIGNACIONES RECIENTES ═════ */}
-          <div style={{ marginTop: '48px', borderTop: '1px solid var(--gray-200)', paddingTop: '32px' }}>
-            <h3 className="wb__section-title">Calendario de Entrenamientos Asignados</h3>
-
-            {assignments.length === 0 ? (
-              <p style={{ fontSize: '0.8125rem', color: 'var(--gray-400)', textAlign: 'center', padding: '24px', background: 'var(--off-white)', borderRadius: 'var(--radius-sm)' }}>
-                No hay asignaciones registradas recientemente.
-              </p>
-            ) : (
-              <>
-                <div className="table-responsive">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Entrenamiento</th>
-                        <th>Asignado a</th>
-                        <th>Programado para</th>
-                        <th>Estado</th>
-                        <th style={{ textAlign: 'center' }}>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visibleAssignments.map(a => {
-                        const wName = workouts.find(w => w.id === a.workoutId)?.name || 'Entrenamiento eliminado';
-
-                        let targetName = 'N/A';
-                        const clientObj = a.clientId ? clients.find(cl => cl.id === a.clientId) : null;
-                        if (a.clientId) {
-                          targetName = clientObj ? `👤 ${clientObj.firstName} ${clientObj.lastName}` : 'Cliente no encontrado';
-                        } else if (a.groupId) {
-                          const g = groups.find(gp => gp.id === a.groupId);
-                          targetName = g ? `👥 Grupo: ${g.name}` : 'Grupo no encontrado';
-                        }
-                        const clientFullName = clientObj ? `${clientObj.firstName} ${clientObj.lastName}` : '';
-
-                        return (
-                          <tr key={a.id}>
-                            <td style={{ fontWeight: 600 }}>{wName}</td>
-                            <td>{targetName}</td>
-                            <td>{formatDate(a.scheduledAt)}</td>
-                            <td>
-                              <span className={`cm__card-status-badge cm__card-status-badge--${a.status === 'completed' ? 'active' : 'pending'}`} style={{ position: 'static' }}>
-                                {a.status === 'completed' ? 'Completado' : 'Pendiente'}
-                              </span>
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              {a.status === 'completed' && (
-                                <button
-                                  className="el__card-admin-btn"
-                                  style={{ marginRight: '6px', borderColor: '#fde047', color: '#854d0e' }}
-                                  onClick={async () => {
-                                    if (window.confirm("¿Seguro que deseas reabrir esta sesión finalizada para el deportista? El resultado volverá a estado borrador.")) {
-                                      await storage.reopenWorkoutResult(a.id);
-                                      await loadData();
-                                    }
-                                  }}
-                                  title="Reabrir entrenamiento"
-                                >
-                                  Reabrir
-                                </button>
-                              )}
-                              <button
-                                className="el__card-admin-btn"
-                                style={{ marginRight: '6px' }}
-                                onClick={() => handleDownloadAssignmentPdf(a, clientFullName)}
-                                title="Descargar PDF del entrenamiento"
-                              >
-                                PDF
-                              </button>
-                              <button className="el__card-admin-btn el__card-admin-btn--delete" onClick={() => handleDeleteAssignment(a.id)} title="Anular asignación">
-                                Anular
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {!showAllAssignments && sortedAssignments.length > ASSIGNMENTS_PAGE_SIZE && (
-                  <button
-                    className="el__btn el__btn--ghost"
-                    style={{ marginTop: '12px', width: '100%' }}
-                    onClick={() => setShowAllAssignments(true)}
-                  >
-                    Ver más… ({sortedAssignments.length - ASSIGNMENTS_PAGE_SIZE} más)
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-
           {/* MODALES */}
           {assignWorkoutIds && (
             <WorkoutAssignmentModal
@@ -491,6 +369,7 @@ export default function WorkoutManager() {
             <GlobalCatalogModal
               contextKeys={[KEYS.GROUPS]}
               initialActiveKey={KEYS.GROUPS}
+              title="Administración de grupos"
               onClose={() => {
                 setShowCatalogModal(false);
                 loadData();

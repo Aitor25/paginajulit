@@ -10,16 +10,16 @@ function stripAccents(str) {
   return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-// Miniatura peque\u00f1a del ejercicio en su fila del bloque: antes solo hab\u00eda
-// texto, as\u00ed que identificar un ejercicio entre varios similares (p. ej.
+// Miniatura del ejercicio (en su fila del bloque y en la biblioteca de la
+// derecha): con solo texto, distinguir ejercicios parecidos (p. ej.
 // "Sentadilla" y "Sentadilla Goblet") obligaba a leer el nombre entero.
-function ExerciseThumb({ image, videoUrl, name }) {
+function ExerciseThumb({ image, videoUrl, name, className = 'wb__exercise-thumb' }) {
   const [imgError, setImgError] = useState(false);
   const src = (!imgError && image) ? image : (!imgError ? getYouTubeThumbnail(videoUrl) : null);
 
   if (!src) {
     return (
-      <span className="wb__exercise-thumb wb__exercise-thumb--empty" aria-hidden="true">
+      <span className={`${className} wb__exercise-thumb--empty`} aria-hidden="true">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <rect x="3" y="3" width="18" height="18" rx="2"/>
           <circle cx="9" cy="9" r="2"/>
@@ -33,7 +33,7 @@ function ExerciseThumb({ image, videoUrl, name }) {
     <img
       src={src}
       alt=""
-      className="wb__exercise-thumb"
+      className={className}
       loading="lazy"
       onError={() => setImgError(true)}
       title={name}
@@ -63,9 +63,6 @@ function normalizarBloque(b) {
       order: e.order || i + 1,
       plannedReps: e.plannedReps ?? '10',
       loadValue: e.loadValue ?? null,
-      loadUnit: e.loadUnit || 'kg',
-      rpe: e.rpe ?? null,
-      rir: e.rir ?? null,
       restSeconds: e.restSeconds ?? 90,
       instructions: migrarInstrucciones(e)
     }))
@@ -222,9 +219,6 @@ export default function WorkoutBuilderView({
       order: block.exercises.length + 1,
       plannedReps: '10',
       loadValue: null,
-      loadUnit: 'kg',
-      rpe: null,
-      rir: null,
       restSeconds: 90,
       instructions: ''
     };
@@ -440,14 +434,6 @@ export default function WorkoutBuilderView({
         return;
       }
       for (const ex of b.exercises) {
-        if (ex.rpe !== null && (ex.rpe < 1 || ex.rpe > 10)) {
-          setFormError('El RPE debe estar comprendido entre 1 y 10.');
-          return;
-        }
-        if (ex.rir !== null && ex.rir < 0) {
-          setFormError('El RIR no puede ser un número negativo.');
-          return;
-        }
         if (ex.restSeconds < 0) {
           setFormError('El descanso entre series no puede ser negativo.');
           return;
@@ -571,7 +557,7 @@ export default function WorkoutBuilderView({
               <div
                 key={block.id}
                 className={
-                  'wb__block-card' +
+                  'wb__block-card wb__block-card--workout' +
                   (activeBlockId === block.id ? ' wb__block-card--active' : '') +
                   (dropBlockId === block.id ? ' wb__block-card--drop' : '') +
                   (arrastre?.tipo === 'bloque' && arrastre.blockId === block.id ? ' wb__block-card--dragging' : '')
@@ -653,6 +639,8 @@ export default function WorkoutBuilderView({
                           onClick={e => e.stopPropagation()}
                           onDragOver={e => handleDragOverExercise(e, block.id, ex.id)}
                         >
+                          {/* Todo en una sola línea: imagen, nombre, campos y
+                              acciones, para ver el bloque entero de un vistazo. */}
                           <div className="wb__exercise-row-header">
                             <span
                               className="wb__drag-handle"
@@ -664,13 +652,63 @@ export default function WorkoutBuilderView({
                             >
                               ⠿
                             </span>
-                            <span className="wb__exercise-order">{ex.order}</span>
                             {!isOrphan && (
                               <ExerciseThumb image={original.image} videoUrl={original.videoUrl} name={original.name} />
                             )}
                             <strong className="wb__exercise-name">
                               {isOrphan ? '⚠️ Ejercicio eliminado del catálogo' : original.name}
                             </strong>
+
+                            {!isOrphan && (
+                              <div className="wb__exercise-fields">
+                                <div className="wb__field wb__field--reps">
+                                  <label className="wb__field-label">Reps</label>
+                                  <input
+                                    type="text"
+                                    className="wb__field-input"
+                                    value={ex.plannedReps}
+                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'plannedReps', e.target.value)}
+                                  />
+                                </div>
+
+                                <div className="wb__field wb__field--load">
+                                  <label className="wb__field-label">Carga</label>
+                                  <input
+                                    type="number"
+                                    className="wb__field-input"
+                                    placeholder="—"
+                                    value={ex.loadValue ?? ''}
+                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadValue', e.target.value ? Number(e.target.value) : null)}
+                                  />
+                                </div>
+
+                                <div className="wb__field wb__field--rest">
+                                  <label className="wb__field-label">Desc. (s)</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="wb__field-input"
+                                    value={ex.restSeconds}
+                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'restSeconds', Number(e.target.value) || 0)}
+                                  />
+                                </div>
+
+                                {/* Solo despliega el textarea quien lo
+                                    necesita, así la fila se queda pequeña. */}
+                                <div className="wb__field wb__field--notes">
+                                  <label className="wb__field-label">Instrucciones</label>
+                                  <button
+                                    type="button"
+                                    className={`wb__instructions-toggle ${ex.instructions ? 'wb__instructions-toggle--filled' : ''}`}
+                                    onClick={() => toggleInstructions(ex.id)}
+                                    aria-expanded={!!expandedInstructions[ex.id]}
+                                  >
+                                    <span>{ex.instructions ? 'Con notas' : 'Sin notas'}</span>
+                                    <span className={`wb__instructions-chevron ${expandedInstructions[ex.id] ? 'wb__instructions-chevron--open' : ''}`}>▾</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
 
                             <div className="wb__block-header-actions">
                               <button type="button" className="wb__icon-btn" onClick={() => handleMoveExercise(block.id, exIdx, -1)} disabled={exIdx === 0} title="Subir">▲</button>
@@ -685,105 +723,18 @@ export default function WorkoutBuilderView({
                               El ejercicio original ya no está en la biblioteca. Quítalo con el ✕ de arriba
                               y añade uno nuevo desde la biblioteca de la derecha si hace falta.
                             </p>
-                          ) : (
-                            <>
-                              <div className="wb__exercise-fields">
-                                <div className="wb__field">
-                                  <label className="wb__field-label">Repeticiones</label>
-                                  <input
-                                    type="text"
-                                    className="wb__field-input"
-                                    value={ex.plannedReps}
-                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'plannedReps', e.target.value)}
-                                  />
-                                </div>
-
-                                <div className="wb__field">
-                                  <label className="wb__field-label">Carga</label>
-                                  <div className="wb__field-pair">
-                                    <input
-                                      type="number"
-                                      className="wb__field-input"
-                                      placeholder="—"
-                                      value={ex.loadValue ?? ''}
-                                      onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadValue', e.target.value ? Number(e.target.value) : null)}
-                                    />
-                                    <input
-                                      type="text"
-                                      className="wb__field-input wb__field-input--unit"
-                                      value={ex.loadUnit}
-                                      onChange={e => handleUpdateExerciseField(block.id, ex.id, 'loadUnit', e.target.value)}
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="wb__field">
-                                  <label className="wb__field-label">RPE / RIR</label>
-                                  <div className="wb__field-pair">
-                                    <input
-                                      type="number"
-                                      min="1"
-                                      max="10"
-                                      className="wb__field-input"
-                                      placeholder="RPE"
-                                      value={ex.rpe ?? ''}
-                                      onChange={e => handleUpdateExerciseField(block.id, ex.id, 'rpe', e.target.value ? Number(e.target.value) : null)}
-                                    />
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      className="wb__field-input"
-                                      placeholder="RIR"
-                                      value={ex.rir ?? ''}
-                                      onChange={e => handleUpdateExerciseField(block.id, ex.id, 'rir', e.target.value ? Number(e.target.value) : null)}
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="wb__field">
-                                  <label className="wb__field-label">Descanso (s)</label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="wb__field-input"
-                                    value={ex.restSeconds}
-                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'restSeconds', Number(e.target.value) || 0)}
-                                  />
-                                </div>
-
-                                {/* En línea con el resto de campos, no como un
-                                    bloque aparte debajo: solo despliega el
-                                    textarea quien lo necesita, así que la
-                                    fila se queda pequeña por defecto. */}
-                                <div className="wb__field">
-                                  <label className="wb__field-label">Instrucciones</label>
-                                  <button
-                                    type="button"
-                                    className={`wb__instructions-toggle ${ex.instructions ? 'wb__instructions-toggle--filled' : ''}`}
-                                    onClick={() => toggleInstructions(ex.id)}
-                                    aria-expanded={!!expandedInstructions[ex.id]}
-                                  >
-                                    <span>{ex.instructions ? 'Con notas' : 'Sin notas'}</span>
-                                    <span className={`wb__instructions-chevron ${expandedInstructions[ex.id] ? 'wb__instructions-chevron--open' : ''}`}>▾</span>
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Lo que leerá el cliente al abrir el entrenamiento */}
-                              {expandedInstructions[ex.id] && (
-                                <div className="wb__field wb__instructions">
-                                  <label className="wb__field-label">Instrucciones</label>
-                                  <textarea
-                                    className="wb__field-input wb__field-input--area"
-                                    rows="2"
-                                    placeholder="Lo que verá el cliente: técnica, tempo, sensaciones, avisos..."
-                                    value={ex.instructions}
-                                    onChange={e => handleUpdateExerciseField(block.id, ex.id, 'instructions', e.target.value)}
-                                    autoFocus
-                                  />
-                                </div>
-                              )}
-                            </>
+                          ) : expandedInstructions[ex.id] && (
+                            /* Lo que leerá el cliente al abrir el entrenamiento */
+                            <div className="wb__field wb__instructions">
+                              <textarea
+                                className="wb__field-input wb__field-input--area"
+                                rows="2"
+                                placeholder="Lo que verá el cliente: técnica, tempo, sensaciones, avisos..."
+                                value={ex.instructions}
+                                onChange={e => handleUpdateExerciseField(block.id, ex.id, 'instructions', e.target.value)}
+                                autoFocus
+                              />
+                            </div>
                           )}
                         </div>
                       );
@@ -852,6 +803,7 @@ export default function WorkoutBuilderView({
                 onDragEnd={handleDragEnd}
                 title="Arrástralo a un bloque o pulsa +"
               >
+                <ExerciseThumb image={ex.image} videoUrl={ex.videoUrl} name={ex.name} className="wb__library-thumb" />
                 <div className="wb__library-item-info">
                   <span className="wb__library-item-name">
                     {ex.name}
@@ -876,7 +828,7 @@ export default function WorkoutBuilderView({
       {/* ══ MODAL DE FICHA PREVIEW EJERCICIO ══════════════════ */}
       {previewEx && (
         <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={() => setPreviewEx(null)}>
-          <div className="el__modal" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+          <div className="el__modal" style={{ maxWidth: '580px' }} onClick={e => e.stopPropagation()}>
             <div className="el__modal-header">
               <h2 className="el__modal-title">{previewEx.name}</h2>
               <button className="el__modal-close" onClick={() => setPreviewEx(null)}>✕</button>
@@ -911,6 +863,7 @@ export default function WorkoutBuilderView({
         <GlobalCatalogModal
           contextKeys={[KEYS.EX_CATEGORIES, KEYS.EX_SUBCATEGORIES]}
           initialActiveKey={KEYS.EX_CATEGORIES}
+          title="Administración de categorías"
           onClose={() => setShowCatalogModal(false)}
           onRefresh={loadLibraryData}
         />

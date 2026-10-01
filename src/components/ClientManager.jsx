@@ -1193,7 +1193,7 @@ export default function ClientManager() {
       {/* ══ MODAL ÚNICO: CREAR / EDITAR CLIENTE ═══════════════ */}
       {showModal && (
         <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && handleCloseModal()}>
-          <div className="el__modal" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+          <div className="el__modal" style={{ maxWidth: '820px' }} onClick={e => e.stopPropagation()}>
             <div className="el__modal-header">
               <h2 className="el__modal-title">{editingClient ? 'Editar Perfil del Cliente' : 'Registrar Nuevo Cliente'}</h2>
               <button className="el__modal-close" onClick={handleCloseModal} aria-label="Cerrar modal">
@@ -1412,7 +1412,7 @@ export default function ClientManager() {
       {/* ══ MODAL DE ELIMINACIÓN DEFINITIVA EXPLÍCITA ══════ */}
       {deletingClient && (
         <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={() => setDeletingClient(null)}>
-          <div className="el__modal" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+          <div className="el__modal" style={{ maxWidth: '580px' }} onClick={e => e.stopPropagation()}>
             <div className="el__modal-header" style={{ borderBottom: 'none', paddingBottom: '10px' }}>
               <h2 className="el__modal-title" style={{ color: '#e53e3e' }}>¿Eliminar definitivamente?</h2>
             </div>

@@ -180,7 +180,7 @@ export default function WorkoutAssignmentModal({
 
   return (
     <div className="el__modal-overlay" role="dialog" aria-modal="true" aria-labelledby="wa-modal-title" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="el__modal" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()} ref={modalRef}>
+      <div className="el__modal" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()} ref={modalRef}>
         <div className="el__modal-header">
           <h2 id="wa-modal-title" className="el__modal-title">Programar Asignación</h2>
           <button className="el__modal-close" onClick={onClose} aria-label="Cerrar modal">✕</button>

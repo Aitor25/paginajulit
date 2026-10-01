@@ -34,7 +34,7 @@ export default function AssignmentDetailModal({
 
   return (
     <div className="el__modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ad-modal-title" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="el__modal" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()} ref={modalRef}>
+      <div className="el__modal" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()} ref={modalRef}>
         <div className="el__modal-header">
           <h2 id="ad-modal-title" className="el__modal-title">Detalles del Evento</h2>
           <button className="el__modal-close" onClick={onClose} aria-label="Cerrar modal">✕</button>

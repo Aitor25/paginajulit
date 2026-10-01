@@ -388,6 +388,16 @@
   color: #9ca3af;
 }
 
+/* En las tarjetas de la lista, etiquetas algo más pequeñas (en la ficha de
+   detalle se mantienen al tamaño normal). */
+.el__card .badge--category {
+  font-size: 0.625rem;
+}
+
+.el__card .badge--subcategory {
+  font-size: 0.53rem;
+}
+
 .badge--blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
 .badge--green { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
 .badge--amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
@@ -464,7 +474,7 @@
 }
 
 .el__modal--exercise-detail {
-  max-width: 560px;
+  max-width: 760px;
 }
 
 .el__card-img-wrap--big {

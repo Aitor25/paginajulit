@@ -24,7 +24,7 @@ function formatObjetivo(ex) {
   const reps = (ex.plannedReps ?? '').toString().trim();
   const repsPart = /^\d+$/.test(reps) ? `${reps} reps` : (reps || '—');
   const hasLoad = ex.loadValue !== null && ex.loadValue !== undefined && ex.loadValue !== '';
-  return hasLoad ? `${repsPart} @ ${ex.loadValue} ${ex.loadUnit || ''}`.trim() : repsPart;
+  return hasLoad ? `${repsPart} @ ${ex.loadValue}` : repsPart;
 }
 
 function formatDescanso(ex) {

@@ -173,7 +173,7 @@ export default function ProgramAssignmentModal({
 
   return (
     <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="el__modal" style={{ maxWidth: '460px' }} onClick={e => e.stopPropagation()}>
+      <div className="el__modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
         <div className="el__modal-header">
           <h2 className="el__modal-title">
             {fixedProgramIds.length > 1 ? `Asignar ${fixedProgramIds.length} Programas` : 'Asignar Programa'}

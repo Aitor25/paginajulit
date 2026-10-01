@@ -91,7 +91,7 @@ function SetCard({ set: s, readOnly, expanded, onChange }) {
           <span>Serie {s.setNumber}</span>
         </label>
         <span className="cp__set-target">
-          Objetivo: {s.repsPlanned || '—'} reps{s.loadPlanned !== null ? ` @ ${s.loadPlanned}${s.loadUnit}` : ''}
+          Objetivo: {s.repsPlanned || '—'} reps{s.loadPlanned !== null ? ` @ ${s.loadPlanned}` : ''}
         </span>
       </div>
 
@@ -113,7 +113,7 @@ function SetCard({ set: s, readOnly, expanded, onChange }) {
           )}
         </div>
         <div className="cp__set-field cp__set-field--big">
-          <label>Carga ({s.loadUnit})</label>
+          <label>Carga</label>
           {readOnly ? (
             <strong>{val(s.loadLogged)}</strong>
           ) : (
@@ -251,7 +251,6 @@ function WorkoutLoggerModal({
               repsLogged: null,
               loadPlanned: e.loadValue !== null ? Number(e.loadValue) : null,
               loadLogged: null,
-              loadUnit: e.loadUnit || 'kg',
               timeLoggedSeconds: null,
               distanceLoggedMeters: null,
               rpeLogged: null,
@@ -554,7 +553,7 @@ function FreeSessionModal({ clientId, onClose, onSave }) {
 
   return (
     <div className="cp__logger-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="cp__logger-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+      <div className="cp__logger-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px' }}>
         
         <div className="cp__logger-header">
           <h3>Registrar Sesión Libre</h3>

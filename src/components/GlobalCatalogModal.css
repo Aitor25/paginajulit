@@ -25,7 +25,7 @@
   background: var(--white);
   border-radius: var(--radius-md);
   width: 90%;
-  max-width: 700px;
+  max-width: 900px;
   max-height: 85vh;
   overflow: hidden;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
@@ -132,6 +132,21 @@
 }
 .gc__entity-item:last-child {
   border-bottom: none;
+}
+
+/* Encabezado de categoría que agrupa las subcategorías */
+.gc__group-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 14px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gray-500);
 }
 
 .gc__entity-name-wrap {

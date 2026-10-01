@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { storage, KEYS } from '../services/storage';
 import './GlobalCatalogModal.css';
 
@@ -20,6 +20,7 @@ export default function GlobalCatalogModal({
   // mezclando cosas de clientes con cosas de ejercicios o de tests.
   contextKeys = [],
   initialActiveKey = null,
+  title = 'Administración de Catálogos',
   onClose,
   onRefresh
 }) {
@@ -190,6 +191,22 @@ export default function GlobalCatalogModal({
     }
   }
 
+  // Las subcategorías se agrupan por su categoría (categorías en orden
+  // alfabético, "Sin categoría" al final) y, dentro de cada grupo, por nombre.
+  const subcatGroupName = item => exerciseCategories.find(c => c.id === item.categoryId)?.name || '';
+  const displayItems = activeKey === KEYS.EX_SUBCATEGORIES
+    ? [...items].sort((a, b) => {
+        const ga = subcatGroupName(a);
+        const gb = subcatGroupName(b);
+        if (ga !== gb) {
+          if (!ga) return 1;
+          if (!gb) return -1;
+          return ga.localeCompare(gb);
+        }
+        return a.name.localeCompare(b.name);
+      })
+    : items;
+
   return (
     <div className="gc__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="gc__modal" onClick={e => e.stopPropagation()}>
@@ -199,7 +216,7 @@ export default function GlobalCatalogModal({
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
             </svg>
-            Administración de Catálogos
+            {title}
           </h2>
           <button className="gc__close" onClick={onClose} aria-label="Cerrar modal">✕</button>
         </div>
@@ -236,15 +253,17 @@ export default function GlobalCatalogModal({
               </p>
             ) : (
               <ul className="gc__entity-list" role="list">
-                {items.map(item => {
+                {displayItems.map((item, idx) => {
                   const isEditing = editingId === item.id;
-                  
+
+                  // Encabezado de categoría al empezar cada grupo de subcategorías
+                  const isSubcats = activeKey === KEYS.EX_SUBCATEGORIES;
+                  const groupName = isSubcats ? (subcatGroupName(item) || 'Sin categoría') : null;
+                  const showGroupHeader = isSubcats && (idx === 0 || subcatGroupName(displayItems[idx - 1]) !== subcatGroupName(item));
+
                   // Obtener detalles extras para la visualización
                   let subDetail = '';
-                  if (activeKey === KEYS.EX_SUBCATEGORIES) {
-                    const catName = exerciseCategories.find(c => c.id === item.categoryId)?.name || 'Sin categoría';
-                    subDetail = `Categoría: ${catName}`;
-                  } else if (activeKey === KEYS.GROUPS && item.description) {
+                  if (activeKey === KEYS.GROUPS && item.description) {
                     subDetail = item.description;
                                     } else if (activeKey === KEYS.TEST_DEFINITIONS) {
                     const catName = testCategories.find(c => c.id === item.categoryId)?.name || 'Sin categoría';
@@ -252,7 +271,11 @@ export default function GlobalCatalogModal({
                   }
 
                   return (
-                    <li key={item.id} className="gc__entity-item">
+                    <Fragment key={item.id}>
+                    {showGroupHeader && (
+                      <li className="gc__group-header" role="presentation">{groupName}</li>
+                    )}
+                    <li className="gc__entity-item">
                       {isEditing ? (
                         /* Modo Edición Inline */
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
@@ -387,6 +410,7 @@ export default function GlobalCatalogModal({
                         </>
                       )}
                     </li>
+                    </Fragment>
                   );
                 })}
               </ul>

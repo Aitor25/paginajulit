@@ -69,7 +69,7 @@
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 10px;
   flex: 1;
   justify-content: center;
 }
@@ -78,13 +78,13 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 18px;
+  gap: 8px;
+  padding: 7px 18px;
   border: none;
   background: transparent;
   border-radius: var(--radius-md);
   font-family: 'Inter', sans-serif;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 500;
   color: var(--gray-600);
   cursor: pointer;
@@ -108,7 +108,7 @@
 }
 
 .navbar__tab-icon {
-  font-size: 1rem;
+  font-size: 1.1rem;
   line-height: 1;
 }
 
@@ -305,8 +305,8 @@
 
 /* ─── Responsive ────────────────────────────────────────────*/
 /* Con las 5 pestañas de owner, el logo y el botón de cerrar sesión, la
-   barra con etiquetas necesita ~990px. Por debajo se muestran solo iconos. */
-@media (max-width: 1010px) {
+   barra con etiquetas necesita ~1100px. Por debajo se muestran solo iconos. */
+@media (max-width: 1130px) {
   .navbar {
     padding: 0 20px;
     gap: 12px;

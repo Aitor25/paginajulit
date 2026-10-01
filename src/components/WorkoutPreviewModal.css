@@ -1,25 +1,23 @@
 /* src/components/WorkoutPreviewModal.css */
 
+/* Ventana ancha y alta: la idea es ver de un vistazo la mayor parte posible
+   del entrenamiento sin tener que abrirlo en el constructor. */
 .wpv__modal {
-  max-width: 560px;
+  max-width: 1080px;
+  max-height: 92vh;
 }
 
 .wpv__body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.wpv__description {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--gray-500);
-  line-height: 1.5;
+  gap: 10px;
+  padding: 1rem 1.5rem;
 }
 
 .wpv__meta-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
@@ -33,6 +31,12 @@
   color: var(--gray-600, #4b5563);
 }
 
+.wpv__description {
+  font-size: 0.8125rem;
+  color: var(--gray-500);
+  line-height: 1.4;
+}
+
 .wpv__loading {
   text-align: center;
   padding: 24px;
@@ -41,72 +45,117 @@
 }
 
 .wpv__block {
-  border: 1px solid var(--gray-200, #e5e7eb);
-  border-radius: 12px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
+/* Barra gris del bloque, como separador claro entre bloques */
 .wpv__block-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(79, 70, 229, 0.08);
-  color: var(--accent);
-  padding: 8px 12px;
-  font-size: 0.8125rem;
+  background: #a3a8b3;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.875rem;
   font-weight: 700;
+  margin-bottom: 2px;
 }
 
 .wpv__block-rounds {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 999px;
   padding: 2px 10px;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
 }
 
 .wpv__exercise {
-  border-top: 1px solid var(--gray-100, #f3f4f6);
+  border-bottom: 1px solid var(--gray-100, #f3f4f6);
+}
+
+.wpv__exercise:last-child {
+  border-bottom: none;
 }
 
 .wpv__exercise-head {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 6px 8px;
   background: none;
   border: none;
   cursor: pointer;
   font-family: inherit;
   text-align: left;
+  color: inherit;
+}
+
+.wpv__exercise-head:disabled {
+  cursor: default;
+}
+
+.wpv__exercise-head:not(:disabled):hover {
+  background: var(--gray-50, #f9fafb);
 }
 
 .wpv__exercise-num {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+  min-width: 26px;
+  color: var(--gray-400);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.wpv__thumb {
+  flex-shrink: 0;
+  width: 52px;
+  height: 38px;
+  border-radius: 6px;
+  object-fit: cover;
   background: var(--gray-100, #f3f4f6);
-  color: var(--gray-500);
-  font-size: 0.7rem;
-  font-weight: 700;
+}
+
+.wpv__thumb--empty {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 1rem;
+  opacity: 0.5;
 }
 
 .wpv__exercise-name {
   flex: 1;
-  font-size: 0.875rem;
+  min-width: 0;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--gray-800, #1f2937);
 }
 
+.wpv__exercise-stat {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gray-600, #4b5563);
+  white-space: nowrap;
+}
+
+.wpv__exercise-stat--rest {
+  min-width: 70px;
+  color: var(--gray-400);
+}
+
 .wpv__chevron {
   flex-shrink: 0;
+  width: 14px;
   color: var(--gray-400);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   transition: transform 0.15s ease;
+}
+
+.wpv__chevron--hidden {
+  visibility: hidden;
 }
 
 .wpv__chevron--open {
@@ -114,37 +163,8 @@
   color: var(--accent);
 }
 
-.wpv__exercise-body {
-  padding: 0 12px 12px 42px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.wpv__exercise-stats {
-  display: flex;
-  gap: 20px;
-}
-
-.wpv__stat-label {
-  display: block;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--gray-400);
-}
-
-.wpv__stat-value {
-  display: block;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--gray-800, #1f2937);
-  margin-top: 2px;
-}
-
 .wpv__exercise-notes {
-  margin: 0;
+  margin: 0 8px 8px 102px;
   font-size: 0.8125rem;
   line-height: 1.5;
   color: var(--gray-600, #4b5563);
@@ -152,11 +172,22 @@
   border-left: 2px solid #f59e0b;
   padding: 6px 10px;
   border-radius: 0 6px 6px 0;
+  white-space: pre-line;
 }
 
-.wpv__exercise-notes--empty {
-  background: none;
-  border-left-color: var(--gray-200, #e5e7eb);
-  color: var(--gray-400);
-  font-style: italic;
+/* En móvil el objetivo y el descanso bajan bajo el nombre */
+@media (max-width: 640px) {
+  .wpv__exercise-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .wpv__exercise-name {
+    flex-basis: calc(100% - 110px);
+  }
+  .wpv__exercise-stat--goal {
+    margin-left: 96px;
+  }
+  .wpv__exercise-notes {
+    margin-left: 8px;
+  }
 }

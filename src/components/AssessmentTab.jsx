@@ -664,7 +664,7 @@ export default function AssessmentTab({ clientId }) {
       {/* ══ MODAL DE REGISTRO / EDICIÓN DE TEST ══════════════ */}
       {showModal && (
         <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="el__modal" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
+          <div className="el__modal" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
             <div className="el__modal-header">
               <h2 className="el__modal-title">{editingResult ? 'Editar Resultado del Test' : 'Registrar Nuevo Test'}</h2>
               <button className="el__modal-close" onClick={() => setShowModal(false)}>✕</button>
@@ -922,7 +922,7 @@ export default function AssessmentTab({ clientId }) {
       {/* ══ CONFIRMACIÓN DE ELIMINACIÓN DE RESULTADO ══ */}
       {deletingResult && (
         <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={() => setDeletingResult(null)}>
-          <div className="el__modal" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+          <div className="el__modal" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
             <div className="el__modal-header" style={{ borderBottom: 'none', paddingBottom: '10px' }}>
               <h2 className="el__modal-title">¿Eliminar resultado?</h2>
             </div>
