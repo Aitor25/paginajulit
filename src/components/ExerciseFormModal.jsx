@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react';
 import { storage, KEYS } from '../services/storage';
-import { getExerciseCategoryIds, getExerciseSubcategoryIds } from '../utils/exerciseCatalog';
+import { getExerciseCategoryIds, getExerciseSubcategoryIds, sortByName } from '../utils/exerciseCatalog';
+import { overlayCloseProps } from '../utils/overlayClose';
+
+function formFromExercise(ex) {
+  return {
+    name: ex?.name || '',
+    categoryIds: ex ? getExerciseCategoryIds(ex) : [],
+    subcategoryIds: ex ? getExerciseSubcategoryIds(ex) : [],
+    description: ex?.description || '',
+    technicalInstructions: ex?.technicalInstructions || '',
+    favorite: !!ex?.favorite,
+    image: ex?.image || '',
+    videoUrl: ex?.videoUrl || ''
+  };
+}
 
 export default function ExerciseFormModal({
   editingEx = null,
@@ -10,18 +24,13 @@ export default function ExerciseFormModal({
   // Catálogos
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
+  const [catalogsLoaded, setCatalogsLoaded] = useState(false);
 
-  // Formulario
-  const [form, setForm] = useState({
-    name: '',
-    categoryIds: [],
-    subcategoryIds: [],
-    description: '',
-    technicalInstructions: '',
-    favorite: false,
-    image: '',
-    videoUrl: ''
-  });
+  // Formulario: se rellena al montar, sin esperar a cargar los catálogos.
+  // Antes se rellenaba cuando terminaba esa carga, así que lo que se
+  // escribiese mientras tanto se perdía de golpe.
+  const [form, setForm] = useState(() => formFromExercise(editingEx));
+  const [initialForm] = useState(() => formFromExercise(editingEx));
 
   const [formError, setFormError] = useState('');
 
@@ -30,36 +39,20 @@ export default function ExerciseFormModal({
     async function loadData() {
       const dbCats = await storage.getEntities(KEYS.EX_CATEGORIES);
       const dbSubs = await storage.getEntities(KEYS.EX_SUBCATEGORIES);
-
-      setCategories(dbCats);
-      setSubcategories(dbSubs);
-
-      if (editingEx) {
-        setForm({
-          name: editingEx.name || '',
-          categoryIds: getExerciseCategoryIds(editingEx),
-          subcategoryIds: getExerciseSubcategoryIds(editingEx),
-          description: editingEx.description || '',
-          technicalInstructions: editingEx.technicalInstructions || '',
-          favorite: !!editingEx.favorite,
-          image: editingEx.image || '',
-          videoUrl: editingEx.videoUrl || ''
-        });
-      } else {
-        setForm({
-          name: '',
-          categoryIds: [],
-          subcategoryIds: [],
-          description: '',
-          technicalInstructions: '',
-          favorite: false,
-          image: '',
-          videoUrl: ''
-        });
-      }
+      setCategories(sortByName(dbCats));
+      setSubcategories(sortByName(dbSubs));
+      setCatalogsLoaded(true);
     }
     loadData();
-  }, [editingEx]);
+  }, []);
+
+  // Cerrar sin guardar pide confirmación si hay cambios, para no perder lo
+  // escrito por un cierre accidental.
+  const handleClose = () => {
+    const dirty = JSON.stringify(form) !== JSON.stringify(initialForm);
+    if (dirty && !window.confirm('Tienes cambios sin guardar en este ejercicio. ¿Cerrar y descartarlos?')) return;
+    onClose();
+  };
 
   const toggleCategory = (id) => {
     setForm(f => ({
@@ -86,8 +79,11 @@ export default function ExerciseFormModal({
   );
 
   // Si se desmarca una categoría, las subcategorías que dependían solo de
-  // ella dejan de ser válidas y se quitan de la selección.
+  // ella dejan de ser válidas y se quitan de la selección. No se hace hasta
+  // tener cargados los catálogos: con la lista aún vacía se quitarían todas
+  // las subcategorías del ejercicio nada más abrirlo.
   useEffect(() => {
+    if (!catalogsLoaded) return;
     const validIds = new Set(filteredSubcategories.map(s => String(s.id)));
     setForm(f => {
       const pruned = f.subcategoryIds.filter(id => validIds.has(id));
@@ -95,7 +91,7 @@ export default function ExerciseFormModal({
       return { ...f, subcategoryIds: pruned };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.categoryIds, subcategories]);
+  }, [form.categoryIds, subcategories, catalogsLoaded]);
 
   // Procesar archivo de imagen con canvas y fondo blanco neutro
   const handleImageChange = (e) => {
@@ -193,11 +189,11 @@ export default function ExerciseFormModal({
   };
 
   return (
-    <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="el__modal-overlay" role="dialog" aria-modal="true" {...overlayCloseProps(handleClose)}>
       <div className="el__modal" style={{ maxWidth: '720px' }} onClick={e => e.stopPropagation()}>
         <div className="el__modal-header">
           <h2 className="el__modal-title">{editingEx ? 'Editar Ejercicio' : 'Registrar Nuevo Ejercicio'}</h2>
-          <button className="el__modal-close" onClick={onClose} aria-label="Cerrar modal">✕</button>
+          <button className="el__modal-close" onClick={handleClose} aria-label="Cerrar modal">✕</button>
         </div>
 
         <form className="el__modal-form" onSubmit={handleSubmit} noValidate>
@@ -337,7 +333,7 @@ export default function ExerciseFormModal({
           </div>
 
           <div className="el__modal-actions">
-            <button type="button" className="el__btn el__btn--ghost" onClick={onClose}>
+            <button type="button" className="el__btn el__btn--ghost" onClick={handleClose}>
               Cancelar
             </button>
             <button type="submit" className="el__btn el__btn--primary">

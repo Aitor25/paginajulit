@@ -91,7 +91,7 @@ function LinkClientModal({ user, onClose, onLinked }) {
         email: user.email || '',
         birthDate: '', gender: '', phone: '',
         height: null, weight: null,
-        sportId: null, teamId: null, groupId: null,
+        groupIds: [], subgroupIds: [], groupId: null,
         image: '', status: 'active', generalNotes: ''
       });
       await storage.linkUserToClient(user.uid || user.id, nuevo.id);

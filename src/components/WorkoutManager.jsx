@@ -7,6 +7,7 @@ import WorkoutPreviewModal from './WorkoutPreviewModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
 import ProgramManager from './ProgramManager';
 import './WorkoutManager.css';
+import { loadGroupCatalog, getTagIds, workoutTaggedWith, buildGroupOptions, groupDisplayName } from '../utils/clientGroups';
 
 function stripAccents(str) {
   if (!str) return '';
@@ -25,6 +26,7 @@ export default function WorkoutManager() {
 
   // Filtros
   const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState('recent'); // 'recent' | 'name' | 'updated'
 
   // Listas compactas: por defecto solo se ven los primeros N, con opción
   // de desplegar el resto (la búsqueda ya permite llegar a cualquiera).
@@ -43,15 +45,30 @@ export default function WorkoutManager() {
   // constructor de verdad.
   const [previewWorkout, setPreviewWorkout] = useState(null);
 
+  // Grupos, subgrupos y jugadores: para las carpetas y las etiquetas
+  const [groups, setGroups] = useState([]);
+  const [subgroups, setSubgroups] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [folder, setFolder] = useState('all'); // 'all' | 'none' | 'g:<id>' | 'c:<id>'
+
   // Cargar datos
   const [errorMsg, setErrorMsg] = useState(null);
 
   async function loadData() {
     try {
-      setLoading(true);
+      // Sin setLoading(true): "loading" empieza en true y solo la primera carga
+      // muestra el aviso. Las recargas (al guardar, al tocar grupos...) no
+      // sustituyen la página, así no se cierra ni reinicia ninguna ventana abierta.
       setErrorMsg(null);
-      const dbWorkouts = await storage.getWorkouts();
+      const [dbWorkouts, groupCatalog, dbClients] = await Promise.all([
+        storage.getWorkouts(),
+        loadGroupCatalog(),
+        storage.getClients()
+      ]);
       setWorkouts(dbWorkouts);
+      setGroups(groupCatalog.groups);
+      setSubgroups(groupCatalog.subgroups);
+      setClients(dbClients);
     } catch (error) {
       console.error("Error loading workout data:", error);
       setErrorMsg(error.message || String(error));
@@ -131,11 +148,71 @@ export default function WorkoutManager() {
     }
   };
 
+  // --- Carpetas y etiquetas ---
+  const clientFullName = (id) => {
+    const c = clients.find(cl => String(cl.id) === String(id));
+    return c ? `${c.firstName} ${c.lastName}` : null;
+  };
+
+  const isUntagged = (w) => {
+    const t = getTagIds(w);
+    return t.groupIds.length === 0 && t.subgroupIds.length === 0 && t.clientIds.length === 0;
+  };
+
+  // Entrar en un grupo muestra también lo etiquetado con sus subgrupos.
+  const workoutInFolder = (w, key) => {
+    if (key === 'none') return isUntagged(w);
+    if (key.startsWith('g:')) return workoutTaggedWith(w, key.slice(2), subgroups);
+    if (key.startsWith('c:')) return getTagIds(w).clientIds.includes(key.slice(2));
+    return true;
+  };
+
+  const workoutTagNames = (w) => {
+    const t = getTagIds(w);
+    return [
+      ...[...t.groupIds, ...t.subgroupIds].map(id => ({ key: id, name: groupDisplayName(id, groups, subgroups), isClient: false })),
+      ...t.clientIds.map(id => ({ key: id, name: clientFullName(id), isClient: true }))
+    ].filter(x => x.name);
+  };
+
+  const folderItems = (() => {
+    const items = [{ key: 'all', label: 'Todos', count: workouts.length }];
+    const groupOptions = buildGroupOptions(groups, subgroups);
+    if (groupOptions.length > 0) {
+      items.push({ key: 'h-groups', heading: true, label: 'Grupos' });
+      groupOptions.forEach(o => items.push({
+        key: `g:${o.id}`,
+        label: o.name,
+        indent: o.isSubgroup,
+        count: workouts.filter(w => workoutTaggedWith(w, o.id, subgroups)).length
+      }));
+    }
+    // Solo los jugadores que tienen algún entrenamiento etiquetado
+    const taggedClientIds = [...new Set(workouts.flatMap(w => getTagIds(w).clientIds))]
+      .filter(id => clientFullName(id))
+      .sort((a, b) => clientFullName(a).localeCompare(clientFullName(b), 'es'));
+    if (taggedClientIds.length > 0) {
+      items.push({ key: 'h-clients', heading: true, label: 'Jugadores' });
+      taggedClientIds.forEach(id => items.push({
+        key: `c:${id}`,
+        label: clientFullName(id),
+        count: workouts.filter(w => getTagIds(w).clientIds.includes(id)).length
+      }));
+    }
+    items.push({ key: 'none', label: 'Sin etiquetar', count: workouts.filter(isUntagged).length });
+    return items;
+  })();
+
   // --- Filtrado ---
   const filteredWorkouts = useMemo(() => {
     let result = workouts;
 
     // 3. Buscador
+    // Carpeta elegida (grupo, subgrupo, jugador o sin etiquetar)
+    if (folder !== 'all') {
+      result = result.filter(w => workoutInFolder(w, folder));
+    }
+
     if (search.trim()) {
       const query = stripAccents(search);
       result = result.filter(w => {
@@ -145,8 +222,15 @@ export default function WorkoutManager() {
       });
     }
 
-    return result;
-  }, [workouts, search]);
+    const sorted = [...result];
+    if (sortOrder === 'name') {
+      sorted.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+    } else {
+      const field = sortOrder === 'updated' ? 'updatedAt' : 'createdAt';
+      sorted.sort((a, b) => new Date(b[field] || 0) - new Date(a[field] || 0));
+    }
+    return sorted;
+  }, [workouts, search, sortOrder, folder, subgroups]);
 
   const visibleWorkouts = showAllWorkouts ? filteredWorkouts : filteredWorkouts.slice(0, WORKOUTS_PAGE_SIZE);
 
@@ -204,7 +288,7 @@ export default function WorkoutManager() {
             </div>
 
             <div className="cm__header-actions">
-              <button className="el__btn el__btn--ghost" onClick={() => setShowCatalogModal(true)} title="Gestionar grupos de entrenamientos">
+              <button className="el__btn el__btn--ghost" onClick={() => setShowCatalogModal(true)} title="Gestionar grupos y subgrupos">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                 </svg>
@@ -219,6 +303,26 @@ export default function WorkoutManager() {
             </div>
           </header>
 
+          <div className="wk__layout">
+            {/* Carpetas: entrar en un grupo, subgrupo o jugador muestra solo los
+                entrenamientos etiquetados con él. */}
+            <aside className="wk__folders" aria-label="Carpetas de entrenamientos">
+              {folderItems.map(item => item.heading ? (
+                <p key={item.key} className="wk__folder-heading">{item.label}</p>
+              ) : (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`wk__folder ${item.indent ? 'wk__folder--sub' : ''} ${folder === item.key ? 'wk__folder--active' : ''}`}
+                  onClick={() => { setFolder(item.key); setShowAllWorkouts(false); }}
+                >
+                  <span className="wk__folder-name">{item.label}</span>
+                  <span className="wk__folder-count">{item.count}</span>
+                </button>
+              ))}
+            </aside>
+
+            <div className="wk__main">
           {/* Toolbar filtros */}
           <div className="cm__toolbar">
             <div className="cm__search-wrap">
@@ -234,6 +338,18 @@ export default function WorkoutManager() {
                 aria-label="Buscar entrenamientos"
               />
             </div>
+
+            <select
+              className="el__select"
+              style={{ width: 'auto' }}
+              value={sortOrder}
+              onChange={e => setSortOrder(e.target.value)}
+              aria-label="Ordenar entrenamientos"
+            >
+              <option value="recent">Añadidos recientemente</option>
+              <option value="name">Alfabético (A-Z)</option>
+              <option value="updated">Modificados recientemente</option>
+            </select>
 
             {selectedIds.length > 0 && (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -310,6 +426,16 @@ export default function WorkoutManager() {
                             {w.description && (
                               <div style={{ fontSize: '0.75rem', color: 'var(--gray-400)', marginTop: '2px' }}>{w.description}</div>
                             )}
+                            {(() => {
+                              const tagNames = workoutTagNames(w);
+                              return tagNames.length > 0 && (
+                                <div className="gp__chips" style={{ marginTop: '4px' }}>
+                                  {tagNames.map(t => (
+                                    <span key={t.key} className={`gp__chip ${t.isClient ? 'gp__chip--client' : ''}`}>{t.name}</span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td style={{ whiteSpace: 'nowrap' }}>
                             {w.estimatedDurationMinutes} min · {blockCount} bloques ({exerciseCount} ej.)
@@ -351,6 +477,8 @@ export default function WorkoutManager() {
               )}
             </>
           )}
+            </div>
+          </div>
 
           {/* MODALES */}
           {assignWorkoutIds && (
@@ -367,7 +495,7 @@ export default function WorkoutManager() {
 
           {showCatalogModal && (
             <GlobalCatalogModal
-              contextKeys={[KEYS.GROUPS]}
+              contextKeys={[KEYS.GROUPS, KEYS.SUBGROUPS]}
               initialActiveKey={KEYS.GROUPS}
               title="Administración de grupos"
               onClose={() => {

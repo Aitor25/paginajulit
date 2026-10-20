@@ -4,6 +4,7 @@ import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthProvider';
 import { ClientCalendarTab } from './ClientCalendarTab';
 import './ClientPortal.css';
+import { overlayCloseProps } from '../utils/overlayClose';
 
 // Rest Timer Component
 function RestTimer() {
@@ -91,7 +92,7 @@ function SetCard({ set: s, readOnly, expanded, onChange }) {
           <span>Serie {s.setNumber}</span>
         </label>
         <span className="cp__set-target">
-          Objetivo: {s.repsPlanned || '—'} reps{s.loadPlanned !== null ? ` @ ${s.loadPlanned}` : ''}
+          Objetivo: {s.repsPlanned || '—'} reps{s.loadPlanned !== null ? ` @ ${s.loadPlanned} kg` : ''}
         </span>
       </div>
 
@@ -113,7 +114,7 @@ function SetCard({ set: s, readOnly, expanded, onChange }) {
           )}
         </div>
         <div className="cp__set-field cp__set-field--big">
-          <label>Carga</label>
+          <label>Carga (kg)</label>
           {readOnly ? (
             <strong>{val(s.loadLogged)}</strong>
           ) : (
@@ -337,7 +338,7 @@ function WorkoutLoggerModal({
   const showLog = readOnly || phase === 'log';
 
   return (
-    <div className="cp__logger-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="cp__logger-overlay" role="dialog" aria-modal="true" {...overlayCloseProps(() => onClose())}>
       <div className="cp__logger-modal" onClick={e => e.stopPropagation()}>
 
         {/* Cabecera */}
@@ -552,7 +553,7 @@ function FreeSessionModal({ clientId, onClose, onSave }) {
   };
 
   return (
-    <div className="cp__logger-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="cp__logger-overlay" role="dialog" aria-modal="true" {...overlayCloseProps(() => onClose())}>
       <div className="cp__logger-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px' }}>
         
         <div className="cp__logger-header">

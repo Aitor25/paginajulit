@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { storage } from '../services/storage';
 import { getYouTubeThumbnail } from '../utils/youtubeHelpers';
 import './WorkoutPreviewModal.css';
+import { overlayCloseProps } from '../utils/overlayClose';
 
 // Objetivo de la serie con el mismo criterio que el PDF: si son reps
 // numéricas se añade "reps", si el coach escribió otra cosa (rango, "AMRAP",
@@ -10,7 +11,7 @@ function formatObjetivo(ex) {
   const reps = (ex.plannedReps ?? '').toString().trim();
   const repsPart = /^\d+$/.test(reps) ? `${reps} reps` : (reps || '—');
   const hasLoad = ex.loadValue !== null && ex.loadValue !== undefined && ex.loadValue !== '';
-  return hasLoad ? `${repsPart} @ ${ex.loadValue}` : repsPart;
+  return hasLoad ? `${repsPart} @ ${ex.loadValue} kg` : repsPart;
 }
 
 function formatDescanso(ex) {
@@ -100,7 +101,7 @@ export default function WorkoutPreviewModal({ workout, onClose, onEdit, onDuplic
   let exerciseCounter = 0;
 
   return (
-    <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="el__modal-overlay" role="dialog" aria-modal="true" {...overlayCloseProps(() => onClose())}>
       <div className="el__modal wpv__modal" onClick={e => e.stopPropagation()}>
         <div className="el__modal-header">
           <h2 className="el__modal-title">{workout.name}</h2>

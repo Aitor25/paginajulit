@@ -5,6 +5,7 @@ import ProgramBuilderView from './ProgramBuilderView';
 import ProgramAssignmentModal from './ProgramAssignmentModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
 import './ProgramManager.css';
+import { loadGroupCatalog, groupDisplayName } from '../utils/clientGroups';
 
 function stripAccents(str) {
   if (!str) return '';
@@ -17,6 +18,7 @@ export default function ProgramManager() {
   const [assignments, setAssignments] = useState([]);
   const [clients, setClients] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [subgroups, setSubgroups] = useState([]);
 
   // Estados visuales y navegación SPA
   const [loading, setLoading] = useState(true);
@@ -37,16 +39,18 @@ export default function ProgramManager() {
 
   // Cargar datos relacionales
   async function loadData() {
-    setLoading(true);
+    // Sin setLoading(true): solo la primera carga muestra el aviso; las
+    // recargas no sustituyen la página ni reinician las ventanas abiertas.
     const dbPrograms = await storage.getPrograms();
     const dbAssigns = await storage.getProgramAssignments();
     const dbClients = await storage.getClients();
-    const dbGroups = await storage.getEntities(KEYS.GROUPS);
+    const groupCatalog = await loadGroupCatalog();
 
     setPrograms(dbPrograms);
     setAssignments(dbAssigns);
     setClients(dbClients);
-    setGroups(dbGroups);
+    setGroups(groupCatalog.groups);
+    setSubgroups(groupCatalog.subgroups);
     setLoading(false);
   }
 
@@ -166,11 +170,11 @@ export default function ProgramManager() {
         </div>
 
         <div className="cm__header-actions">
-          <button className="el__btn el__btn--ghost" onClick={() => setShowCatalogModal(true)} title="Gestionar categorías, materiales y etiquetas de entrenamientos">
+          <button className="el__btn el__btn--ghost" onClick={() => setShowCatalogModal(true)} title="Gestionar grupos y subgrupos">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
             </svg>
-            Gestionar Catálogos
+            Administración de grupos
           </button>
           <button className="el__btn el__btn--primary" onClick={handleOpenCreate} title="Abrir editor para crear un programa">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -329,8 +333,8 @@ export default function ProgramManager() {
                   
                   let groupName = 'Plan Individual';
                   if (a.groupId) {
-                    const g = groups.find(gp => gp.id === a.groupId);
-                    groupName = g ? `👥 Grupo: ${g.name}` : 'Grupo no encontrado';
+                    const gName = groupDisplayName(a.groupId, groups, subgroups);
+                    groupName = gName ? `👥 Grupo: ${gName}` : 'Grupo no encontrado';
                   }
 
                   const progressVal = Number(a.progressPercentage) || 0;
@@ -381,8 +385,9 @@ export default function ProgramManager() {
 
       {showCatalogModal && (
         <GlobalCatalogModal
-          contextKeys={[KEYS.GROUPS]}
+          contextKeys={[KEYS.GROUPS, KEYS.SUBGROUPS]}
           initialActiveKey={KEYS.GROUPS}
+          title="Administración de grupos"
           onClose={() => {
             setShowCatalogModal(false);
             loadData();

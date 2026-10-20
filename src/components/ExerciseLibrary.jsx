@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { storage, KEYS } from '../services/storage';
 import { getYouTubeThumbnail, getYouTubeEmbedUrl, isYouTubeShorts } from '../utils/youtubeHelpers';
-import { getExerciseCategoryIds, getExerciseSubcategoryIds, getExerciseCategoryNames, getExerciseSubcategoryNames } from '../utils/exerciseCatalog';
+import { getExerciseCategoryIds, getExerciseSubcategoryIds, getExerciseCategoryNames, getExerciseSubcategoryNames, sortByName } from '../utils/exerciseCatalog';
 import ExerciseFormModal from './ExerciseFormModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
 import './ExerciseLibrary.css';
+import { overlayCloseProps } from '../utils/overlayClose';
 
 /* ─── Helpers ─────────────────────────────────────────────── */
 
@@ -75,7 +76,7 @@ function ExerciseDetailModal({ exercise, categories, subcategories, onClose }) {
   const exCategoryIds = getExerciseCategoryIds(exercise);
 
   return (
-    <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="el__modal-overlay" role="dialog" aria-modal="true" {...overlayCloseProps(() => onClose())}>
       <div className="el__modal el__modal--exercise-detail" onClick={e => e.stopPropagation()}>
         <div className="el__modal-header" style={{ padding: '12px' }}>
           <button className="el__modal-close" onClick={onClose} aria-label="Cerrar detalle">✕</button>
@@ -159,9 +160,12 @@ export default function ExerciseLibrary() {
   // Cargar datos
   const [errorMsg, setErrorMsg] = useState(null);
 
+  // Solo la primera carga enseña "Cargando…" (loading empieza en true). Las
+  // recargas tras guardar o tocar categorías son silenciosas: antes ponían
+  // loading=true, la página entera se sustituía un instante por el aviso de
+  // carga y se cerraba cualquier ventana abierta, como la de editar ejercicio.
   async function loadLibraryData() {
     try {
-      setLoading(true);
       setErrorMsg(null);
       
       const dbExs = await storage.getExercises();
@@ -169,8 +173,8 @@ export default function ExerciseLibrary() {
       const dbSubs = await storage.getEntities(KEYS.EX_SUBCATEGORIES);
 
       setExercises(dbExs);
-      setCategories(dbCats);
-      setSubcategories(dbSubs);
+      setCategories(sortByName(dbCats));
+      setSubcategories(sortByName(dbSubs));
     } catch (error) {
       console.error("Error loading library data:", error);
       setErrorMsg(error.message || String(error));
@@ -373,7 +377,7 @@ export default function ExerciseLibrary() {
           <div className="el__toolbar-filters">
             {/* Categoría */}
             <div className="el__select-wrap">
-              <select className="el__select" value={selectedCatFilter} onChange={(e) => setSelectedCatFilter(e.target.value)}>
+              <select className="el__select" value={selectedCatFilter} onChange={e => { setSelectedCatFilter(e.target.value); setSelectedSubcatFilter('Todas'); }}>
                 <option value="Todas">Categoría: Todas</option>
                 {categories.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>

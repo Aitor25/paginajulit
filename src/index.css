@@ -556,6 +556,63 @@ textarea.el__input {
   accent-color: var(--accent);
 }
 
+/* ─── Selector de grupos y subgrupos (GroupPicker) ─── */
+.gp {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.gp__list {
+  max-height: 220px;
+}
+
+.gp__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gp__group-name {
+  font-weight: 600;
+}
+
+.gp__sub {
+  padding-left: 22px;
+}
+
+.gp__clients {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gp__client-search {
+  height: 34px;
+}
+
+/* Etiquetas de grupo (en fichas de cliente y filas de entrenamientos) */
+.gp__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.gp__chip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft, rgba(99, 102, 241, 0.12));
+  white-space: nowrap;
+}
+
+.gp__chip--client {
+  color: var(--gray-600);
+  background: var(--gray-100);
+}
+
 .el__checkbox-list-empty {
   margin: 0;
   font-size: 0.78rem;

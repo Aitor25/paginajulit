@@ -27,3 +27,10 @@ export function getExerciseSubcategoryNames(ex, subcategories) {
   const ids = new Set(getExerciseSubcategoryIds(ex));
   return subcategories.filter(s => ids.has(String(s.id))).map(s => s.name);
 }
+
+// Orden alfabético por nombre (sin distinguir mayúsculas ni tildes), para
+// que categorías y subcategorías salgan siempre igual en filtros y
+// desplegables en vez de en el orden en que se crearon.
+export function sortByName(items) {
+  return [...items].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+}

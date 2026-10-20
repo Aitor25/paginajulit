@@ -110,8 +110,8 @@
 
 .wpv__thumb {
   flex-shrink: 0;
-  width: 52px;
-  height: 38px;
+  width: 80px;
+  height: 56px;
   border-radius: 6px;
   object-fit: cover;
   background: var(--gray-100, #f3f4f6);
@@ -164,7 +164,7 @@
 }
 
 .wpv__exercise-notes {
-  margin: 0 8px 8px 102px;
+  margin: 0 8px 8px 138px;
   font-size: 0.8125rem;
   line-height: 1.5;
   color: var(--gray-600, #4b5563);
@@ -182,10 +182,10 @@
     gap: 8px;
   }
   .wpv__exercise-name {
-    flex-basis: calc(100% - 110px);
+    flex-basis: calc(100% - 140px);
   }
   .wpv__exercise-stat--goal {
-    margin-left: 96px;
+    margin-left: 126px;
   }
   .wpv__exercise-notes {
     margin-left: 8px;

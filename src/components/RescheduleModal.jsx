@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createFocusTrap } from '../utils/focusTrap';
+import { overlayCloseProps } from '../utils/overlayClose';
 
 export const RescheduleModal = ({ event, onClose, onSave }) => {
   const [newDate, setNewDate] = useState(event?.date || '');
@@ -48,7 +49,7 @@ export const RescheduleModal = ({ event, onClose, onSave }) => {
   };
 
   return (
-    <div className="el__modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rm-modal-title" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="el__modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rm-modal-title" {...overlayCloseProps(() => onClose())}>
       <div className="el__modal" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()} ref={modalRef}>
         <div className="el__modal-header">
           <h2 id="rm-modal-title" className="el__modal-title">Reprogramar Evento</h2>

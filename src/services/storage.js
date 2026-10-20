@@ -21,7 +21,11 @@ export const KEYS = {
   PROGRAM_WEEKS: 'fitcoach_program_weeks',
   PROGRAM_DAYS: 'fitcoach_program_days',
   PROGRAM_ASSIGNMENTS: 'fitcoach_program_assignments',
+  // Grupos de clientes en dos niveles: grupo (Tolosa Eskubaloia, Otros...) y
+  // subgrupo dentro de él (1ª Nacional, Kaska...; subgroup.categoryId = id
+  // del grupo). Sirven para clasificar clientes y etiquetar entrenamientos.
   GROUPS: 'fitcoach_groups',
+  SUBGROUPS: 'fitcoach_subgroups',
   ANAMNESIS: 'fitcoach_anamnesis',
   TEST_DEFINITIONS: 'fitcoach_test_definitions',
   TEST_RESULTS: 'fitcoach_test_results',
@@ -80,17 +84,30 @@ export const initializeStorage = () => {
   console.log("Storage initialized with Firebase backend.");
 };
 
+// Colección de Firestore de cada catálogo: el nombre de la clave en minúsculas
+// (GROUPS -> 'groups'), salvo excepciones. Los subgrupos viven en
+// 'workout_tags', una colección que firestore.rules ya permite y que no se
+// usaba: así no hace falta publicar reglas nuevas para guardarlos.
+const COLLECTION_OVERRIDES = {
+  SUBGROUPS: 'workout_tags'
+};
+
+function collectionForKey(key) {
+  const keyName = Object.keys(KEYS).find(k => KEYS[k] === key);
+  if (!keyName) return null;
+  return COLLECTION_OVERRIDES[keyName] || keyName.toLowerCase();
+}
+
 export const storage = {
   getEntities: async (key) => {
-    const keyName = Object.keys(KEYS).find(k => KEYS[k] === key);
-    if (!keyName) return [];
-    const collectionName = keyName.toLowerCase();
+    const collectionName = collectionForKey(key);
+    if (!collectionName) return [];
     return getCollection(collectionName);
   },
 
   saveEntity: async (key, entity) => {
     const orgId = sessionService.getOrgId();
-    const collectionName = Object.keys(KEYS).find(k => KEYS[k] === key).toLowerCase();
+    const collectionName = collectionForKey(key);
 
     let saved = { ...entity, orgId };
 
@@ -107,7 +124,7 @@ export const storage = {
   },
 
   deleteEntity: async (key, id) => {
-    const collectionName = Object.keys(KEYS).find(k => KEYS[k] === key).toLowerCase();
+    const collectionName = collectionForKey(key);
     await firestoreService.deleteDocument(collectionName, String(id));
     return true;
   },
@@ -498,6 +515,7 @@ export const storage = {
       name: `[Copia] - ${workout.name}`,
       description: workout.description,
       estimatedDurationMinutes: workout.estimatedDurationMinutes,
+      tags: workout.tags || null,
       // Ids nuevos para bloques y ejercicios: son dos entrenamientos
       // independientes a partir de aquí, y reutilizar los mismos ids podría
       // confundir el drag&drop/las keys de React si ambos se llegan a

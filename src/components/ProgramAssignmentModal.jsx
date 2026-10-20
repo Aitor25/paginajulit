@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { storage, KEYS } from '../services/storage';
+import { storage } from '../services/storage';
+import { loadGroupCatalog, clientInGroup, buildGroupOptions } from '../utils/clientGroups';
+import { overlayCloseProps } from '../utils/overlayClose';
 
 export default function ProgramAssignmentModal({
   programId,
@@ -16,6 +18,7 @@ export default function ProgramAssignmentModal({
 
   const [clients, setClients] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [subgroups, setSubgroups] = useState([]);
 
   // Destinatarios
   const [assignmentType, setAssignmentType] = useState('single'); // 'single' | 'multiple' | 'group'
@@ -33,17 +36,19 @@ export default function ProgramAssignmentModal({
   useEffect(() => {
     async function loadData() {
       const dbClients = await storage.getClients();
-      const dbGroups = await storage.getEntities(KEYS.GROUPS);
+      const groupCatalog = await loadGroupCatalog();
+      const groupOptions = buildGroupOptions(groupCatalog.groups, groupCatalog.subgroups);
 
       const activeClients = dbClients;
       setClients(activeClients);
-      setGroups(dbGroups);
+      setGroups(groupCatalog.groups);
+      setSubgroups(groupCatalog.subgroups);
 
       if (activeClients.length > 0) {
         setSelectedClientId(String(activeClients[0].id));
       }
-      if (dbGroups.length > 0) {
-        setSelectedGroupId(String(dbGroups[0].id));
+      if (groupOptions.length > 0) {
+        setSelectedGroupId(groupOptions[0].id);
       }
     }
     loadData();
@@ -93,7 +98,7 @@ export default function ProgramAssignmentModal({
         return;
       }
       // Obtener clientes del grupo
-      const groupClients = clients.filter(c => String(c.groupId) === String(selectedGroupId));
+      const groupClients = clients.filter(c => clientInGroup(c, selectedGroupId, subgroups));
       if (groupClients.length === 0) {
         setErrorMsg('El grupo seleccionado no tiene deportistas activos.');
         return;
@@ -172,7 +177,7 @@ export default function ProgramAssignmentModal({
   };
 
   return (
-    <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="el__modal-overlay" role="dialog" aria-modal="true" {...overlayCloseProps(() => onClose())}>
       <div className="el__modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
         <div className="el__modal-header">
           <h2 className="el__modal-title">
@@ -325,8 +330,8 @@ export default function ProgramAssignmentModal({
                     value={selectedGroupId}
                     onChange={e => setSelectedGroupId(e.target.value)}
                   >
-                    {groups.map(g => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
+                    {buildGroupOptions(groups, subgroups).map(o => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
                     ))}
                   </select>
                   <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)', marginTop: '4px', display: 'block' }}>

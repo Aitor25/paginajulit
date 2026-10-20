@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { storage, KEYS, generateUUID } from '../services/storage';
-import { getYouTubeThumbnail } from '../utils/youtubeHelpers';
-import { getExerciseCategoryIds, getExerciseSubcategoryIds, getExerciseCategoryNames } from '../utils/exerciseCatalog';
+import { getYouTubeThumbnail, getYouTubeEmbedUrl, isYouTubeShorts } from '../utils/youtubeHelpers';
+import { getExerciseCategoryIds, getExerciseSubcategoryIds, getExerciseCategoryNames, sortByName } from '../utils/exerciseCatalog';
 import ExerciseFormModal from './ExerciseFormModal';
 import GlobalCatalogModal from './GlobalCatalogModal';
+import { overlayCloseProps } from '../utils/overlayClose';
+import GroupPicker from './GroupPicker';
+import { loadGroupCatalog, getTagIds, groupDisplayName } from '../utils/clientGroups';
 
 function stripAccents(str) {
   if (!str) return '';
@@ -92,6 +95,7 @@ export default function WorkoutBuilderView({
   // Estados de la biblioteca (Filtros del lateral derecho)
   const [search, setSearch] = useState('');
   const [selectedCatFilter, setSelectedCatFilter] = useState('Todas');
+  const [librarySort, setLibrarySort] = useState('name'); // 'name' | 'recent'
   const [selectedSubcatFilter, setSelectedSubcatFilter] = useState('Todas');
 
   // Modales embebidos
@@ -104,6 +108,7 @@ export default function WorkoutBuilderView({
     name: '',
     description: '',
     estimatedDurationMinutes: 45,
+    tags: { groupIds: [], subgroupIds: [], clientIds: [] },
     blocks: []
   });
 
@@ -116,6 +121,16 @@ export default function WorkoutBuilderView({
   // siempre abiertas era lo que hacía cada fila de ejercicio tan alta.
   const [expandedInstructions, setExpandedInstructions] = useState({});
 
+  // Grupos y jugadores para las etiquetas del entrenamiento
+  const [groupCatalog, setGroupCatalog] = useState({ groups: [], subgroups: [] });
+  const [tagClients, setTagClients] = useState([]);
+  const [showTagPicker, setShowTagPicker] = useState(false);
+
+  useEffect(() => {
+    loadGroupCatalog().then(setGroupCatalog).catch(err => console.error('Error cargando grupos', err));
+    storage.getClients().then(setTagClients).catch(err => console.error('Error cargando clientes', err));
+  }, []);
+
   // Carga inicial de datos
   async function loadLibraryData() {
     const dbExs = await storage.getExercises();
@@ -123,8 +138,8 @@ export default function WorkoutBuilderView({
     const dbSubs = await storage.getEntities(KEYS.EX_SUBCATEGORIES);
 
     setExercises(dbExs);
-    setCategories(dbCats);
-    setSubcategories(dbSubs);
+    setCategories(sortByName(dbCats));
+    setSubcategories(sortByName(dbSubs));
   }
 
   useEffect(() => {
@@ -138,6 +153,7 @@ export default function WorkoutBuilderView({
         name: editingWorkout.name || '',
         description: editingWorkout.description || '',
         estimatedDurationMinutes: editingWorkout.estimatedDurationMinutes || 45,
+        tags: getTagIds(editingWorkout),
         blocks
       });
       if (blocks.length > 0) setActiveBlockId(blocks[0].id);
@@ -147,6 +163,7 @@ export default function WorkoutBuilderView({
         name: '',
         description: '',
         estimatedDurationMinutes: 45,
+        tags: { groupIds: [], subgroupIds: [], clientIds: [] },
         blocks: [primero]
       });
       setActiveBlockId(primero.id);
@@ -445,6 +462,7 @@ export default function WorkoutBuilderView({
       name: trimmedName,
       description: workoutForm.description.trim(),
       estimatedDurationMinutes: Number(workoutForm.estimatedDurationMinutes) || 45,
+      tags: workoutForm.tags,
       blocks: workoutForm.blocks
     };
 
@@ -477,10 +495,29 @@ export default function WorkoutBuilderView({
       result = result.filter(ex => stripAccents(ex.name).includes(query));
     }
 
-    return result;
-  }, [exercises, selectedCatFilter, selectedSubcatFilter, search]);
+    const sorted = [...result];
+    if (librarySort === 'recent') {
+      sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    } else {
+      sorted.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+    }
+    return sorted;
+  }, [exercises, selectedCatFilter, selectedSubcatFilter, search, librarySort]);
 
   const totalEjercicios = workoutForm.blocks.reduce((n, b) => n + b.exercises.length, 0);
+
+  // Resumen de las etiquetas del entrenamiento (los que ya no existen se omiten)
+  const tagNames = [
+    ...[...workoutForm.tags.groupIds, ...workoutForm.tags.subgroupIds].map(id => ({
+      key: id,
+      name: groupDisplayName(id, groupCatalog.groups, groupCatalog.subgroups),
+      isClient: false
+    })),
+    ...workoutForm.tags.clientIds.map(id => {
+      const c = tagClients.find(cl => String(cl.id) === id);
+      return { key: id, name: c ? `${c.firstName} ${c.lastName}` : null, isClient: true };
+    })
+  ].filter(t => t.name);
 
   return (
     <div className="wb__container">
@@ -540,6 +577,41 @@ export default function WorkoutBuilderView({
                 onChange={e => setWorkoutForm(w => ({ ...w, description: e.target.value }))}
               />
             </div>
+          </div>
+
+          {/* Etiquetas: grupos, subgrupos o jugadores para tener los
+              entrenamientos ordenados. No es una asignación: no aparece en el
+              calendario ni le llega a nadie. */}
+          <div className="wb__tags">
+            <button
+              type="button"
+              className="wb__tags-toggle"
+              onClick={() => setShowTagPicker(v => !v)}
+              aria-expanded={showTagPicker}
+            >
+              <span className="wb__meta-label">Etiquetas</span>
+              {tagNames.length === 0 ? (
+                <span className="wb__tags-empty">Sin etiquetas — pulsa para añadir grupos o jugadores</span>
+              ) : (
+                <span className="gp__chips">
+                  {tagNames.map(t => (
+                    <span key={t.key} className={`gp__chip ${t.isClient ? 'gp__chip--client' : ''}`}>{t.name}</span>
+                  ))}
+                </span>
+              )}
+              <span className={`wb__instructions-chevron ${showTagPicker ? 'wb__instructions-chevron--open' : ''}`}>▾</span>
+            </button>
+            {showTagPicker && (
+              <div className="wb__tags-picker">
+                <GroupPicker
+                  groups={groupCatalog.groups}
+                  subgroups={groupCatalog.subgroups}
+                  clients={tagClients}
+                  value={workoutForm.tags}
+                  onChange={tags => setWorkoutForm(w => ({ ...w, tags }))}
+                />
+              </div>
+            )}
           </div>
 
           {formError && <p className="wb__error">{formError}</p>}
@@ -653,9 +725,15 @@ export default function WorkoutBuilderView({
                               ⠿
                             </span>
                             {!isOrphan && (
-                              <ExerciseThumb image={original.image} videoUrl={original.videoUrl} name={original.name} />
+                              <button type="button" className="wb__exercise-open" onClick={() => setPreviewEx(original)} title="Ver vídeo del ejercicio">
+                                <ExerciseThumb image={original.image} videoUrl={original.videoUrl} name={original.name} />
+                              </button>
                             )}
-                            <strong className="wb__exercise-name">
+                            <strong
+                              className={`wb__exercise-name ${isOrphan ? '' : 'wb__exercise-name--link'}`}
+                              onClick={isOrphan ? undefined : () => setPreviewEx(original)}
+                              title={isOrphan ? undefined : 'Ver vídeo del ejercicio'}
+                            >
                               {isOrphan ? '⚠️ Ejercicio eliminado del catálogo' : original.name}
                             </strong>
 
@@ -672,7 +750,7 @@ export default function WorkoutBuilderView({
                                 </div>
 
                                 <div className="wb__field wb__field--load">
-                                  <label className="wb__field-label">Carga</label>
+                                  <label className="wb__field-label">Carga (kg)</label>
                                   <input
                                     type="number"
                                     className="wb__field-input"
@@ -770,7 +848,7 @@ export default function WorkoutBuilderView({
             />
 
             <div className="wb__field-pair">
-              <select className="wb__field-input" value={selectedCatFilter} onChange={e => setSelectedCatFilter(e.target.value)}>
+              <select className="wb__field-input" value={selectedCatFilter} onChange={e => { setSelectedCatFilter(e.target.value); setSelectedSubcatFilter('Todas'); }}>
                 <option value="Todas">Categoría: todas</option>
                 {categories.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -787,6 +865,11 @@ export default function WorkoutBuilderView({
                 }
               </select>
             </div>
+
+            <select className="wb__field-input" value={librarySort} onChange={e => setLibrarySort(e.target.value)} aria-label="Ordenar ejercicios">
+              <option value="name">Orden: alfabético (A-Z)</option>
+              <option value="recent">Orden: añadidos recientemente</option>
+            </select>
           </div>
 
           <div className="wb__library-list">
@@ -801,7 +884,8 @@ export default function WorkoutBuilderView({
                 draggable
                 onDragStart={e => handleDragStartLibrary(e, ex)}
                 onDragEnd={handleDragEnd}
-                title="Arrástralo a un bloque o pulsa +"
+                onClick={() => setPreviewEx(ex)}
+                title="Pulsa para ver el vídeo; arrástralo a un bloque o pulsa + para añadirlo"
               >
                 <ExerciseThumb image={ex.image} videoUrl={ex.videoUrl} name={ex.name} className="wb__library-thumb" />
                 <div className="wb__library-item-info">
@@ -815,8 +899,7 @@ export default function WorkoutBuilderView({
                 </div>
 
                 <div className="wb__library-item-actions">
-                  <button type="button" className="wb__icon-btn" onClick={() => setPreviewEx(ex)} title="Ver ficha del ejercicio">i</button>
-                  <button type="button" className="wb__add-btn" onClick={() => anadirEjercicio(ex)} title="Añadir al bloque activo">+</button>
+                  <button type="button" className="wb__add-btn" onClick={e => { e.stopPropagation(); anadirEjercicio(ex); }} title="Añadir al bloque activo">+</button>
                 </div>
               </div>
             ))}
@@ -825,21 +908,33 @@ export default function WorkoutBuilderView({
 
       </div>
 
-      {/* ══ MODAL DE FICHA PREVIEW EJERCICIO ══════════════════ */}
+      {/* ══ MODAL DE FICHA PREVIEW EJERCICIO ══════════════════
+          Se abre al pulsar un ejercicio (en la biblioteca o en un bloque). Si
+          tiene vídeo de YouTube se reproduce aquí mismo, sin salir de la web. */}
       {previewEx && (
-        <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={() => setPreviewEx(null)}>
-          <div className="el__modal" style={{ maxWidth: '580px' }} onClick={e => e.stopPropagation()}>
+        <div className="el__modal-overlay" role="dialog" aria-modal="true" {...overlayCloseProps(() => setPreviewEx(null))}>
+          <div className="el__modal" style={{ maxWidth: '720px' }} onClick={e => e.stopPropagation()}>
             <div className="el__modal-header">
               <h2 className="el__modal-title">{previewEx.name}</h2>
               <button className="el__modal-close" onClick={() => setPreviewEx(null)}>✕</button>
             </div>
             <div className="el__modal-body" style={{ padding: '0 24px 24px', fontSize: '0.8125rem', color: 'var(--gray-600)', lineHeight: '1.5' }}>
-              {previewEx.image && (
+              {getYouTubeEmbedUrl(previewEx.videoUrl) ? (
+                <div className={`el__video-aspect wb__preview-video ${isYouTubeShorts(previewEx.videoUrl) ? 'el__video-aspect--vertical' : ''}`}>
+                  <iframe
+                    src={`${getYouTubeEmbedUrl(previewEx.videoUrl)}&autoplay=1`}
+                    title={`Vídeo de ${previewEx.name}`}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              ) : previewEx.image && (
                 <img src={previewEx.image} alt={previewEx.name} className="wb__preview-img" />
               )}
               <p><strong>Descripción:</strong> {previewEx.description || 'Sin descripción.'}</p>
               {previewEx.technicalInstructions && <p style={{ marginTop: '8px' }}><strong>Instrucciones Técnicas:</strong> {previewEx.technicalInstructions}</p>}
-              {previewEx.videoUrl && (
+              {previewEx.videoUrl && !getYouTubeEmbedUrl(previewEx.videoUrl) && (
                 <p style={{ marginTop: '8px' }}>
                   <a href={previewEx.videoUrl} target="_blank" rel="noopener noreferrer">Ver vídeo</a>
                 </p>

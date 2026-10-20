@@ -81,6 +81,107 @@
   border-color: var(--gray-500);
 }
 
+/* ─── Carpetas de entrenamientos (por grupo, subgrupo o jugador) ─── */
+.wk__layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.wk__folders {
+  position: sticky;
+  top: calc(var(--nav-h) + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(100vh - var(--nav-h) - 24px);
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.wk__folder-heading {
+  margin: 10px 8px 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray-400);
+}
+
+.wk__folder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wk__folder:hover {
+  background: var(--gray-50);
+}
+
+.wk__folder--sub {
+  padding-left: 24px;
+  font-weight: 500;
+}
+
+.wk__folder--active,
+.wk__folder--active:hover {
+  color: var(--accent);
+  background: var(--accent-soft, rgba(99, 102, 241, 0.12));
+}
+
+.wk__folder-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk__folder-count {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--gray-400);
+}
+
+.wk__main {
+  min-width: 0;
+}
+
+/* En pantallas estrechas las carpetas pasan arriba, en una tira deslizable */
+@media (max-width: 900px) {
+  .wk__layout {
+    grid-template-columns: 1fr;
+  }
+  .wk__folders {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    max-height: none;
+  }
+  .wk__folder-heading {
+    display: none;
+  }
+  .wk__folder,
+  .wk__folder--sub {
+    flex-shrink: 0;
+    padding: 6px 10px;
+  }
+}
+
 /* Fila de rutina/programa en la tabla: toda ella abre el editor, salvo
    los botones de acción (que cortan la propagación del clic). */
 .wk__row {
@@ -217,6 +318,41 @@
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18);
+}
+
+/* ─── Etiquetas del entrenamiento (grupos y jugadores) ─── */
+.wb__tags {
+  margin-top: 0.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.wb__tags-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb__tags-toggle .gp__chips {
+  flex: 1;
+}
+
+.wb__tags-empty {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--gray-400);
+}
+
+.wb__tags-picker {
+  padding: 0 0.75rem 0.75rem;
 }
 
 .wb__error {
@@ -536,7 +672,11 @@
 }
 
 .wb__field--reps  { width: 58px; }
-.wb__field--load  { width: 54px; }
+.wb__field--load  { width: 64px; }
+
+.wb__exercise-fields .wb__field-label {
+  white-space: nowrap;
+}
 .wb__field--rest  { width: 58px; }
 .wb__field--notes { width: 96px; }
 
@@ -694,6 +834,40 @@ select.wb__field-input {
   border-radius: 7px;
   object-fit: cover;
   background: #111;
+}
+
+/* Imagen y nombre del ejercicio en el bloque: se pulsan para ver el vídeo */
+.wb__exercise-open {
+  flex-shrink: 0;
+  display: flex;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.wb__exercise-open:hover .wb__exercise-thumb,
+.wb__library-item:hover .wb__library-thumb {
+  outline: 2px solid var(--accent);
+}
+
+.wb__exercise-name--link {
+  cursor: pointer;
+}
+
+.wb__exercise-name--link:hover {
+  color: var(--accent);
+}
+
+.wb__preview-video {
+  margin-bottom: 12px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.wb__library-item {
+  cursor: pointer;
 }
 
 .wb__library-item:hover {

@@ -1,11 +1,20 @@
 import { useState, useEffect, Fragment } from 'react';
 import { storage, KEYS } from '../services/storage';
 import './GlobalCatalogModal.css';
+import { overlayCloseProps } from '../utils/overlayClose';
+
+// Catálogos de segundo nivel y el catálogo padre del que cuelgan (su campo
+// categoryId apunta a un elemento de ese padre).
+const PARENT_CATALOG = {
+  [KEYS.EX_SUBCATEGORIES]: KEYS.EX_CATEGORIES,
+  [KEYS.SUBGROUPS]: KEYS.GROUPS
+};
 
 const ALL_CATALOGS = [
   { key: KEYS.EX_CATEGORIES, label: 'Categorías de Ejercicios' },
   { key: KEYS.EX_SUBCATEGORIES, label: 'Subcategorías de Ejercicios' },
-  { key: KEYS.GROUPS, label: 'Grupos de Entrenamiento' },
+  { key: KEYS.GROUPS, label: 'Grupos' },
+  { key: KEYS.SUBGROUPS, label: 'Subgrupos' },
   { key: KEYS.SPORTS, label: 'Deportes' },
   { key: KEYS.TEAMS, label: 'Equipos / Clubes' },
   { key: KEYS.TEST_CATEGORIES, label: 'Categorías de Test' },
@@ -27,10 +36,14 @@ export default function GlobalCatalogModal({
   const catalogsToShow = ALL_CATALOGS.filter(c => contextKeys.includes(c.key));
 
   const [activeKey, setActiveKey] = useState(initialActiveKey || catalogsToShow[0]?.key || '');
+  const parentKey = PARENT_CATALOG[activeKey] || null;
+  const isChildCatalog = !!parentKey;
+  const parentLabel = activeKey === KEYS.SUBGROUPS ? 'Grupo' : 'Categoría';
+  const parentFieldLabel = parentLabel === 'Grupo' ? 'Grupo al que pertenece' : 'Categoría a la que pertenece';
   const [items, setItems] = useState([]);
   
   // Listas auxiliares para relaciones en subformularios
-  const [exerciseCategories, setExerciseCategories] = useState([]);
+  const [parentItems, setParentItems] = useState([]); // categorías o grupos del catálogo padre
   const [testCategories, setTestCategories] = useState([]);
   
   // Estados para creación
@@ -66,9 +79,9 @@ export default function GlobalCatalogModal({
       setItems(data);
 
       // Si es subcategoría, necesitamos cargar las categorías para el select
-      if (activeKey === KEYS.EX_SUBCATEGORIES) {
-        const cats = await storage.getEntities(KEYS.EX_CATEGORIES);
-        setExerciseCategories(cats);
+      if (isChildCatalog) {
+        const cats = (await storage.getEntities(parentKey)).sort((a, b) => a.name.localeCompare(b.name));
+        setParentItems(cats);
         if (cats.length > 0) {
           setExtraField(String(cats[0].id));
         }
@@ -105,9 +118,9 @@ export default function GlobalCatalogModal({
 
     const payload = { name: trimmed };
 
-    if (activeKey === KEYS.EX_SUBCATEGORIES) {
+    if (isChildCatalog) {
       if (!extraField) {
-        setErrorMsg('Debes seleccionar una categoría principal.');
+        setErrorMsg(`Debes seleccionar ${parentLabel === 'Grupo' ? 'un grupo' : 'una categoría'} principal.`);
         return;
       }
       payload.categoryId = String(extraField);
@@ -147,7 +160,7 @@ export default function GlobalCatalogModal({
       name: trimmed
     };
 
-    if (activeKey === KEYS.EX_SUBCATEGORIES) {
+    if (isChildCatalog) {
       payload.categoryId = String(editingExtra);
     } else if (activeKey === KEYS.GROUPS) {
       payload.description = editingExtra.trim();
@@ -177,6 +190,8 @@ export default function GlobalCatalogModal({
       confirmPrompt += `\n* IMPORTANTE: Se bloqueará la acción si algún ejercicio está utilizándolo.`;
     } else if (activeKey === KEYS.TEST_DEFINITIONS) {
       confirmPrompt += `\n* IMPORTANTE: Se bloqueará el borrado si tiene mediciones históricas guardadas.`;
+    } else if (activeKey === KEYS.GROUPS || activeKey === KEYS.SUBGROUPS) {
+      confirmPrompt += `\n* Los clientes y entrenamientos que lo tengan dejarán de mostrarlo.`;
     } else {
       confirmPrompt += `\n* Los registros de clientes u hojas asociadas se actualizarán a "Sin asignar" (null).`;
     }
@@ -193,8 +208,8 @@ export default function GlobalCatalogModal({
 
   // Las subcategorías se agrupan por su categoría (categorías en orden
   // alfabético, "Sin categoría" al final) y, dentro de cada grupo, por nombre.
-  const subcatGroupName = item => exerciseCategories.find(c => c.id === item.categoryId)?.name || '';
-  const displayItems = activeKey === KEYS.EX_SUBCATEGORIES
+  const subcatGroupName = item => parentItems.find(c => c.id === item.categoryId)?.name || '';
+  const displayItems = isChildCatalog
     ? [...items].sort((a, b) => {
         const ga = subcatGroupName(a);
         const gb = subcatGroupName(b);
@@ -208,7 +223,7 @@ export default function GlobalCatalogModal({
     : items;
 
   return (
-    <div className="gc__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="gc__modal-overlay" role="dialog" aria-modal="true" {...overlayCloseProps(() => onClose())}>
       <div className="gc__modal" onClick={e => e.stopPropagation()}>
         
         <div className="gc__header">
@@ -257,8 +272,8 @@ export default function GlobalCatalogModal({
                   const isEditing = editingId === item.id;
 
                   // Encabezado de categoría al empezar cada grupo de subcategorías
-                  const isSubcats = activeKey === KEYS.EX_SUBCATEGORIES;
-                  const groupName = isSubcats ? (subcatGroupName(item) || 'Sin categoría') : null;
+                  const isSubcats = isChildCatalog;
+                  const groupName = isSubcats ? (subcatGroupName(item) || (parentLabel === 'Grupo' ? 'Sin grupo' : 'Sin categoría')) : null;
                   const showGroupHeader = isSubcats && (idx === 0 || subcatGroupName(displayItems[idx - 1]) !== subcatGroupName(item));
 
                   // Obtener detalles extras para la visualización
@@ -297,15 +312,15 @@ export default function GlobalCatalogModal({
                           </div>
 
                           {/* Inputs adicionales de edición si aplica */}
-                          {activeKey === KEYS.EX_SUBCATEGORIES && (
+                          {isChildCatalog && (
                             <div className="el__field">
-                              <label className="el__label" style={{ fontSize: '0.7rem' }}>Categoría de ejercicio asociada</label>
+                              <label className="el__label" style={{ fontSize: '0.7rem' }}>{parentFieldLabel}</label>
                               <select
                                 className="el__input el__input--select"
                                 value={editingExtra}
                                 onChange={e => setEditingExtra(e.target.value)}
                               >
-                                {exerciseCategories.map(c => (
+                                {parentItems.map(c => (
                                   <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                               </select>
@@ -387,7 +402,7 @@ export default function GlobalCatalogModal({
                                 setEditingId(item.id);
                                 setEditingName(item.name);
                                 setEditingExtra(
-                                  activeKey === KEYS.EX_SUBCATEGORIES
+                                  isChildCatalog
                                     ? String(item.categoryId)
                                     : activeKey === KEYS.GROUPS
                                     ? item.description || ''
@@ -435,15 +450,15 @@ export default function GlobalCatalogModal({
               </div>
 
               {/* Campos condicionales para subformularios */}
-              {activeKey === KEYS.EX_SUBCATEGORIES && (
+              {isChildCatalog && (
                 <div className="el__field">
-                  <label className="el__label">Categoría a la que pertenece *</label>
+                  <label className="el__label">{parentFieldLabel} *</label>
                   <select
                     className="el__input el__input--select"
                     value={extraField}
                     onChange={e => setExtraField(e.target.value)}
                   >
-                    {exerciseCategories.map(c => (
+                    {parentItems.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>

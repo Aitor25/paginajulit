@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
-import { storage, KEYS } from '../services/storage';
+import { storage } from '../services/storage';
 import { formatDate } from './dateUtils';
-import { getExerciseCategoryNames, getExerciseSubcategoryNames } from './exerciseCatalog';
+import { extractYouTubeId } from './youtubeHelpers';
 
 // Paleta calcada de las variables de la app (--accent, grises, ámbar de las
 // notas) para que el PDF no desentone del resto de la interfaz.
@@ -18,13 +18,15 @@ const NOTES_BORDER = [245, 158, 11];
 const NOTES_TEXT = [75, 85, 99];
 
 const PAGE_MARGIN_X = 15;
-const COL_WIDTHS = { num: 8, exercise: 50, target: 32, rest: 16 };
+// Columnas al estilo Harbiz: imagen, nombre, repeticiones, descanso y notas.
+const COL_WIDTHS = { image: 26, exercise: 48, reps: 28, rest: 18 };
+const IMAGE_H = 17;
 
 function formatObjetivo(ex) {
   const reps = (ex.plannedReps ?? '').toString().trim();
   const repsPart = /^\d+$/.test(reps) ? `${reps} reps` : (reps || '—');
   const hasLoad = ex.loadValue !== null && ex.loadValue !== undefined && ex.loadValue !== '';
-  return hasLoad ? `${repsPart} @ ${ex.loadValue}` : repsPart;
+  return hasLoad ? `${repsPart} @ ${ex.loadValue} kg` : repsPart;
 }
 
 function formatDescanso(ex) {
@@ -94,10 +96,9 @@ function drawMetaRow(doc, y, cards) {
   return y + cardH + 9;
 }
 
-// Devuelve las líneas ya envueltas para el nombre/subtítulo del ejercicio y
-// para las notas, y con ellas la altura real que necesita la fila — así la
-// tabla no depende del cálculo automático de jspdf-autotable (que no admite
-// mezclar negrita/gris dentro de la misma celda).
+// Devuelve las líneas ya envueltas para el nombre del ejercicio y para las
+// notas, y con ellas la altura real que necesita la fila (como mínimo la de
+// la imagen).
 function measureRow(doc, ex, info) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
@@ -105,39 +106,53 @@ function measureRow(doc, ex, info) {
   const exName = ex.exerciseName || info?.name || 'Ejercicio';
   const nameLines = doc.splitTextToSize(exName, COL_WIDTHS.exercise - 4 - iconSpace);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.3);
-  const subText = [info?.categoryName, info?.subcategoryName].filter(Boolean).join(' · ');
-  const subLines = subText ? doc.splitTextToSize(subText, COL_WIDTHS.exercise - 4) : [];
-
   const hasNotes = !!(ex.instructions && ex.instructions.trim());
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   const notesWidth = notesColWidth(doc) - 6;
   const notesLines = hasNotes
     ? doc.splitTextToSize(ex.instructions.trim(), notesWidth)
     : [];
 
-  const exerciseHeight = 4 + nameLines.length * 3.6 + subLines.length * 3.1 + 2.5;
+  const exerciseHeight = 4 + nameLines.length * 3.6 + 2.5;
   const notesHeight = hasNotes
     ? 4 + notesLines.length * 3.4 + 2.5
     : 9;
 
   return {
     nameLines,
-    subLines,
     notesLines,
     hasNotes,
-    height: Math.max(exerciseHeight, notesHeight, 11)
+    height: Math.max(exerciseHeight, notesHeight, IMAGE_H + 3)
   };
 }
 
 function notesColWidth(doc) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const usable = pageWidth - PAGE_MARGIN_X * 2;
-  return usable - COL_WIDTHS.num - COL_WIDTHS.exercise - COL_WIDTHS.target - COL_WIDTHS.rest;
+  return usable - COL_WIDTHS.image - COL_WIDTHS.exercise - COL_WIDTHS.reps - COL_WIDTHS.rest;
 }
 
-function drawBlock(doc, y, block, index, exercisesById) {
+// Imagen del ejercicio encajada (sin deformar) en su hueco, sobre un fondo
+// gris claro. Si no hay imagen o no se puede dibujar, queda el hueco vacío.
+function drawExerciseImage(doc, x, y, imageData) {
+  const w = COL_WIDTHS.image - 3;
+  const h = IMAGE_H;
+  doc.setFillColor(243, 244, 246);
+  doc.roundedRect(x, y, w, h, 1.2, 1.2, 'F');
+  if (!imageData) return;
+  try {
+    const props = doc.getImageProperties(imageData);
+    const scale = Math.min(w / props.width, h / props.height);
+    const iw = props.width * scale;
+    const ih = props.height * scale;
+    doc.addImage(imageData, props.fileType || 'JPEG', x + (w - iw) / 2, y + (h - ih) / 2, iw, ih);
+  } catch (err) {
+    console.warn('No se pudo dibujar la imagen del ejercicio en el PDF:', err);
+  }
+}
+
+function drawBlock(doc, y, block, exercisesById) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const usable = pageWidth - PAGE_MARGIN_X * 2;
@@ -154,7 +169,7 @@ function drawBlock(doc, y, block, index, exercisesById) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(...ACCENT_DARK);
-  doc.text(`Bloque ${index + 1} · ${block.name || 'Ejercicios'}`, PAGE_MARGIN_X + 3, y + 5.3);
+  doc.text(block.name || 'Ejercicios', PAGE_MARGIN_X + 3, y + 5.3);
 
   const rounds = Number(block.rounds) || 1;
   const roundsLabel = `${rounds} serie${rounds === 1 ? '' : 's'}`;
@@ -168,9 +183,9 @@ function drawBlock(doc, y, block, index, exercisesById) {
   y += 8;
 
   const exercises = block.exercises || [];
-  const rows = exercises.map((ex, i) => {
+  const rows = exercises.map(ex => {
     const info = exercisesById.get(String(ex.exerciseId));
-    return { ex, info, measure: measureRow(doc, ex, info), n: i + 1 };
+    return { ex, info, measure: measureRow(doc, ex, info) };
   });
 
   // Cabecera de columnas de la tabla de ejercicios
@@ -183,21 +198,20 @@ function drawBlock(doc, y, block, index, exercisesById) {
   const headerH = 6;
   let hx = PAGE_MARGIN_X;
   const labels = [
-    ['#', COL_WIDTHS.num, 'center'],
-    ['EJERCICIO', COL_WIDTHS.exercise, 'left'],
-    ['OBJETIVO', COL_WIDTHS.target, 'left'],
-    ['DESCANSO', COL_WIDTHS.rest, 'left'],
-    ['NOTAS DEL ENTRENADOR', notesColWidth(doc), 'left']
+    ['', COL_WIDTHS.image],
+    ['EJERCICIO', COL_WIDTHS.exercise],
+    ['REPETICIONES', COL_WIDTHS.reps],
+    ['DESCANSO', COL_WIDTHS.rest],
+    ['NOTAS DEL ENTRENADOR', notesColWidth(doc)]
   ];
-  labels.forEach(([label, w, align]) => {
-    const tx = align === 'center' ? hx + w / 2 : hx + 2;
-    doc.text(label, tx, y + 4, { align: align === 'center' ? 'center' : 'left' });
+  labels.forEach(([label, w]) => {
+    if (label) doc.text(label, hx + 2, y + 4);
     hx += w;
   });
   doc.line(PAGE_MARGIN_X, y + headerH, pageWidth - PAGE_MARGIN_X, y + headerH);
   y += headerH + 2;
 
-  rows.forEach(({ ex, info, measure, n }) => {
+  rows.forEach(({ ex, info, measure }) => {
     if (y + measure.height > pageHeight - 22) {
       doc.addPage();
       y = 16;
@@ -205,15 +219,12 @@ function drawBlock(doc, y, block, index, exercisesById) {
 
     let cx = PAGE_MARGIN_X;
 
-    // #
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(...GRAY_400);
-    doc.text(String(n), cx + COL_WIDTHS.num / 2, y + 5, { align: 'center' });
-    cx += COL_WIDTHS.num;
+    // Imagen
+    drawExerciseImage(doc, cx, y, info?.imageData);
+    cx += COL_WIDTHS.image;
 
-    // Ejercicio: nombre en negrita + icono de vídeo + subtítulo categoría
-    let ey = y + 4;
+    // Ejercicio: nombre en negrita + botón de vídeo (enlace)
+    const ey = y + 4;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(...GRAY_900);
@@ -229,21 +240,14 @@ function drawBlock(doc, y, block, index, exercisesById) {
       doc.triangle(iconX + 0.7, iconY - 0.9, iconX + 0.7, iconY + 0.9, iconX + 2.1, iconY, 'F');
       doc.link(iconX - 1, iconY - 1.6, 5.2, 3.2, { url: info.videoUrl });
     }
-    ey += measure.nameLines.length * 3.6 + 1.5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.3);
-    doc.setTextColor(...GRAY_400);
-    measure.subLines.forEach((line, i) => {
-      doc.text(line, cx + 2, ey + i * 3.1);
-    });
     cx += COL_WIDTHS.exercise;
 
-    // Objetivo
+    // Repeticiones (con la carga detrás si la hay: "10 reps @ 20")
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(...GRAY_900);
     doc.text(formatObjetivo(ex), cx + 2, y + 5.5);
-    cx += COL_WIDTHS.target;
+    cx += COL_WIDTHS.reps;
 
     // Descanso
     doc.setTextColor(...GRAY_500);
@@ -341,8 +345,8 @@ export function buildWorkoutPdfDoc(snap, { clientName, coachName, scheduledAt } 
     { label: 'Bloques', value: `${blockCount} bloque${blockCount === 1 ? '' : 's'} · ${totalExercises} ejercicio${totalExercises === 1 ? '' : 's'}` }
   ]);
 
-  (snap.blocks || []).forEach((block, i) => {
-    y = drawBlock(doc, y, block, i, exercisesById);
+  (snap.blocks || []).forEach(block => {
+    y = drawBlock(doc, y, block, exercisesById);
   });
 
   drawFooters(doc);
@@ -351,29 +355,50 @@ export function buildWorkoutPdfDoc(snap, { clientName, coachName, scheduledAt } 
 
 // El snapshot de una asignación solo guarda exerciseId + nombre; una
 // plantilla sin asignar ni siquiera guarda el nombre junto al bloque.
-// Categoría, subcategoría, vídeo y nombre se resuelven siempre contra el
-// catálogo actual (si el ejercicio se borró o cambió después, el PDF usa lo
-// que haya hoy).
-async function resolveExerciseCatalog() {
+// Nombre, vídeo e imagen se resuelven siempre contra el catálogo actual (si
+// el ejercicio se borró o cambió después, el PDF usa lo que haya hoy).
+async function resolveExerciseCatalog(snap) {
   const exercisesById = new Map();
   try {
-    const [exs, cats, subs] = await Promise.all([
-      storage.getExercises(),
-      storage.getEntities(KEYS.EX_CATEGORIES),
-      storage.getEntities(KEYS.EX_SUBCATEGORIES)
-    ]);
+    const exs = await storage.getExercises();
     exs.forEach(e => exercisesById.set(String(e.id), {
       name: e.name || null,
       videoUrl: e.videoUrl || null,
-      // Puede tener varias categorías/subcategorías: se juntan con coma
-      // para que quepan en la línea de subtítulo del PDF.
-      categoryName: getExerciseCategoryNames(e, cats).join(', ') || null,
-      subcategoryName: getExerciseSubcategoryNames(e, subs).join(', ') || null
+      imageData: e.image && e.image.startsWith('data:image/') ? e.image : null
     }));
   } catch (err) {
     console.error('No se pudo cargar el catálogo de ejercicios para el PDF:', err);
   }
+
+  // Los ejercicios del entrenamiento sin foto propia usan la miniatura de su
+  // vídeo de YouTube. Hay que descargarla para poder meterla en el PDF; si
+  // falla (sin conexión, vídeo borrado...) se deja el hueco vacío.
+  const usedIds = new Set((snap.blocks || []).flatMap(b => (b.exercises || []).map(ex => String(ex.exerciseId))));
+  await Promise.all([...usedIds].map(async id => {
+    const info = exercisesById.get(id);
+    if (!info || info.imageData) return;
+    const videoId = extractYouTubeId(info.videoUrl);
+    if (!videoId) return;
+    info.imageData = await fetchImageAsDataUrl(`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`);
+  }));
+
   return exercisesById;
+}
+
+async function fetchImageAsDataUrl(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -386,7 +411,7 @@ export async function downloadWorkoutAssignmentPdf(assignment, { clientName, coa
     throw new Error('Este entrenamiento todavía no tiene datos guardados para generar el PDF.');
   }
 
-  const exercisesById = await resolveExerciseCatalog();
+  const exercisesById = await resolveExerciseCatalog(snap);
   const doc = buildWorkoutPdfDoc(snap, { clientName, coachName, scheduledAt: assignment.scheduledAt }, exercisesById);
 
   const fileName = `entrenamiento-${slugify(snap.name)}${assignment.scheduledAt ? '-' + assignment.scheduledAt : ''}.pdf`;
@@ -403,7 +428,7 @@ export async function downloadWorkoutTemplatePdf(workout, { coachName } = {}) {
     throw new Error('No se ha podido cargar este entrenamiento.');
   }
 
-  const exercisesById = await resolveExerciseCatalog();
+  const exercisesById = await resolveExerciseCatalog(workout);
   const doc = buildWorkoutPdfDoc(workout, { coachName }, exercisesById);
 
   doc.save(`entrenamiento-${slugify(workout.name)}.pdf`);

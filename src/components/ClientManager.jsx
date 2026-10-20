@@ -7,7 +7,10 @@ import AssessmentTab from './AssessmentTab';
 import { ClientCalendarTab } from './ClientCalendarTab';
 import { buildCoachColorMap, SIN_ENTRENADOR_COLOR } from './CalendarGrid';
 import { useAuth } from '../contexts/AuthProvider';
+import GroupPicker from './GroupPicker';
+import { loadGroupCatalog, getClientGroupIds, getClientSubgroupIds, clientInGroup, buildGroupOptions, groupDisplayName } from '../utils/clientGroups';
 import './ClientManager.css';
+import { overlayCloseProps } from '../utils/overlayClose';
 
 /* ─── Helpers ─────────────────────────────────────────────── */
 
@@ -35,8 +38,8 @@ function ClientDetail({
   onEdit,
   onDelete,
   groups,
-  sports,
-  teams
+  subgroups,
+  reloadKey
 }) {
   const { userProfile } = useAuth();
   const isOwner = userProfile?.role === 'owner';
@@ -85,7 +88,9 @@ function ClientDetail({
       }
     }
     loadClientData();
-  }, [clientId]);
+    // reloadKey cambia al guardar la ficha desde "Editar perfil": así la vista
+    // de detalle se actualiza en vez de seguir enseñando los datos de antes.
+  }, [clientId, reloadKey]);
 
   // Listado de entrenadores para el selector de asignación. Solo el owner
   // puede listar /users, así que para el resto de roles queda vacío.
@@ -160,16 +165,13 @@ function ClientDetail({
     return <div className="cm__placeholder"><p>Cargando información del cliente...</p></div>;
   }
 
-  // Sin valor => undefined, para poder ocultar la fila en vez de mostrar
-  // "Sin deporte", "Sin equipo"... en todos los deportistas.
-  const groupName = groups.find(g => String(g.id) === String(client.groupId))?.name;
-  const sportName = sports.find(s => String(s.id) === String(client.sportId))?.name;
-  const teamName = teams.find(t => String(t.id) === String(client.teamId))?.name;
+  // Sin grupos => se oculta la fila en vez de mostrar "Sin grupo".
+  const groupNames = [...getClientGroupIds(client), ...getClientSubgroupIds(client)]
+    .map(id => groupDisplayName(id, groups, subgroups))
+    .filter(Boolean);
 
   const datosDeportivos = [
-    ['Deporte', sportName],
-    ['Equipo / Club', teamName],
-    ['Grupo de Entrenamiento', groupName]
+    ['Grupos', groupNames.join(', ')]
   ].filter(([, valor]) => !!valor);
 
   const age = calculateAge(client.birthDate);
@@ -229,11 +231,9 @@ function ClientDetail({
             <div className="cm__detail-name-row">
               <h2 className="cm__detail-name">{client.firstName} {client.lastName}</h2>
             </div>
-            {(sportName || teamName || groupName) && (
+            {groupNames.length > 0 && (
               <p className="cm__detail-meta-text">
-                {[sportName, teamName].filter(Boolean).join(' · ')}
-                {groupName && (sportName || teamName) ? ' · ' : ''}
-                {groupName && <strong>{groupName}</strong>}
+                <strong>{groupNames.join(' · ')}</strong>
               </p>
             )}
 
@@ -700,13 +700,11 @@ export default function ClientManager() {
   const [clients, setClients] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [groups, setGroups] = useState([]);
-  const [sports, setSports] = useState([]);
-  const [teams, setTeams] = useState([]);
+  const [subgroups, setSubgroups] = useState([]);
 
   /* Búsqueda, filtros y ordenación */
   const [search, setSearch] = useState('');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('Todos');
-  const [selectedSportFilter, setSelectedSportFilter] = useState('Todos');
   const [selectedCoachFilter, setSelectedCoachFilter] = useState('Todos');
   const [sortOrder, setSortOrder] = useState('name-asc');
 
@@ -730,9 +728,8 @@ export default function ClientManager() {
     email: '',
     height: '',
     weight: '',
-    sportId: '',
-    teamId: '',
-    groupId: '',
+    groupIds: [],
+    subgroupIds: [],
     image: '',
     generalNotes: ''
   });
@@ -741,17 +738,14 @@ export default function ClientManager() {
   // Carga inicial
   async function loadData() {
     const dbClients = await storage.getClients();
-    const dbGroups = await storage.getEntities(KEYS.GROUPS);
-    const dbSports = await storage.getEntities(KEYS.SPORTS);
-    const dbTeams = await storage.getEntities(KEYS.TEAMS);
+    const groupCatalog = await loadGroupCatalog();
 
     setClients(dbClients);
-    setGroups(dbGroups);
+    setGroups(groupCatalog.groups);
+    setSubgroups(groupCatalog.subgroups);
     if (isOwner) {
       storage.getCoaches().then(setCoaches).catch(err => console.error('Error cargando entrenadores', err));
     }
-    setSports(dbSports);
-    setTeams(dbTeams);
   }
 
   useEffect(() => {
@@ -770,19 +764,11 @@ export default function ClientManager() {
     return c ? (c.fullName || c.email) : 'Entrenador';
   };
 
-  // Deportes dinámicos para filtros
-  const dynamicSports = useMemo(() => {
-    const list = sports.map(s => s.name);
-    return ['Todos', ...new Set(list)];
-  }, [sports]);
-
   // Limpiar filtros
   const handleClearFilters = () => {
     setSearch('');
     setSelectedGroupFilter('Todos');
-    setSelectedSportFilter('Todos');
     setSelectedCoachFilter('Todos');
-    setSelectedStatusFilter('active');
     setSortOrder('name-asc');
   };
 
@@ -798,32 +784,20 @@ export default function ClientManager() {
         const lName = stripAccents(c.lastName).includes(query);
         const emailMatch = stripAccents(c.email).includes(query);
 
-        const sport = sports.find(s => s.id === c.sportId);
-        const sportMatch = sport && stripAccents(sport.name).includes(query);
+        const groupMatch = [...getClientGroupIds(c), ...getClientSubgroupIds(c)]
+          .some(id => stripAccents(groupDisplayName(id, groups, subgroups) || '').includes(query));
 
-        const team = teams.find(t => t.id === c.teamId);
-        const teamMatch = team && stripAccents(team.name).includes(query);
-
-        const group = groups.find(g => g.id === c.groupId);
-        const groupMatch = group && stripAccents(group.name).includes(query);
-
-        return fName || lName || emailMatch || sportMatch || teamMatch || groupMatch;
+        return fName || lName || emailMatch || groupMatch;
       });
     }
 
-    // 2. Filtro Grupo
+    // 2. Filtro Grupo (elegir un grupo incluye a los de sus subgrupos)
     if (selectedGroupFilter !== 'Todos') {
       result = result.filter(c => {
-        if (selectedGroupFilter === 'none') return c.groupId === null;
-        return String(c.groupId) === String(selectedGroupFilter);
-      });
-    }
-
-    // 3. Filtro Deporte
-    if (selectedSportFilter !== 'Todos') {
-      result = result.filter(c => {
-        const sport = sports.find(s => s.id === c.sportId);
-        return sport && sport.name === selectedSportFilter;
+        if (selectedGroupFilter === 'none') {
+          return getClientGroupIds(c).length === 0 && getClientSubgroupIds(c).length === 0;
+        }
+        return clientInGroup(c, selectedGroupFilter, subgroups);
       });
     }
 
@@ -847,7 +821,7 @@ export default function ClientManager() {
     }
 
     return sorted;
-  }, [clients, search, selectedGroupFilter, selectedSportFilter, selectedCoachFilter, sortOrder, sports, teams, groups]);
+  }, [clients, search, selectedGroupFilter, selectedCoachFilter, sortOrder, groups, subgroups]);
 
   /* ── Procesamiento de Foto con Canvas y Fondo Blanco ── */
   const handleImageChange = (e) => {
@@ -920,9 +894,10 @@ export default function ClientManager() {
       email: form.email.trim(),
       height: form.height ? Number(form.height) : null,
       weight: form.weight ? Number(form.weight) : null,
-      sportId: form.sportId ? String(form.sportId) : null,
-      teamId: form.teamId ? String(form.teamId) : null,
-      groupId: form.groupId ? String(form.groupId) : null,
+      groupIds: form.groupIds,
+      subgroupIds: form.subgroupIds,
+      // El antiguo campo de un solo grupo queda sustituido por groupIds
+      groupId: null,
       image: form.image,
       generalNotes: form.generalNotes.trim()
     };
@@ -936,7 +911,9 @@ export default function ClientManager() {
       const saved = await storage.saveClient(clientData);
       setClients(prev => {
         if (editingClient) {
-          return prev.map(c => c.id === saved.id ? saved : c);
+          // Se mezcla con la ficha que había: el formulario no incluye campos
+          // como el entrenador o la cuenta vinculada, que se guardan aparte.
+          return prev.map(c => c.id === saved.id ? { ...c, ...saved } : c);
         } else {
           return [...prev, saved];
         }
@@ -959,9 +936,8 @@ export default function ClientManager() {
       email: '',
       height: '',
       weight: '',
-      sportId: sports[0]?.id || '',
-      teamId: teams[0]?.id || '',
-      groupId: '',
+      groupIds: [],
+      subgroupIds: [],
       image: '',
       generalNotes: ''
     });
@@ -980,9 +956,8 @@ export default function ClientManager() {
       email: c.email || '',
       height: c.height || '',
       weight: c.weight || '',
-      sportId: c.sportId || '',
-      teamId: c.teamId || '',
-      groupId: c.groupId || '',
+      groupIds: getClientGroupIds(c),
+      subgroupIds: getClientSubgroupIds(c),
       image: c.image || '',
       generalNotes: c.generalNotes || ''
     });
@@ -1027,8 +1002,8 @@ export default function ClientManager() {
           onEdit={handleOpenEditModal}
           onDelete={handleDeleteClientClick}
           groups={groups}
-          sports={sports}
-          teams={teams}
+          subgroups={subgroups}
+          reloadKey={clients.find(c => c.id === selectedClientId)?.updatedAt}
         />
       ) : (
         <>
@@ -1041,11 +1016,11 @@ export default function ClientManager() {
             </div>
 
             <div className="cm__header-actions">
-              <button className="el__btn el__btn--ghost" onClick={() => setShowEntityModal(true)} title="Gestionar grupos, deportes, clubes y categorías">
+              <button className="el__btn el__btn--ghost" onClick={() => setShowEntityModal(true)} title="Gestionar grupos y subgrupos de clientes">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                 </svg>
-                Gestionar Entidades
+                Administración de grupos
               </button>
               <button className="el__btn el__btn--primary" onClick={handleOpenCreateModal} title="Registrar deportista nuevo">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1081,16 +1056,8 @@ export default function ClientManager() {
               <select className="cm__select" value={selectedGroupFilter} onChange={e => setSelectedGroupFilter(e.target.value)} aria-label="Filtrar por grupo">
                 <option value="Todos">Grupo: Todos</option>
                 <option value="none">Sin grupo</option>
-                {groups.map(g => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="cm__select-wrap">
-              <select className="cm__select" value={selectedSportFilter} onChange={e => setSelectedSportFilter(e.target.value)} aria-label="Filtrar por deporte">
-                {dynamicSports.map(s => (
-                  <option key={s} value={s}>{s === 'Todos' ? 'Deporte: Todos' : s}</option>
+                {buildGroupOptions(groups, subgroups).map(o => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
                 ))}
               </select>
             </div>
@@ -1115,7 +1082,7 @@ export default function ClientManager() {
               </select>
             </div>
 
-            {(search || selectedGroupFilter !== 'Todos' || selectedSportFilter !== 'Todos' || selectedCoachFilter !== 'Todos' || sortOrder !== 'name-asc') && (
+            {(search || selectedGroupFilter !== 'Todos' || selectedCoachFilter !== 'Todos' || sortOrder !== 'name-asc') && (
               <button className="el__btn el__btn--ghost" onClick={handleClearFilters} style={{ padding: '8px 12px', fontSize: '0.8rem' }}>
                 Limpiar filtros
               </button>
@@ -1138,13 +1105,12 @@ export default function ClientManager() {
           ) : (
             <div className="cm__grid" role="list">
               {filteredClients.map(c => {
-                // Solo se muestra lo que el deportista tenga realmente
-                // asignado: no todos tienen deporte, equipo o grupo.
-                const sportName = sports.find(s => String(s.id) === String(c.sportId))?.name;
-                const teamName = teams.find(t => String(t.id) === String(c.teamId))?.name;
-                const groupName = groups.find(g => String(g.id) === String(c.groupId))?.name;
-                const subtitulo = [sportName, teamName].filter(Boolean).join(' · ');
-                
+                // Grupos y subgrupos del deportista (los que ya no existen se
+                // omiten).
+                const groupNames = [...getClientGroupIds(c), ...getClientSubgroupIds(c)]
+                  .map(id => groupDisplayName(id, groups, subgroups))
+                  .filter(Boolean);
+
                 return (
                   <article key={c.id} className="cm__card" onClick={() => setSelectedClientId(c.id)} role="listitem">
                     <div className="cm__card-avatar-wrap">
@@ -1158,11 +1124,11 @@ export default function ClientManager() {
                     </div>
                     
                     <h3 className="cm__card-name">{c.firstName} {c.lastName}</h3>
-                    {subtitulo && <p className="cm__card-sport">{subtitulo}</p>}
-
-                    {groupName && (
-                      <div className="cm__card-badges">
-                        <span className="badge badge--default" style={{ fontSize: '0.625rem' }}>{groupName}</span>
+                    {groupNames.length > 0 && (
+                      <div className="cm__card-badges gp__chips" style={{ justifyContent: 'center' }}>
+                        {groupNames.map(name => (
+                          <span key={name} className="gp__chip">{name}</span>
+                        ))}
                       </div>
                     )}
 
@@ -1192,7 +1158,7 @@ export default function ClientManager() {
 
       {/* ══ MODAL ÚNICO: CREAR / EDITAR CLIENTE ═══════════════ */}
       {showModal && (
-        <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && handleCloseModal()}>
+        <div className="el__modal-overlay" role="dialog" aria-modal="true" {...overlayCloseProps(() => handleCloseModal())}>
           <div className="el__modal" style={{ maxWidth: '820px' }} onClick={e => e.stopPropagation()}>
             <div className="el__modal-header">
               <h2 className="el__modal-title">{editingClient ? 'Editar Perfil del Cliente' : 'Registrar Nuevo Cliente'}</h2>
@@ -1313,50 +1279,15 @@ export default function ClientManager() {
                 </div>
               </div>
 
-              {/* Deporte, Club y Grupo */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                <div className="el__field">
-                  <label htmlFor="form-sport" className="el__label">Deporte</label>
-                  <select
-                    id="form-sport"
-                    className="el__input el__input--select"
-                    value={form.sportId}
-                    onChange={e => setForm(f => ({ ...f, sportId: e.target.value }))}
-                  >
-                    <option value="">Sin deporte</option>
-                    {sports.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="el__field">
-                  <label htmlFor="form-team" className="el__label">Equipo / Club</label>
-                  <select
-                    id="form-team"
-                    className="el__input el__input--select"
-                    value={form.teamId}
-                    onChange={e => setForm(f => ({ ...f, teamId: e.target.value }))}
-                  >
-                    <option value="">Sin equipo</option>
-                    {teams.map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="el__field">
-                  <label htmlFor="form-group" className="el__label">Grupo</label>
-                  <select
-                    id="form-group"
-                    className="el__input el__input--select"
-                    value={form.groupId}
-                    onChange={e => setForm(f => ({ ...f, groupId: e.target.value }))}
-                  >
-                    <option value="">Sin grupo</option>
-                    {groups.map(g => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
-                  </select>
-                </div>
+              {/* Grupos y subgrupos: puede estar en varios a la vez */}
+              <div className="el__field">
+                <label className="el__label">Grupos y subgrupos</label>
+                <GroupPicker
+                  groups={groups}
+                  subgroups={subgroups}
+                  value={{ groupIds: form.groupIds, subgroupIds: form.subgroupIds }}
+                  onChange={v => setForm(f => ({ ...f, groupIds: v.groupIds, subgroupIds: v.subgroupIds }))}
+                />
               </div>
 
               {/* Observaciones generales */}
@@ -1411,7 +1342,7 @@ export default function ClientManager() {
 
       {/* ══ MODAL DE ELIMINACIÓN DEFINITIVA EXPLÍCITA ══════ */}
       {deletingClient && (
-        <div className="el__modal-overlay" role="dialog" aria-modal="true" onClick={() => setDeletingClient(null)}>
+        <div className="el__modal-overlay" role="dialog" aria-modal="true" {...overlayCloseProps(() => setDeletingClient(null))}>
           <div className="el__modal" style={{ maxWidth: '580px' }} onClick={e => e.stopPropagation()}>
             <div className="el__modal-header" style={{ borderBottom: 'none', paddingBottom: '10px' }}>
               <h2 className="el__modal-title" style={{ color: '#e53e3e' }}>¿Eliminar definitivamente?</h2>
@@ -1461,8 +1392,9 @@ export default function ClientManager() {
       {/* ══ MODAL DE GESTIÓN DE ENTIDADES UNIFICADO ═══════════ */}
       {showEntityModal && (
         <GlobalCatalogModal
-          contextKeys={[KEYS.SPORTS, KEYS.TEAMS, KEYS.GROUPS]}
-          initialActiveKey={KEYS.SPORTS}
+          contextKeys={[KEYS.GROUPS, KEYS.SUBGROUPS]}
+          initialActiveKey={KEYS.GROUPS}
+          title="Administración de grupos"
           onClose={() => {
             setShowEntityModal(false);
             loadData();

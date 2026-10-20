@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { storage, KEYS } from '../services/storage';
+import { storage } from '../services/storage';
 import { createFocusTrap } from '../utils/focusTrap';
+import { overlayCloseProps } from '../utils/overlayClose';
+import { loadGroupCatalog, clientInGroup, buildGroupOptions } from '../utils/clientGroups';
 
 export default function WorkoutAssignmentModal({
   workoutId, // Si viene, se asigna este entrenamiento específico
@@ -17,6 +19,7 @@ export default function WorkoutAssignmentModal({
     : (workoutId ? [String(workoutId)] : null);
   const [clients, setClients] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [subgroups, setSubgroups] = useState([]);
   const [workouts, setWorkouts] = useState([]);
 
   const [targetType, setTargetType] = useState('client'); // 'client' | 'group'
@@ -30,11 +33,12 @@ export default function WorkoutAssignmentModal({
   useEffect(() => {
     async function loadData() {
       const dbClients = await storage.getClients();
-      const dbGroups = await storage.getEntities(KEYS.GROUPS);
+      const groupCatalog = await loadGroupCatalog();
       const dbWorkouts = await storage.getWorkouts();
       
       setClients(dbClients);
-      setGroups(dbGroups);
+      setGroups(groupCatalog.groups);
+      setSubgroups(groupCatalog.subgroups);
       setWorkouts(dbWorkouts);
 
       if (clientId) {
@@ -72,7 +76,7 @@ export default function WorkoutAssignmentModal({
   }, []);
 
   const groupMemberCount = targetType === 'group' && targetId
-    ? clients.filter(c => String(c.groupId) === String(targetId)).length
+    ? clients.filter(c => clientInGroup(c, targetId, subgroups)).length
     : 0;
 
   const handleDateChange = (index, value) => {
@@ -93,8 +97,8 @@ export default function WorkoutAssignmentModal({
     setErrorMsg('');
     if (type === 'client' && clients.length > 0) {
       setTargetId(String(clients[0].id));
-    } else if (type === 'group' && groups.length > 0) {
-      setTargetId(String(groups[0].id));
+    } else if (type === 'group' && (groups.length > 0 || subgroups.length > 0)) {
+      setTargetId(buildGroupOptions(groups, subgroups)[0].id);
     } else {
       setTargetId('');
     }
@@ -128,7 +132,7 @@ export default function WorkoutAssignmentModal({
     // filtran siempre por clientId).
     const targetClientIds = targetType === 'client'
       ? [String(targetId)]
-      : clients.filter(c => String(c.groupId) === String(targetId)).map(c => String(c.id));
+      : clients.filter(c => clientInGroup(c, targetId, subgroups)).map(c => String(c.id));
 
     if (targetClientIds.length === 0) {
       setErrorMsg('Este grupo no tiene deportistas asignados.');
@@ -179,7 +183,7 @@ export default function WorkoutAssignmentModal({
   };
 
   return (
-    <div className="el__modal-overlay" role="dialog" aria-modal="true" aria-labelledby="wa-modal-title" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="el__modal-overlay" role="dialog" aria-modal="true" aria-labelledby="wa-modal-title" {...overlayCloseProps(() => onClose())}>
       <div className="el__modal" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()} ref={modalRef}>
         <div className="el__modal-header">
           <h2 id="wa-modal-title" className="el__modal-title">Programar Asignación</h2>
@@ -256,7 +260,7 @@ export default function WorkoutAssignmentModal({
               <option value="">-- Selecciona --</option>
               {targetType === 'client'
                 ? clients.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)
-                : groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)
+                : buildGroupOptions(groups, subgroups).map(o => <option key={o.id} value={o.id}>{o.label}</option>)
               }
             </select>
             {targetType === 'group' && targetId && (

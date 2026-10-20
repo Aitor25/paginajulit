@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { createFocusTrap } from '../utils/focusTrap';
 import { getStatusColor, getStatusIcon, getStatusLabel } from './CalendarGrid';
 import { formatDate } from '../utils/dateUtils';
+import { overlayCloseProps } from '../utils/overlayClose';
 
 export default function AssignmentDetailModal({
   event,
@@ -33,7 +34,7 @@ export default function AssignmentDetailModal({
   const isReprogrammable = isWorkout && !['completed', 'in_progress', 'cancelled'].includes(event.status);
 
   return (
-    <div className="el__modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ad-modal-title" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="el__modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ad-modal-title" {...overlayCloseProps(() => onClose())}>
       <div className="el__modal" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()} ref={modalRef}>
         <div className="el__modal-header">
           <h2 id="ad-modal-title" className="el__modal-title">Detalles del Evento</h2>
